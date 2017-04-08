@@ -1,0 +1,5 @@
+site_name: Hobbit
+pages:
+    - Home: index.md
+    - First steps: first_steps.md
+theme: readthedocs
