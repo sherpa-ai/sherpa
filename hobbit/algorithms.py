@@ -22,7 +22,7 @@ class RandomSearch(object):
     init repo(results, model_func, dataset, repo_dir)
     scheduler.set_repository(repo)
     """
-    def __init__(self, model_function, dataset, hparam_ranges, repo_dir='./'):
+    def __init__(self, model_function, dataset, hparam_ranges, repo_dir='./hyperband_repository'):
         assert hparam_ranges
         assert dataset
         assert model_function
