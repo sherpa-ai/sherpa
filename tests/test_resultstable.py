@@ -8,6 +8,7 @@ import tempfile
 import csv
 import os
 
+
 @pytest.mark.run(order=3)
 def test_resultstable_methods():
     """
@@ -28,7 +29,6 @@ def test_resultstable_methods():
     k_best = restab.get_k_lowest_from_run(k=test_k, run=1)
     for the_id, expected_id in zip(k_best, range(1, test_k)):
         assert the_id == expected_id
-
 
     # manually load tmp_folder/results.csv
     with open(os.path.join(tmp_folder, 'results.csv')) as f:
