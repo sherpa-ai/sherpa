@@ -7,6 +7,7 @@ import shutil
 import os
 import pytest
 import argparse
+import csv
 
 # parser = argparse.ArgumentParser(description='Testing Hyperband.')
 # parser.add_argument('-short', help='Option to shorten test by cutting dataset size')
@@ -24,7 +25,7 @@ def test_hyperband():
     tmp_folder = './test_repo'
     assert not os.path.exists(tmp_folder)
 
-    my_dataset = load_dataset(short=False)
+    my_dataset = load_dataset(short=True)
 
     my_hparam_ranges = [Hyperparameter(name='learning_rate', distr_args=(0.0001, 0.1), distribution='log-uniform'),
                         Hyperparameter(name='activation', distr_args=[('sigmoid', 'tanh', 'relu')], distribution='choice'),
@@ -41,6 +42,14 @@ def test_hyperband():
     tab = hband.run(R=20, eta=3)
 
     print(tab)
+
+    with open(os.path.join(tmp_folder, 'results.csv')) as f:
+        reader = csv.reader(f, delimiter=',')
+        next(reader)
+        for i, line in enumerate(reader, start=1):
+            run_id, epochs, hparams, id, run, val_loss = line
+            assert int(epochs) in [2, 9, 29, 7, 27, 20]
+
 
     # check number of files in repo == 17 + 1 for csv
     assert len([fname for fname in os.listdir(tmp_folder) if fname.endswith('.csv') or
