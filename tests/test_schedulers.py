@@ -5,7 +5,7 @@ from __future__ import print_function
 from __future__ import absolute_import
 from hobbit.core import Repository
 from hobbit.resultstable import ResultsTable
-from hobbit.schedulers import JobScheduler, LocalJobScheduler
+from hobbit.schedulers import JobScheduler
 from hobbit.utils.testing_utils import create_model, load_dataset
 import tempfile
 import shutil

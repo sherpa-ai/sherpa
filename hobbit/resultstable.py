@@ -16,12 +16,14 @@ class ResultsTable(object):
 
     def get_k_lowest_from_run(self, k, run):
         """
-        Args:
-            k: number of id's to return
-            run: refers to hyper-band run
+        Gets the k models with lowest loss from a specific run. Note this is not necesarily the global minimum
+        
+        # Args:
+            k: Integer, number of id's to return
+            run: Integer, refers to hyper-band run
 
-        Returns:
-            list of id's
+        # Returns:
+            list of id's from this run
         """
         df = self._get_table()
         df_run = df[df['Run'] == run]
@@ -30,12 +32,13 @@ class ResultsTable(object):
 
     def set(self, run_id, val_loss, epochs, hparams=None):
         """
-        Args:
-            run_id:
-            val_loss:
+        Sets a value for a model using (run, id) as identifier and saves the hyperparameter description of it. 
+        
+        # Args:
+            run_id: Tuple, contains run and id numbers
+            val_loss: float, validation loss value to set in table
             hparams:
 
-        Returns:
 
         """
         df = self._get_table()
@@ -50,39 +53,55 @@ class ResultsTable(object):
         self._save(df)
 
     def _get_idx(self, run, id):
+        """
+        Returns the run, id in a string with the format to be used in the table
+        
+        # Args 
+            run: Integer, run number
+            id: Integer, id number within the run
+
+        # Returns:
+           String with correct format for identification
+        """
         return '{}-{}'.format(run, id)
 
     def _create_table(self):
         """
-
-        Returns: By default a pandas dataframe with columns:
-        ID - RunID - Hparams - Val Loss
+        Initializes a pandas dataframe with the set of keys of this object
+        
+        # Returns: 
+            pandas dataframe
 
         """
         return pd.DataFrame(columns=self.keys)
 
     def _get_table(self):
         """
-
-        Returns: pandas df
+        Loads table from disk and returns it.
+        # Returns: pandas df
 
         """
         return self._load(self.csv_path)
 
-    def _get(self, run_id):
+    def _get(self, run_id, parameter=None):
         """
+        Returns parameter value of a model from the table
         Args:
-            run_id:
+            run_id: tuple, (run, id)
+            parameter: string, name of the parameter to be returned
 
-        Returns:
+        Returns: validation loss 
 
         """
         run, id = run_id
         df = self._get_table()
-        return df.ix[self._get_idx(run, id)]['Val Loss']
+        assert parameter is not None, "you must specify a parameter to get from the resultstable keys"
+        assert parameter in self.keys(), \
+            'parameter must match with one of the keys of resultstable, found {}'.format(parameter)
+        return df.ix[self._get_idx(run, id)][parameter]
 
     def get_val_loss(self, run_id):
-        return self._get(run_id)
+        return self._get(run_id, 'Val Loss')
 
     def _load(self, path):
         """
@@ -98,7 +117,8 @@ class ResultsTable(object):
     def _save(self, df):
         """
         Updates stored csv
-        Returns:
+        # Args:
+            df: dataframe
 
         """
         df.to_csv(self.csv_path)
