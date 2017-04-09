@@ -30,6 +30,25 @@ class ResultsTable(object):
         sorted_df_run = df_run.sort_values(by='Val Loss', ascending=True)
         return list(sorted_df_run['ID'][0:k])
 
+    def get_k_lowest(self, k):
+        """
+        Gets the k models with lowest global loss.
+
+        # Args:
+             k: Integer, number of id's to return
+
+        # Returns:
+             list with run-id strings to identify models 
+        """
+        df = self._get_table()
+        sorted_df_run = df.sort_values(by='Val Loss', ascending=True)
+        ids = list(sorted_df_run['ID'][0:k])
+        runs = list(sorted_df_run['Run'][0:k])
+        id_run = []
+        for row_id in zip(ids, runs):
+            id_run.append(self._get_idx(row_id[0], row_id[1]))
+        return id_run
+
     def set(self, run_id, val_loss, epochs, hparams=None):
         """
         Sets a value for a model using (run, id) as identifier and saves the hyperparameter description of it. 
