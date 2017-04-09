@@ -30,7 +30,7 @@ def test_experiment():
 
     for i in range(total_epochs-1):
         exp = experiment.Experiment(path=tmp_folder, name='1_5')
-        best_performance = exp.fit(x=x_train, y=y_train, epochs=epochs,
+        best_performance, epochs_seen = exp.fit(x=x_train, y=y_train, epochs=epochs,
                                    batch_size=batch_size, validation_data=(x_test, y_test))
         del exp
 

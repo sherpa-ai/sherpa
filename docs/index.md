@@ -1,7 +1,6 @@
 # Hobbit
 Welcome to Hobbit aka. Hyperparameter Optimization By BandITs. Hobbit's goal is to give you a tool for fast and easy
-hyperparameter search. This notebook is going to show you how to run a hyperparameter optimization on a simple model
-and dataset.
+hyperparameter search.
 
 ## Motivation
 The main idea behind Hobbit is to make an extremely easy to use, Keras compatible, framework for hyperparameter

@@ -96,7 +96,7 @@ class ResultsTable(object):
         run, id = run_id
         df = self._get_table()
         assert parameter is not None, "you must specify a parameter to get from the resultstable keys"
-        assert parameter in self.keys(), \
+        assert parameter in self.keys, \
             'parameter must match with one of the keys of resultstable, found {}'.format(parameter)
         return df.ix[self._get_idx(run, id)][parameter]
 
