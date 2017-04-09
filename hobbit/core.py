@@ -71,10 +71,10 @@ class Repository(object):
 
         """
         exp = self._get_experiment(run_id=run_id, hparams=hparams)
-        lowest_val_loss = exp.fit(x=self.dataset[0][0], y=self.dataset[0][1], epochs=epochs,
+        lowest_val_loss, epochs_seen = exp.fit(x=self.dataset[0][0], y=self.dataset[0][1], epochs=epochs,
                                    batch_size=100, validation_data=self.dataset[1])
         # del exp
-        self.results_table.set(run_id=run_id, hparams=hparams, val_loss=lowest_val_loss)
+        self.results_table.set(run_id=run_id, hparams=hparams, val_loss=lowest_val_loss, epochs=epochs_seen)
 
     def rebuild(self, path):
         """

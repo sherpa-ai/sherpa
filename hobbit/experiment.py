@@ -64,7 +64,7 @@ class Experiment(object):
         self.history['best_loss'] = min(this_loss, self.history['best_loss'])
         self.history['epochs'] += len(keras_hist.epoch)
         self._save()
-        return self.history['best_loss']
+        return self.history['best_loss'], epochs
 
     # def __del__(self):
     #     self.model = None

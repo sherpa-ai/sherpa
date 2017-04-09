@@ -7,6 +7,8 @@ import tempfile
 import shutil
 import numpy as np
 import pytest
+import os
+import csv
 
 @pytest.mark.run(order=5)
 def test_repository():
@@ -41,6 +43,15 @@ def test_repository():
 
     assert np.isclose(results_table.get_val_loss(run_id=(1, 1)), min(hist.history['val_loss']), rtol=0.05, atol=0.05)
     assert np.isclose(results_table.get_val_loss(run_id=(1, 2)), min(hist.history['val_loss']), rtol=0.05, atol=0.05)
+
+    # manually load tmp_folder/results.csv
+    with open(os.path.join(tmp_folder, 'results.csv')) as f:
+        reader = csv.reader(f, delimiter=',')
+        next(reader)
+        for i, line in enumerate(reader, start=1):
+            print(line)
+            run_id, epochs, hparams, id, run, val_loss = line
+            assert int(epochs) == 5
 
     shutil.rmtree(tmp_folder)
 
