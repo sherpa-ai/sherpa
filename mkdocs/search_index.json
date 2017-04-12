@@ -2,12 +2,12 @@
     "docs": [
         {
             "location": "/",
-            "text": "Hobbit\n\n\nWelcome to Hobbit aka. Hyperparameter Optimization By BandITs. Hobbit's goal is to give you a tool for fast and easy\nhyperparameter search.\n\n\nMotivation\n\n\nThe main idea behind Hobbit is to make an extremely easy to use, Keras compatible, framework for hyperparameter\noptimization. It works by specifying a model template with modifyable hyperparameters, then it automatically trains as\nmany models as wanted and as long as needed using ranges specified by the user for the tuneable hyperparameters.",
+            "text": "Hobbit\n\n\nWelcome to Hobbit aka. Hyperparameter Optimization By BandITs. Hobbit's goal is to give you a tool for fast and easy\nhyperparameter search. Hello\n\n\nMotivation\n\n\nThe main idea behind Hobbit is to make an extremely easy to use, Keras compatible, framework for hyperparameter\noptimization. It works by specifying a model template with modifyable hyperparameters, then it automatically trains as\nmany models as wanted and as long as needed using ranges specified by the user for the tuneable hyperparameters.",
             "title": "Home"
         },
         {
             "location": "/#hobbit",
-            "text": "Welcome to Hobbit aka. Hyperparameter Optimization By BandITs. Hobbit's goal is to give you a tool for fast and easy\nhyperparameter search.",
+            "text": "Welcome to Hobbit aka. Hyperparameter Optimization By BandITs. Hobbit's goal is to give you a tool for fast and easy\nhyperparameter search. Hello",
             "title": "Hobbit"
         },
         {
