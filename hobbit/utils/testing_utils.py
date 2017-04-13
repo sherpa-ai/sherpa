@@ -67,6 +67,8 @@ def load_dataset(short=False):
         return (x_train, y_train), (x_test, y_test)
 
 
+
+
 def read_nvidia_smi(gpus=list(range(4)), cutoff=60):
     """
     Args:
