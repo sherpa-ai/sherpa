@@ -47,16 +47,18 @@ class Repository(object):
 
     Receives training queries from the Scheduler
     """
-    def __init__(self, model_function, dataset, results_table, dir='./'):
+    def __init__(self, model_function, results_table, dataset=None, dir='./', **generator_args):
         assert isinstance(results_table, ResultsTable)
-        assert isinstance(dataset, tuple)
+        assert isinstance(dataset, tuple) if dataset else True
         assert isinstance(dir, str)
+        assert dataset or generator_args, "You need to pass either a dataset array or generator arguments"
+        assert set(generator_args.keys()) == {'generator', 'steps_per_epoch', 'validation_data', 'validation_steps'}
 
-        # TODO: make dir if it doesn't exist
         self.repo_dir = dir
         self.model_function = model_function
         self.dataset = dataset
         self.results_table = results_table
+        self.generator_args = generator_args
         return
 
     def train(self, run_id, hparams=None, epochs=1):
@@ -71,8 +73,15 @@ class Repository(object):
 
         """
         exp = self._get_experiment(run_id=run_id, hparams=hparams)
-        lowest_val_loss, epochs_seen = exp.fit(x=self.dataset[0][0], y=self.dataset[0][1], epochs=epochs,
-                                   batch_size=100, validation_data=self.dataset[1])
+        if self.dataset:
+            lowest_val_loss, epochs_seen = exp.fit(x=self.dataset[0][0], y=self.dataset[0][1], epochs=epochs,
+                                       batch_size=100, validation_data=self.dataset[1])
+        else:
+            lowest_val_loss, epochs_seen = exp.fit(generator=self.generator_args['generator'](),
+                                                   steps_per_epoch=self.generator_args['steps_per_epoch'],
+                                                   epochs=epochs,
+                                                   validation_data=self.generator_args['validation_data'](),
+                                                   validation_steps=self.generator_args['validation_steps'])
         # del exp
         self.results_table.set(run_id=run_id, hparams=hparams, val_loss=lowest_val_loss, epochs=epochs_seen)
 

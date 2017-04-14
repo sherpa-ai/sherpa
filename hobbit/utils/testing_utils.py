@@ -87,11 +87,12 @@ def store_mnist_hdf5(dir):
 
     return hdf5_path
 
+
 def get_hdf5_generator(x, y, batch_size=100):
     """
     # Template generator
-    x: hdf5 dataset
-    y: hdf5 dataset
+    x: any x array (hdf5 or numpy)
+    y: y array
     """
     num_samples = y.shape[0]
     num_batches = np.ceil(num_samples/batch_size).astype('int')
@@ -99,8 +100,7 @@ def get_hdf5_generator(x, y, batch_size=100):
         for i in range(num_batches):
             v1 = i*batch_size
             v2 = min((i+1)*batch_size, num_samples)
-            yield x.value[v1:v2], y.value[v1:v2]
-
+            yield x[v1:v2], y[v1:v2]
 
 
 def read_nvidia_smi(gpus=list(range(4)), cutoff=60):

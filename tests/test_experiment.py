@@ -61,6 +61,7 @@ def test_experiment_with_generator():
 
     # prereq's
     total_epochs = 5
+    epochs = 1
     batch_size = 128
     hparams = {'lr': 0.01, 'num_units': 100}
 
@@ -71,7 +72,6 @@ def test_experiment_with_generator():
         num_test_batches = np.ceil(f['x_test'].shape[0] / batch_size).astype('int')
 
         # train experiment and compare
-        epochs = 1
         exp = experiment.Experiment(path=tmp_folder, name='1_5', model=create_model(hparams))
         best_performance, epochs_seen = exp.fit(generator=get_hdf5_generator(f['x_train'], f['y_train'],
                                                                              batch_size=batch_size),
@@ -98,17 +98,15 @@ def test_experiment_with_generator():
         hist = test_model.fit_generator(generator=get_hdf5_generator(f['x_train'], f['y_train'],
                                                                      batch_size=batch_size),
                                         steps_per_epoch=num_train_batches,
-                                        epochs=epochs,
+                                        epochs=total_epochs,
                                         validation_data=get_hdf5_generator(f['x_test'], f['y_test'],
                                                                            batch_size=batch_size),
                                         validation_steps=num_test_batches)
 
         assert np.isclose(min(hist.history['val_loss']), best_performance, rtol=0.02, atol=0.02)
 
-
     shutil.rmtree(tmp_folder)
 
 
 if __name__ == '__main__':
-    # pytest.main([__file__])
-    test_experiment_with_generator()
+    pytest.main([__file__])
