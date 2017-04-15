@@ -98,9 +98,9 @@ def get_hdf5_generator(x, y, batch_size=100):
     num_batches = np.ceil(num_samples/batch_size).astype('int')
     while True:
         for i in range(num_batches):
-            v1 = i*batch_size
-            v2 = min((i+1)*batch_size, num_samples)
-            yield x[v1:v2], y[v1:v2]
+            from_ = i*batch_size
+            to_ = min((i+1)*batch_size, num_samples)
+            yield x[from_:to_], y[from_:to_]
 
 
 def read_nvidia_smi(gpus=list(range(4)), cutoff=60):

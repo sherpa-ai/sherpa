@@ -70,6 +70,7 @@ class Repository(object):
         Returns:
 
         """
+        print("Training model {} {}".format(run_id, hparams))
         exp = self._get_experiment(run_id=run_id, hparams=hparams)
         if self.dataset:
             lowest_val_loss, epochs_seen = exp.fit(x=self.dataset[0][0], y=self.dataset[0][1], epochs=epochs,
