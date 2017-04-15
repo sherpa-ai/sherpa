@@ -51,8 +51,6 @@ class Repository(object):
         assert isinstance(results_table, ResultsTable)
         assert isinstance(dataset, tuple) if dataset else True
         assert isinstance(dir, str)
-        assert dataset or generator_args, "You need to pass either a dataset array or generator arguments"
-        assert set(generator_args.keys()) == {'generator', 'steps_per_epoch', 'validation_data', 'validation_steps'}
 
         self.repo_dir = dir
         self.model_function = model_function
@@ -75,13 +73,42 @@ class Repository(object):
         exp = self._get_experiment(run_id=run_id, hparams=hparams)
         if self.dataset:
             lowest_val_loss, epochs_seen = exp.fit(x=self.dataset[0][0], y=self.dataset[0][1], epochs=epochs,
-                                       batch_size=100, validation_data=self.dataset[1])
-        else:
+                                                   batch_size=100, validation_data=self.dataset[1])
+
+        elif 'generator_function' in self.generator_args:
+            if isinstance(self.generator_args['train_gen_args'], dict):
+                gen = self.generator_args['generator_function'](**self.generator_args['train_gen_args'])
+            elif isinstance(self.generator_args['train_gen_args'], list)\
+                    or isinstance(self.generator_args['train_gen_args'], tuple):
+                gen = self.generator_args['generator_function'](*self.generator_args['train_gen_args'])
+            else:
+                raise TypeError('Please provide generator arguments as dictionary, list or tuple. Given: ' +
+                                str(self.generator_args['train_gen_args']))
+
+            if isinstance(self.generator_args['valid_gen_args'], dict):
+                valid_gen = self.generator_args['generator_function'](**self.generator_args['valid_gen_args'])
+            elif isinstance(self.generator_args['valid_gen_args'], list)\
+                    or isinstance(self.generator_args['valid_gen_args'], tuple):
+                valid_gen = self.generator_args['generator_function'](*self.generator_args['valid_gen_args'])
+            else:
+                raise TypeError('Please provide generator arguments as dictionary, list or tuple. Given: ' +
+                                str(self.generator_args['train_gen_args']))
+
+            lowest_val_loss, epochs_seen = exp.fit(generator=gen,
+                                                   steps_per_epoch=self.generator_args['steps_per_epoch'],
+                                                   epochs=epochs,
+                                                   validation_data=valid_gen,
+                                                   validation_steps=self.generator_args['validation_steps'])
+
+        elif 'generator' in self.generator_args:
             lowest_val_loss, epochs_seen = exp.fit(generator=self.generator_args['generator'](),
                                                    steps_per_epoch=self.generator_args['steps_per_epoch'],
                                                    epochs=epochs,
                                                    validation_data=self.generator_args['validation_data'](),
                                                    validation_steps=self.generator_args['validation_steps'])
+        else:
+            raise TypeError('Repository did not get expected arguments for dataset or generator.')
+
         # del exp
         self.results_table.set(run_id=run_id, hparams=hparams, val_loss=lowest_val_loss, epochs=epochs_seen)
 

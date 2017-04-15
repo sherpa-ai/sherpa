@@ -22,10 +22,13 @@ class RandomSearch(object):
     init repo(results, model_func, dataset, repo_dir)
     scheduler.set_repository(repo)
     """
-    def __init__(self, model_function, dataset, hparam_ranges, repo_dir='./hyperband_repository'):
+    def __init__(self, model_function, hparam_ranges, repo_dir='./hyperband_repository', dataset=None, **generator_args):
         assert hparam_ranges
-        assert dataset
         assert model_function
+        assert dataset or generator_args, "You need to pass either a dataset array or generator arguments"
+        assert set(generator_args.keys()) == {'generator', 'steps_per_epoch', 'validation_data', 'validation_steps'}\
+               or set(generator_args.keys()) == {'generator_function', 'steps_per_epoch', 'validation_steps',
+                                                 'train_gen_args', 'valid_gen_args'}
 
         if not os.path.exists(repo_dir):
             os.makedirs(repo_dir)
@@ -35,7 +38,8 @@ class RandomSearch(object):
         repo = Repository(model_function=model_function,
                           dataset=dataset,
                           results_table=self.results_table,
-                          dir=repo_dir)
+                          dir=repo_dir,
+                          **generator_args)
 
         self.scheduler = JobScheduler(repository=repo)
         # Note, if we pass a scheduler we still need to pass the repo to it
