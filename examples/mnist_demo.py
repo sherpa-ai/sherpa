@@ -1,7 +1,7 @@
 from __future__ import print_function
 from __future__ import absolute_import
 from hobbit.utils.testing_utils import load_dataset
-from hobbit.utils.testing_utils import create_model as my_model
+from hobbit.utils.testing_utils import create_model_two as my_model
 
 
 def mnist_demo():

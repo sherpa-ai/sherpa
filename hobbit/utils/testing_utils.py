@@ -1,3 +1,4 @@
+from __future__ import division
 import keras
 from keras.datasets import mnist
 from keras.models import Sequential
@@ -5,7 +6,10 @@ from keras.layers import Dense, Dropout
 from keras.optimizers import RMSprop
 from keras.initializers import glorot_uniform, Zeros
 from subprocess import check_output
+import numpy as np
 import re
+import h5py
+import os
 
 def create_model(hparams):
     """
@@ -67,6 +71,36 @@ def load_dataset(short=False):
         return (x_train, y_train), (x_test, y_test)
 
 
+def store_mnist_hdf5(dir):
+    """
+    Loads mnist and stores it as hdf5 in given folder
+    """
+    (x_train, y_train), (x_test, y_test) = load_dataset()
+
+    hdf5_path = os.path.join(dir, 'mnist.h5')
+
+    with h5py.File(hdf5_path) as f:
+        f.create_dataset(name='x_train', shape=x_train.shape, dtype=x_train.dtype, data=x_train)
+        f.create_dataset(name='y_train', shape=y_train.shape, dtype=y_train.dtype, data=y_train)
+        f.create_dataset(name='x_test', shape=x_test.shape, dtype=x_test.dtype, data=x_test)
+        f.create_dataset(name='y_test', shape=y_test.shape, dtype=y_test.dtype, data=y_test)
+
+    return hdf5_path
+
+
+def get_hdf5_generator(x, y, batch_size=100):
+    """
+    # Template generator
+    x: any x array (hdf5 or numpy)
+    y: y array
+    """
+    num_samples = y.shape[0]
+    num_batches = np.ceil(num_samples/batch_size).astype('int')
+    while True:
+        for i in range(num_batches):
+            from_ = i*batch_size
+            to_ = min((i+1)*batch_size, num_samples)
+            yield x[from_:to_], y[from_:to_]
 
 
 def read_nvidia_smi(gpus=list(range(4)), cutoff=60):
