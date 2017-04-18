@@ -253,3 +253,28 @@ tab
 </div>
 
 
+## Using a Generator
+Let's say you want to stream data using a generator. In that case you need to pass the function that returns a generator (not the generator object itself) to `generator_function`. You can pass a tuple if you need two different generator functions for training and testing. If they are just different by their arguments you can pass the relevant arguments via `train_gen_args` and `valid_gen_args` which accept either a dictionary or list/tuple. Hobbit also needs the number of steps / batches in training / testing. You pass these via `steps_per_epoch` and `validation_steps` similarly as in Keras.
+```python
+def example_generator(x, y, batch_size=100):
+    num_samples = y.shape[0]
+    num_batches = np.ceil(num_samples/batch_size).astype('int')
+    while True:
+        for i in range(num_batches):
+            from_ = i*batch_size
+            to_ = min((i+1)*batch_size, num_samples)
+            yield x[from_:to_], y[from_:to_]
+```
+
+Then set up Hyperband:
+
+```python
+hband = Hyperband(model_function=my_model,
+                  hparam_ranges=my_hparam_ranges,
+                  repo_dir='./my_test_repo',
+                  generator_function=example_generator,
+                  train_gen_args=(x_train, y_train, 100),
+                  valid_gen_args=(x_test, y_test, 100),
+                  steps_per_epoch=x_train.shape[0]//100,
+                  validation_steps=x_test.shape[0]//100)
+```

@@ -56,6 +56,7 @@ def test_hyperband():
 
     shutil.rmtree(tmp_folder)
 
+@pytest.mark.run(order=10)
 def test_hyperband_with_generator():
     """
     # Strategy
@@ -81,7 +82,7 @@ def test_hyperband_with_generator():
         hband = Hyperband(model_function=create_model,
                           hparam_ranges=my_hparam_ranges,
                           repo_dir=tmp_folder,
-                          generator_function=get_hdf5_generator,
+                          generator_function=(get_hdf5_generator, get_hdf5_generator),
                           train_gen_args=(f['x_train'], f['y_train'], batch_size),
                           valid_gen_args={'x': f['x_test'], 'y': f['y_test'], 'batch_size': batch_size},
                           steps_per_epoch=num_train_batches,

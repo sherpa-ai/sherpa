@@ -22,16 +22,16 @@ class RandomSearch(object):
     init repo(results, model_func, dataset, repo_dir)
     scheduler.set_repository(repo)
     """
-    def __init__(self, model_function, hparam_ranges, repo_dir='./hyperband_repository', dataset=None, **generator_args):
+    def __init__(self, model_function, hparam_ranges, repo_dir='./hyperband_repository', dataset=None,
+                 generator_function=None, train_gen_args=None, steps_per_epoch=None,
+                 valid_gen_args=None, validation_steps=None):
         assert hparam_ranges
         assert model_function
-        assert dataset or generator_args, "You need to pass either a dataset array or generator arguments"
-        assert set(generator_args.keys()) == {'generator', 'steps_per_epoch', 'validation_data', 'validation_steps'}\
-               or set(generator_args.keys()) == {'generator_function', 'steps_per_epoch', 'validation_steps',
-                                                 'train_gen_args', 'valid_gen_args'}
+        assert dataset or generator_function, "You need to pass either a dataset array or generator arguments"
+        assert steps_per_epoch and validation_steps if generator_function else True,\
+            "You need to pass the number of batches/steps per epoch for training and validation"
 
-        if not os.path.exists(repo_dir):
-            os.makedirs(repo_dir)
+        os.makedirs(repo_dir) if not os.path.exists(repo_dir) else None
 
         self.results_table = ResultsTable(repo_dir)
 
@@ -39,7 +39,11 @@ class RandomSearch(object):
                           dataset=dataset,
                           results_table=self.results_table,
                           dir=repo_dir,
-                          **generator_args)
+                          generator_function=generator_function,
+                          train_gen_args=train_gen_args,
+                          steps_per_epoch=steps_per_epoch,
+                          valid_gen_args=valid_gen_args,
+                          validation_steps=validation_steps)
 
         self.scheduler = JobScheduler(repository=repo)
         # Note, if we pass a scheduler we still need to pass the repo to it

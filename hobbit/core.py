@@ -47,7 +47,9 @@ class Repository(object):
 
     Receives training queries from the Scheduler
     """
-    def __init__(self, model_function, results_table, dataset=None, dir='./', **generator_args):
+    def __init__(self, model_function, results_table, dir='./', dataset=None,
+                 generator_function=None, train_gen_args=None, steps_per_epoch=None,
+                 valid_gen_args=None, validation_steps=None):
         assert isinstance(results_table, ResultsTable)
         assert isinstance(dataset, tuple) if dataset else True
         assert isinstance(dir, str)
@@ -56,7 +58,11 @@ class Repository(object):
         self.model_function = model_function
         self.dataset = dataset
         self.results_table = results_table
-        self.generator_args = generator_args
+        self.generator_function = generator_function
+        self.train_gen_args = train_gen_args
+        self.steps_per_epoch = steps_per_epoch
+        self.valid_gen_args = valid_gen_args
+        self.validation_steps = validation_steps
         return
 
     def train(self, run_id, hparams=None, epochs=1):
@@ -70,45 +76,50 @@ class Repository(object):
         Returns:
 
         """
-        print("Training model {} {}".format(run_id, hparams))
+        print("Training model {} in run {}:".format(run_id[1], run_id[0]))
+        if hparams:
+            print(''.join(['{}: {:.4}\t\t'.format(key, str(hparams[key])) for key in hparams]))
+
         exp = self._get_experiment(run_id=run_id, hparams=hparams)
+
         if self.dataset:
             lowest_val_loss, epochs_seen = exp.fit(x=self.dataset[0][0], y=self.dataset[0][1], epochs=epochs,
                                                    batch_size=100, validation_data=self.dataset[1])
-
-        elif 'generator_function' in self.generator_args:
-            if isinstance(self.generator_args['train_gen_args'], dict):
-                gen = self.generator_args['generator_function'](**self.generator_args['train_gen_args'])
-            elif isinstance(self.generator_args['train_gen_args'], list)\
-                    or isinstance(self.generator_args['train_gen_args'], tuple):
-                gen = self.generator_args['generator_function'](*self.generator_args['train_gen_args'])
+        else:
+            if isinstance(self.generator_function, tuple):
+                assert len(self.generator_function) == 2, "Generator function tuple needs to be length 2, one " \
+                                                          "training and one testing."
+                train_gen_function = self.generator_function[0]
+                valid_gen_function = self.generator_function[1]
             else:
-                raise TypeError('Please provide generator arguments as dictionary, list or tuple. Given: ' +
-                                str(self.generator_args['train_gen_args']))
+                train_gen_function = self.generator_function
+                valid_gen_function = self.generator_function
 
-            if isinstance(self.generator_args['valid_gen_args'], dict):
-                valid_gen = self.generator_args['generator_function'](**self.generator_args['valid_gen_args'])
-            elif isinstance(self.generator_args['valid_gen_args'], list)\
-                    or isinstance(self.generator_args['valid_gen_args'], tuple):
-                valid_gen = self.generator_args['generator_function'](*self.generator_args['valid_gen_args'])
+            if isinstance(self.train_gen_args, dict):
+                gen = train_gen_function(**self.train_gen_args)
+            elif isinstance(self.train_gen_args, tuple) or isinstance(self.train_gen_args, list):
+                gen = train_gen_function(*self.train_gen_args)
+            elif self.train_gen_args is None:
+                gen = train_gen_function()
             else:
-                raise TypeError('Please provide generator arguments as dictionary, list or tuple. Given: ' +
-                                str(self.generator_args['train_gen_args']))
+                raise TypeError("Please provide generator arguments as dictionary, list or tuple."
+                                "Found: " + str(self.train_gen_args) + " of type " + type(self.train_gen_args))
+
+            if isinstance(self.valid_gen_args, dict):
+                valid_gen = valid_gen_function(**self.valid_gen_args)
+            elif isinstance(self.valid_gen_args, tuple) or isinstance(self.valid_gen_args, list):
+                valid_gen = valid_gen_function(*self.valid_gen_args)
+            elif self.valid_gen_args is None:
+                valid_gen = valid_gen_function()
+            else:
+                raise TypeError("Please provide generator arguments as dictionary, list or tuple."
+                                "Found: " + str(self.valid_gen_args) + " of type " + type(self.valid_gen_args))
 
             lowest_val_loss, epochs_seen = exp.fit(generator=gen,
-                                                   steps_per_epoch=self.generator_args['steps_per_epoch'],
+                                                   steps_per_epoch=self.steps_per_epoch,
                                                    epochs=epochs,
                                                    validation_data=valid_gen,
-                                                   validation_steps=self.generator_args['validation_steps'])
-
-        elif 'generator' in self.generator_args:
-            lowest_val_loss, epochs_seen = exp.fit(generator=self.generator_args['generator'](),
-                                                   steps_per_epoch=self.generator_args['steps_per_epoch'],
-                                                   epochs=epochs,
-                                                   validation_data=self.generator_args['validation_data'](),
-                                                   validation_steps=self.generator_args['validation_steps'])
-        else:
-            raise TypeError('Repository did not get expected arguments for dataset or generator.')
+                                                   validation_steps=self.validation_steps)
 
         # del exp
         self.results_table.set(run_id=run_id, hparams=hparams, val_loss=lowest_val_loss, epochs=epochs_seen)
