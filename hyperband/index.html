@@ -62,6 +62,9 @@
     <a class="current" href="./">Hyperband</a>
     <ul class="subnav">
             
+    <li class="toctree-l2"><a href="#hyperband">Hyperband</a></li>
+    
+
     </ul>
 	    </li>
           
@@ -105,7 +108,11 @@
           <div role="main">
             <div class="section">
               
-                <p>A Hyperband instance initializes the entire pipeline needed to run a
+                <h3 id="hyperband">Hyperband</h3>
+<pre><code class="python">hobbit.algorithms.Hyperband(model_function, hparam_ranges, repo_dir='./hyperband_repository', dataset=None, generator_function=None, train_gen_args=None, steps_per_epoch=None, valid_gen_args=None, validation_steps=None)
+</code></pre>
+
+<p>A Hyperband instance initializes the entire pipeline needed to run a
 Hyperband hyperparameter optimization. The run() method is used to start
 the optimization.</p>
 <p><strong>Arguments</strong></p>

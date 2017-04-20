@@ -67,6 +67,9 @@
     <a class="current" href="./">Hyperparameters</a>
     <ul class="subnav">
             
+    <li class="toctree-l2"><a href="#hyperparameter">Hyperparameter</a></li>
+    
+
     </ul>
 	    </li>
           
@@ -105,7 +108,11 @@
           <div role="main">
             <div class="section">
               
-                <p>A Hyperparameter instance captures the information about each of the hyperparameters to be optimized.</p>
+                <h3 id="hyperparameter">Hyperparameter</h3>
+<pre><code class="python">hobbit.core.Hyperparameter(name, distr_args, distribution='uniform')
+</code></pre>
+
+<p>A Hyperparameter instance captures the information about each of the hyperparameters to be optimized.</p>
 <p><strong>Arguments</strong></p>
 <ul>
 <li><strong>name</strong>: name of the hyperparameter. This will be used in the Model creation</li>
