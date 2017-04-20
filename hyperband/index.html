@@ -62,9 +62,6 @@
     <a class="current" href="./">Hyperband</a>
     <ul class="subnav">
             
-    <li class="toctree-l2"><a href="#run">run</a></li>
-    
-
     </ul>
 	    </li>
           
@@ -108,7 +105,10 @@
           <div role="main">
             <div class="section">
               
-                <p><strong>Arguments</strong></p>
+                <p>A Hyperband instance initializes the entire pipeline needed to run a
+Hyperband hyperparameter optimization. The run() method is used to start
+the optimization.</p>
+<p><strong>Arguments</strong></p>
 <ul>
 <li><strong>model_function</strong>: a function that takes a dictionary of hyperparameters
     as its only argument and returns a compiled Keras model object with
@@ -132,11 +132,18 @@
     using a generator</li>
 </ul>
 <p><strong>Methods</strong></p>
-<h2 id="run">run</h2>
-<pre><code class="python">run(self, R=20, eta=3)
-</code></pre>
-
-<p>Runs the algorithm with <strong>R</strong> maximum epochs per stage and cut factor <strong>eta</strong> between stages.</p>
+<p>Runs the algorithm with <strong>R</strong> maximum epochs per stage and cut factor
+<strong>eta</strong> between stages.</p>
+<p><strong>run</strong></p>
+<ul>
+<li><strong>R</strong>: The maximum epochs per stage. Hyperband has multiple runs each of
+    which goes through multiple stages to discard configurations. At each
+    of those stages Hyperband will train for a total of R epochs</li>
+<li><strong>eta</strong>: The cut-factor. After each stage Hyperband will reduce the number
+    of configurations by this factor. The training
+    iterations for configurations that move to the next stage increase
+    by this factor</li>
+</ul>
               
             </div>
           </div>

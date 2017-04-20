@@ -113,14 +113,10 @@
         In the default case of a Uniform distribution these refer to the minimum and maximum values from 
         which to sample from. In general these are the  arguments taken as input by the corresponding numpy 
         distribution function.</li>
-<li>
-<p><strong>distribution</strong>: String, name of the distribution to be used for sampling the values. Must be numpy.random compatible. 
-          Uniform distribution is used as default.</p>
-</li>
-<li>
-<p><strong><em>_Examples</em>_:</strong></p>
-</li>
+<li><strong>distribution</strong>: String, name of the distribution to be used for sampling the values. Must be numpy.random compatible. 
+          Uniform distribution is used as default.</li>
 </ul>
+<p><strong>Examples</strong></p>
 <pre><code class="python">Hyperparameter('learning_rate', distr_args=(0.0001, 0.1), distribution='log-uniform'),
 Hyperparameter('learning_rate', distr_args={low: 0.0001, high: 0.1}, distribution='uniform'),
 Hyperparameter('activation', distr_args=[('sigmoid', 'tanh', 'relu')], distribution='choice')

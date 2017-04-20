@@ -16,6 +16,6 @@ def process_class_docstring(docstring):
     docstring = docstring.replace('    ', '')
     return docstring
 
-open('hyperband.md', 'w').write(process_class_docstring(Hyperband.__doc__))
-open('hyperparameter.md', 'w').write(process_class_docstring(
+open('./hyperband.md', 'w').write(process_class_docstring(Hyperband.__doc__))
+open('./hyperparameter.md', 'w').write(process_class_docstring(
     Hyperparameter.__doc__))
