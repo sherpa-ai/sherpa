@@ -4,7 +4,7 @@
     
     <url>
      <loc>/</loc>
-     <lastmod>2017-04-17</lastmod>
+     <lastmod>2017-04-20</lastmod>
      <changefreq>daily</changefreq>
     </url>
     
@@ -12,7 +12,23 @@
     
     <url>
      <loc>/first_steps/</loc>
-     <lastmod>2017-04-17</lastmod>
+     <lastmod>2017-04-20</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+    
+
+    
+    <url>
+     <loc>/hyperband/</loc>
+     <lastmod>2017-04-20</lastmod>
+     <changefreq>daily</changefreq>
+    </url>
+    
+
+    
+    <url>
+     <loc>/hyperparameter/</loc>
+     <lastmod>2017-04-20</lastmod>
      <changefreq>daily</changefreq>
     </url>
     
