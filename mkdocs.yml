@@ -1,5 +1,8 @@
 site_name: Hobbit
+theme: readthedocs
+repo_url: http://github.com/hobbit-ai/hobbit
 pages:
     - Home: index.md
     - First steps: first_steps.md
-theme: readthedocs
+    - Hyperband: hyperband.md
+    - Hyperparameters: hyperparameter.md

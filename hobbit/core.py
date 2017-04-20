@@ -13,13 +13,18 @@ class Hyperparameter(object):
                     In the default case of a Uniform distribution these refer to the minimum and maximum values from 
                     which to sample from. In general these are the  arguments taken as input by the corresponding numpy 
                     distribution function.
-        distribution: String, name of the distribution to be used for sampling the values. Must be numpy.random compatible. 
-                      Uniform distribution is used as default.
+        distribution: String, name of the distribution to be used for sampling
+                    the values. Must be numpy.random compatible. Exception is
+                    'log-uniform' which samples uniformly between low and high
+                    on a log-scale. Uniform distribution is used as
+                    default.
     
-    # Examples:
+    # Examples
+        ```python
         Hyperparameter('learning_rate', distr_args=(0.0001, 0.1), distribution='log-uniform'),
         Hyperparameter('learning_rate', distr_args={low: 0.0001, high: 0.1}, distribution='uniform'),
         Hyperparameter('activation', distr_args=[('sigmoid', 'tanh', 'relu')], distribution='choice')
+        ```
     
     """
     def __init__(self, name, distr_args, distribution='uniform'):
