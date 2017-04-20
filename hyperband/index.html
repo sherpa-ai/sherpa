@@ -151,6 +151,25 @@ the optimization.</p>
     iterations for configurations that move to the next stage increase
     by this factor</li>
 </ul>
+<p><strong>Example</strong></p>
+<pre><code class="python">def my_model(hparams):
+'''Keras model defintion returns compiled Keras model based on hparams'''
+return keras_model
+
+my_dataset = load_my_dataset()
+
+my_hparam_ranges = [Hyperparameter(name='learning_rate', distribution='log-uniform', distr_args=(0.0001, 0.1)),
+        Hyperparameter(name='activation', distribution='choice', distr_args=[('sigmoid', 'tanh', 'relu')]),
+        Hyperparameter(name='dropout', distribution='uniform', distr_args=(0., 1.))]
+
+
+hband = Hyperband(model_function=my_model,
+        dataset=my_dataset,
+        hparam_ranges=my_hparam_ranges,
+        repo_dir='./my_test_repo')
+
+results = hband.run(R=20, eta=3)
+</code></pre>
               
             </div>
           </div>
