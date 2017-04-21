@@ -10,3 +10,5 @@ fast and easy hyperparameter search for Keras. Hobbit is building on the Hyperba
 Hobbit is compatible with Python 2.7 - 3.4 and can be run on either CPU or GPU. To install, simply clone and add the
 hobbit folder to your Pythonpath.
 
+For full documentation go to [hobbit-ai.github.io/hobbit/](http://hobbit-ai.github.io/hobbit/ "Hobbit URL").
+
