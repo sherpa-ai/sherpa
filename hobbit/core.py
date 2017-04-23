@@ -52,7 +52,7 @@ class Repository(object):
 
     Receives training queries from the Scheduler
     """
-    def __init__(self, model_function, results_table, dir='./', dataset=None,
+    def __init__(self, model_function, results_table, dir='./', loss='val_loss', dataset=None,
                  generator_function=None, train_gen_args=None, steps_per_epoch=None,
                  valid_gen_args=None, validation_steps=None):
         assert isinstance(results_table, ResultsTable)
@@ -61,6 +61,7 @@ class Repository(object):
 
         self.repo_dir = dir
         self.model_function = model_function
+        self.loss = loss
         self.dataset = dataset
         self.results_table = results_table
         self.generator_function = generator_function
@@ -83,12 +84,12 @@ class Repository(object):
         """
         print("Training model {} in run {}:".format(run_id[1], run_id[0]))
         if hparams:
-            print(''.join(['{}: {:.4}\t\t'.format(key, str(hparams[key])) for key in hparams]))
+            print(''.join(['{}: {}\t\t'.format(key, str(hparams[key])) for key in hparams])) # Don't shorten hyperparameter.
 
         exp = self._get_experiment(run_id=run_id, hparams=hparams)
 
         if self.dataset:
-            lowest_val_loss, epochs_seen = exp.fit(x=self.dataset[0][0], y=self.dataset[0][1], epochs=epochs,
+            lowest_loss, epochs_seen = exp.fit(x=self.dataset[0][0], y=self.dataset[0][1], epochs=epochs, loss=self.loss,
                                                    batch_size=100, validation_data=self.dataset[1])
         else:
             if isinstance(self.generator_function, tuple):
@@ -120,14 +121,15 @@ class Repository(object):
                 raise TypeError("Please provide generator arguments as dictionary, list or tuple."
                                 "Found: " + str(self.valid_gen_args) + " of type " + type(self.valid_gen_args))
 
-            lowest_val_loss, epochs_seen = exp.fit(generator=gen,
+            lowest_loss, epochs_seen = exp.fit(generator=gen,
                                                    steps_per_epoch=self.steps_per_epoch,
                                                    epochs=epochs,
+                                                   loss=self.loss,
                                                    validation_data=valid_gen,
                                                    validation_steps=self.validation_steps)
 
         # del exp
-        self.results_table.set(run_id=run_id, hparams=hparams, val_loss=lowest_val_loss, epochs=epochs_seen)
+        self.results_table.set(run_id=run_id, hparams=hparams, loss=lowest_loss, epochs=epochs_seen)
 
     def rebuild(self, path):
         """
