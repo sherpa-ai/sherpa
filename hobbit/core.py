@@ -93,7 +93,7 @@ class Repository(object):
         else:
             if isinstance(self.generator_function, tuple):
                 assert len(self.generator_function) == 2, "Generator function tuple needs to be length 2, one " \
-                                                          "training and one testing."
+                                                          "training and one validation."
                 train_gen_function = self.generator_function[0]
                 valid_gen_function = self.generator_function[1]
             else:
