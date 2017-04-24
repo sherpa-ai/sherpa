@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 from .experiment import Experiment
 from .resultstable import ResultsTable
+import warnings
 
 
 class Hyperparameter(object):
@@ -91,34 +92,15 @@ class Repository(object):
             lowest_val_loss, epochs_seen = exp.fit(x=self.dataset[0][0], y=self.dataset[0][1], epochs=epochs,
                                                    batch_size=100, validation_data=self.dataset[1])
         else:
-            if isinstance(self.generator_function, tuple):
-                assert len(self.generator_function) == 2, "Generator function tuple needs to be length 2, one " \
-                                                          "training and one validation."
-                train_gen_function = self.generator_function[0]
-                valid_gen_function = self.generator_function[1]
-            else:
-                train_gen_function = self.generator_function
-                valid_gen_function = self.generator_function
+            train_gen_function, valid_gen_function = self.get_train_and_validation_generator_functions()
 
-            if isinstance(self.train_gen_args, dict):
-                gen = train_gen_function(**self.train_gen_args)
-            elif isinstance(self.train_gen_args, tuple) or isinstance(self.train_gen_args, list):
-                gen = train_gen_function(*self.train_gen_args)
-            elif self.train_gen_args is None:
-                gen = train_gen_function()
-            else:
-                raise TypeError("Please provide generator arguments as dictionary, list or tuple."
-                                "Found: " + str(self.train_gen_args) + " of type " + type(self.train_gen_args))
+            gen = self.initialize_generator(train_gen_function, self.train_gen_args)
 
-            if isinstance(self.valid_gen_args, dict):
-                valid_gen = valid_gen_function(**self.valid_gen_args)
-            elif isinstance(self.valid_gen_args, tuple) or isinstance(self.valid_gen_args, list):
-                valid_gen = valid_gen_function(*self.valid_gen_args)
-            elif self.valid_gen_args is None:
-                valid_gen = valid_gen_function()
+            if valid_gen_function:
+                valid_gen = self.initialize_generator(valid_gen_function, self.valid_gen_args)
             else:
-                raise TypeError("Please provide generator arguments as dictionary, list or tuple."
-                                "Found: " + str(self.valid_gen_args) + " of type " + type(self.valid_gen_args))
+                warnings.warn("Using training set as validation set", RuntimeWarning)
+                valid_gen = self.initialize_generator(train_gen_function, self.train_gen_args)
 
             lowest_val_loss, epochs_seen = exp.fit(generator=gen,
                                                    steps_per_epoch=self.steps_per_epoch,
@@ -128,6 +110,31 @@ class Repository(object):
 
         # del exp
         self.results_table.set(run_id=run_id, hparams=hparams, val_loss=lowest_val_loss, epochs=epochs_seen)
+
+    def get_train_and_validation_generator_functions(self):
+        if isinstance(self.generator_function, tuple):
+            assert len(self.generator_function) == 2, "Generator function tuple needs to be length 2, one " \
+                                                      "training and one validation."
+            train_gen_function = self.generator_function[0]
+            valid_gen_function = self.generator_function[1]
+        else:
+            train_gen_function = self.generator_function
+            valid_gen_function = None
+
+        return [train_gen_function, valid_gen_function]
+
+    @staticmethod
+    def initialize_generator(gen_function, args):
+        if isinstance(args, dict):
+            gen = gen_function(**args)
+        elif isinstance(args, tuple) or isinstance(args, list):
+            gen = gen_function(*args)
+        elif args is None:
+            gen = gen_function()
+        else:
+            raise TypeError("Please provide generator arguments as dictionary, list or tuple."
+                            "Found: " + str(args) + " of type " + type(args))
+        return gen
 
     def rebuild(self, path):
         """
