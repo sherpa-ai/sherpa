@@ -103,9 +103,8 @@ def test_hyperband_with_generator():
         # Check all epochs are the expected numbers
         assert all(i in [2, 9, 29, 7, 27, 20] for i in tab['Epochs']), "Unexpected number of epochs for a model"
 
-        # check number of files in repo == 17 + 1 for csv
         assert len([fname for fname in os.listdir(tmp_folder) if fname.endswith('.csv') or
-                    fname.endswith('.pkl') or fname.endswith('.h5')]) == 17*2 + 1
+                    fname.endswith('.pkl') or fname.endswith('.h5')]) == 17*2 + 1 + 1  # experiments + csv + mnist.h5
 
     shutil.rmtree(tmp_folder)
 
