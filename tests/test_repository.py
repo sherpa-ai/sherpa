@@ -55,7 +55,7 @@ def test_repository():
 
     shutil.rmtree(tmp_folder)
 
-
+@pytest.mark.run(order=6)
 def test_repository_with_generator():
     tmp_folder = tempfile.mkdtemp(prefix='test_repo')
 

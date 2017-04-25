@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 from hobbit.utils.testing_utils import read_nvidia_smi, gpu_exists
 
-@pytest.mark.run(order=6)
+@pytest.mark.run(order=7)
 def test_job_scheduler():
     tmp_folder = tempfile.mkdtemp(prefix='test_repo')
 
