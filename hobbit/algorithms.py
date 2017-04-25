@@ -7,10 +7,55 @@ import math
 import os
 
 
-class Hyperband(object):
+class Algorithm(object):
+    def __init__(self, model_function, loss='val_loss',
+                 repo_dir='./hyperband_repository', dataset=None,
+                 generator_function=None, train_gen_args=None, steps_per_epoch=None,
+                 valid_gen_args=None, validation_steps=None):
+        assert model_function and callable(model_function)
+        assert dataset or generator_function, "You need to pass either a" \
+                                              "dataset array or generator" \
+                                              "arguments"
+        if generator_function:
+            assert steps_per_epoch and validation_steps,\
+                "You need to pass the number of batches/steps per epoch for" \
+                "training and validation"
+            if isinstance(generator_function, tuple):
+                assert callable(generator_function[0]) and callable(
+                    generator_function[1]), "Generator needs to be a function"
+            else:
+                assert callable(generator_function),\
+                    "Generator needs to be a function"
+
+
+        os.makedirs(repo_dir) if not os.path.exists(repo_dir) else None
+
+        self.results_table = ResultsTable(repo_dir)
+
+        repo = Repository(model_function=model_function,
+                          dataset=dataset,
+                          results_table=self.results_table,
+                          dir=repo_dir,
+                          loss=loss,
+                          generator_function=generator_function,
+                          train_gen_args=train_gen_args,
+                          steps_per_epoch=steps_per_epoch,
+                          valid_gen_args=valid_gen_args,
+                          validation_steps=validation_steps)
+
+        self.scheduler = JobScheduler(repository=repo)
+        # Note, if we pass a scheduler we still need to pass the repo to it
+
+
+    def run(self, *args, **kwargs):
+        raise NotImplemented("This function needs to be implemented in child"
+                             "classes")
+
+
+class Hyperband(Algorithm):
     """
-    A Hyperband instance initializes the entire pipeline needed to run a
-    Hyperband hyperparameter optimization. The run() method is used to start
+    An Algorithm instance initializes the entire pipeline needed to run a
+    hyperparameter optimization. The run() method is used to start
     the optimization.
 
     # Arguments
@@ -40,6 +85,7 @@ class Hyperband(object):
     **eta** between stages.
 
     # run
+    Depends on each optimization algorithm. For Hyperband this is:
         R: The maximum epochs per stage. Hyperband has multiple runs each of
             which goes through multiple stages to discard configurations. At each
             of those stages Hyperband will train for a total of R epochs
@@ -69,34 +115,21 @@ class Hyperband(object):
     results = hband.run(R=20, eta=3)
     ```
     """
-    def __init__(self, model_function, hparam_ranges, loss='val_loss',
-                 repo_dir='./hyperband_repository', dataset=None,
-                 generator_function=None, train_gen_args=None, steps_per_epoch=None,
-                 valid_gen_args=None, validation_steps=None):
-        assert hparam_ranges
-        assert model_function
-        assert dataset or generator_function, "You need to pass either a dataset array or generator arguments"
-        assert steps_per_epoch and validation_steps if generator_function else True,\
-            "You need to pass the number of batches/steps per epoch for training and validation"
-
-        os.makedirs(repo_dir) if not os.path.exists(repo_dir) else None
-
-        self.results_table = ResultsTable(repo_dir)
-
-        repo = Repository(model_function=model_function,
-                          dataset=dataset,
-                          results_table=self.results_table,
-                          dir=repo_dir,
-                          loss=loss,
-                          generator_function=generator_function,
-                          train_gen_args=train_gen_args,
-                          steps_per_epoch=steps_per_epoch,
-                          valid_gen_args=valid_gen_args,
-                          validation_steps=validation_steps)
-
-        self.scheduler = JobScheduler(repository=repo)
-        # Note, if we pass a scheduler we still need to pass the repo to it
-
+    def __init__(self, model_function, hparam_ranges,
+                 repo_dir='./hyperband_repository', loss='val_loss',
+                 dataset=None,
+                 generator_function=None, train_gen_args=None,
+                 steps_per_epoch=None, valid_gen_args=None,
+                 validation_steps=None):
+        super(self.__class__, self).__init__(model_function=model_function,
+                                             loss=loss,
+                                        repo_dir=repo_dir,
+                                        dataset=dataset,
+                                        generator_function=generator_function,
+                                        train_gen_args=train_gen_args,
+                                        steps_per_epoch=steps_per_epoch,
+                                        valid_gen_args=valid_gen_args,
+                                        validation_steps=validation_steps)
         self.hparam_gen = RandomGenerator(hparam_ranges)
 
     def run(self, R=20, eta=3):
@@ -113,45 +146,77 @@ class Hyperband(object):
                 n_i = int(n * eta ** (-i))
                 r_i = int(round(r * eta ** (i)))
 
+
+                run = s_max - s + 1
                 if i == 0:
-                    [self.scheduler.submit(run_id=(s, j), hparams=self.hparam_gen.next(), epochs=r_i) for j in range(n_i)]
+                    [self.scheduler.submit(run_id=(run, j),
+                                           hparams=self.hparam_gen.next(),
+                                           epochs=r_i) for j in range(1,
+                                                                      n_i+1)]
                 else:
-                    [self.scheduler.submit(run_id=(s, T_j), epochs=r_i) for T_j in self.results_table.get_k_lowest_from_run(n_i, s)]
+                    [self.scheduler.submit(run_id=(run, T_j), epochs=r_i) for
+                     T_j in self.results_table.get_k_lowest_from_run(n_i, run)]
 
         return self.results_table._get_table()
 
 
-class RandomSearch(Hyperband):
+class RandomSearch(Algorithm):
     """
-    Base class for specific algorithms e.g. Hyper-band
-
-    # Example:
-
-    Hyperband(my_model, my_dataset, my_hparam_ranges, my_scheduler, repo_dir='./example/')
-
-    Initializes entire pipeline
-
-    init hparam_gen(hparam_ranges)
-    init results(repo_dir)
-    init repo(results, model_func, dataset, repo_dir)
-    scheduler.set_repository(repo)
+    This is in analogue to Hyperband, a regular sequential random search.
     """
-    def __init__(self, **kwargs):
-        super(RandomSearch, self).__init__(**kwargs)
-
+    def __init__(self, model_function, hparam_ranges, loss='val_loss',
+                 repo_dir='./random_search_repository', dataset=None,
+                 generator_function=None, train_gen_args=None,
+                 steps_per_epoch=None, valid_gen_args=None,
+                 validation_steps=None):
+        super(RandomSearch, self).__init__(model_function=model_function,
+                                           loss=loss,
+                                            repo_dir=repo_dir,
+                                            dataset=dataset,
+                                            generator_function=generator_function,
+                                            train_gen_args=train_gen_args,
+                                            steps_per_epoch=steps_per_epoch,
+                                            valid_gen_args=valid_gen_args,
+                                            validation_steps=validation_steps)
+        self.hparam_gen = RandomGenerator(hparam_ranges)
 
     def run(self, num_experiments, num_epochs):
-        """
-        Args:
-            num_experiments:
-            num_epochs:
-
-        Returns:
-
-        """
         run = 1
         for id in range(num_experiments):
-            self.scheduler.submit(run_id=(run, id), hparams=self.hparam_gen.next(), epochs=num_epochs)
+            self.scheduler.submit(run_id=(run, id),
+                                  hparams=self.hparam_gen.next(),
+                                  epochs=num_epochs)
+            print(self.results_table._get_table())
+
+        return self.results_table._get_table()
+
+
+class BayesianOptimization(Algorithm):
+    def __init__(self, model_function, hparam_ranges,
+                 repo_dir='./random_search_repository', dataset=None,
+                 generator_function=None, train_gen_args=None,
+                 steps_per_epoch=None, valid_gen_args=None,
+                 validation_steps=None):
+        raise NotImplementedError("This is not done yet!")
+        super(BayesianOptimization, self).__init__(model_function=model_function,
+                                            repo_dir=repo_dir,
+                                            dataset=dataset,
+                                            generator_function=generator_function,
+                                            train_gen_args=train_gen_args,
+                                            steps_per_epoch=steps_per_epoch,
+                                            valid_gen_args=valid_gen_args,
+                                            validation_steps=validation_steps)
+        self.hparam_gen = GaussianProcessEI(hparam_ranges)
+
+    def run(self, num_experiments, num_epochs):
+        run = 1
+        for id in range(num_experiments):
+            X = self.results_table.get_columns('Hyperparameters:')
+            y = self.results_table.get_columns('Val_loss')
+            next_hparams = self.hparam_gen.next(X=X, y=y)
+            self.scheduler.submit(run_id=(run, id),
+                                  hparams=next_hparams,
+                                  epochs=num_epochs)
             print(self.results_table._get_table())
 
         return self.results_table._get_table()
