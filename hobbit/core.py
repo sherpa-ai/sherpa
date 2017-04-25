@@ -96,12 +96,7 @@ class Repository(object):
             train_gen_function, valid_gen_function = self.get_train_and_validation_generator_functions()
 
             gen = self.initialize_generator(train_gen_function, self.train_gen_args)
-
-            if valid_gen_function:
-                valid_gen = self.initialize_generator(valid_gen_function, self.valid_gen_args)
-            else:
-                warnings.warn("Using training set as validation set", RuntimeWarning)
-                valid_gen = self.initialize_generator(train_gen_function, self.train_gen_args)
+            valid_gen = self.initialize_generator(valid_gen_function, self.valid_gen_args)
 
             lowest_loss, epochs_seen = exp.fit(generator=gen,
                                                    steps_per_epoch=self.steps_per_epoch,
@@ -121,7 +116,7 @@ class Repository(object):
             valid_gen_function = self.generator_function[1]
         else:
             train_gen_function = self.generator_function
-            valid_gen_function = None
+            valid_gen_function = self.generator_function
 
         return [train_gen_function, valid_gen_function]
 
