@@ -2,6 +2,16 @@ import math
 
 
 def visualize_hyperband_params():
+    """
+    This function visualizes the training schedule for any values of R and
+    eta in a table format similar to that in [Kevin Jamieson's Blog post](
+    https://people.eecs.berkeley.edu/~kjamieson/hyperband.html).
+
+    # Arguments
+    R: The maximum number of epochs per 'stage', also max_iter in the blog post
+    eta: The cut-factor.
+
+    """
     R = input("Enter R: ") or 81
     eta = input("Enter eta (default 3): ") or 3
     R = float(R)

@@ -27,7 +27,6 @@ class Algorithm(object):
                 assert callable(generator_function),\
                     "Generator needs to be a function"
 
-
         os.makedirs(repo_dir) if not os.path.exists(repo_dir) else None
 
         self.results_table = ResultsTable(repo_dir)
@@ -45,7 +44,6 @@ class Algorithm(object):
 
         self.scheduler = JobScheduler(repository=repo)
         # Note, if we pass a scheduler we still need to pass the repo to it
-
 
     def run(self, *args, **kwargs):
         raise NotImplemented("This function needs to be implemented in child"
@@ -138,14 +136,12 @@ class Hyperband(Algorithm):
         B = (s_max + 1) * R
 
         for s in reversed(range(s_max + 1)):
-            n = int(math.ceil(B / R / (s + 1) * eta ** s))  # initial number of configurations
-            r = R * eta ** (-s)  # initial number of iterations to run configurations for
+            n = int(math.ceil(B / R / (s + 1) * eta ** s))
+            r = R * eta ** (-s)
 
             for i in range(s + 1):
-                # Run each of the n_i configs for r_i iterations and keep best n_i/eta
                 n_i = int(n * eta ** (-i))
                 r_i = int(round(r * eta ** (i)))
-
 
                 run = s_max - s + 1
                 if i == 0:
@@ -157,7 +153,7 @@ class Hyperband(Algorithm):
                     [self.scheduler.submit(run_id=(run, T_j), epochs=r_i) for
                      T_j in self.results_table.get_k_lowest_from_run(n_i, run)]
 
-        return self.results_table._get_table()
+        return self.results_table.get_table()
 
 
 class RandomSearch(Algorithm):
@@ -169,11 +165,12 @@ class RandomSearch(Algorithm):
                  generator_function=None, train_gen_args=None,
                  steps_per_epoch=None, valid_gen_args=None,
                  validation_steps=None):
-        super(RandomSearch, self).__init__(model_function=model_function,
-                                           loss=loss,
+        super(self.__class__, self).__init__(model_function=model_function,
+                                            loss=loss,
                                             repo_dir=repo_dir,
                                             dataset=dataset,
-                                            generator_function=generator_function,
+                                            generator_function=
+                                            generator_function,
                                             train_gen_args=train_gen_args,
                                             steps_per_epoch=steps_per_epoch,
                                             valid_gen_args=valid_gen_args,
@@ -186,7 +183,7 @@ class RandomSearch(Algorithm):
             self.scheduler.submit(run_id=(run, id),
                                   hparams=self.hparam_gen.next(),
                                   epochs=num_epochs)
-            print(self.results_table._get_table())
+            print(self.results_table.get_table())
 
-        return self.results_table._get_table()
+        return self.results_table.get_table()
 

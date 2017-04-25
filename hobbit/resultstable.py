@@ -25,7 +25,7 @@ class ResultsTable(object):
         # Returns:
             list of id's from this run
         """
-        df = self._get_table()
+        df = self.get_table()
         df_run = df[df['Run'] == run]
         sorted_df_run = df_run.sort_values(by='Loss', ascending=True)
         return list(sorted_df_run['ID'][0:k])
@@ -40,7 +40,7 @@ class ResultsTable(object):
         # Returns:
              list with run-id strings to identify models 
         """
-        df = self._get_table()
+        df = self.get_table()
         sorted_df_run = df.sort_values(by='Loss', ascending=True)
         ids = list(sorted_df_run['ID'][0:k])
         runs = list(sorted_df_run['Run'][0:k])
@@ -60,7 +60,7 @@ class ResultsTable(object):
 
 
         """
-        df = self._get_table()
+        df = self.get_table()
         run, id = run_id
         if hparams:
             new_line = pd.DataFrame({key: [val] for key, val in zip(self.keys, (run, id, hparams, loss, epochs))},
@@ -94,15 +94,19 @@ class ResultsTable(object):
         """
         return pd.DataFrame(columns=self.keys)
 
-    def _get_table(self):
+    def get_table(self):
         """
         Loads table from disk and returns it.
         # Returns: pandas df
 
         """
-        return self._load(self.csv_path)
+        return pd.read_csv(self.csv_path, index_col=0, dtype={'Run': np.int32,
+                                                     'Epochs': np.int32,
+                                                     'ID': np.int32,
+                                                     'Loss': np.float64,
+                                                     'Hparams': np.dtype('U')})
 
-    def _get(self, run_id, parameter=None):
+    def get(self, run_id, parameter=None):
         """
         Returns parameter value of a model from the table
         Args:
@@ -113,25 +117,13 @@ class ResultsTable(object):
 
         """
         run, id = run_id
-        df = self._get_table()
-        assert parameter is not None, "you must specify a parameter to get from the resultstable keys"
+        df = self.get_table()
+        assert parameter is not None, "you must specify a parameter to get" \
+                                      "from the resultstable keys"
         assert parameter in self.keys, \
-            'parameter must match with one of the keys of resultstable, found {}'.format(parameter)
+            'parameter must match with one of the keys of resultstable,' \
+            'found {}'.format(parameter)
         return df.ix[self._get_idx(run, id)][parameter]
-
-    def get_loss(self, run_id):
-        return self._get(run_id, 'Loss')
-
-    def _load(self, path):
-        """
-        Returns:
-            pandas dataframe, loaded from on-disk csv
-        """
-        return pd.read_csv(path, index_col=0, dtype={'Run': np.int32,
-                                                     'Epochs': np.int32,
-                                                     'ID': np.int32,
-                                                     'Loss': np.float64,
-                                                     'Hparams': np.dtype('U')})
 
     def _save(self, df):
         """

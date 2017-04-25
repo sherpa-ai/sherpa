@@ -1,7 +1,6 @@
 from __future__ import absolute_import
 from .experiment import Experiment
 from .resultstable import ResultsTable
-import warnings
 
 
 class Hyperparameter(object):
@@ -105,13 +104,15 @@ class Repository(object):
                                                    validation_data=valid_gen,
                                                    validation_steps=self.validation_steps)
 
-        # del exp
         self.results_table.set(run_id=run_id, hparams=hparams, loss=lowest_loss, epochs=epochs_seen)
 
     def get_train_and_validation_generator_functions(self):
         if isinstance(self.generator_function, tuple):
-            assert len(self.generator_function) == 2, "Generator function tuple needs to be length 2, one " \
-                                                      "training and one validation."
+            assert len(self.generator_function) == 2, "Generator function" \
+                                                      "tuple needs to be " \
+                                                      "length 2, one " \
+                                                      "training and one " \
+                                                      "validation."
             train_gen_function = self.generator_function[0]
             valid_gen_function = self.generator_function[1]
         else:
@@ -129,19 +130,10 @@ class Repository(object):
         elif args is None:
             gen = gen_function()
         else:
-            raise TypeError("Please provide generator arguments as dictionary, list or tuple."
+            raise TypeError("Please provide generator arguments as dictionary,"
+                            "list or tuple."
                             "Found: " + str(args) + " of type " + type(args))
         return gen
-
-    def rebuild(self, path):
-        """
-        Rebuilds the repository and results from a directory e.g. after a crash
-        Args:
-            path:
-
-        Returns:
-
-        """
 
     def _get_experiment(self, run_id, hparams=None):
         """
@@ -154,4 +146,5 @@ class Repository(object):
 
         """
         new_model = self.model_function(hparams) if hparams else None
-        return Experiment(path=self.repo_dir, name=run_id_to_str(run_id), model=new_model)
+        return Experiment(path=self.repo_dir, name=run_id_to_str(run_id),
+                          model=new_model)
