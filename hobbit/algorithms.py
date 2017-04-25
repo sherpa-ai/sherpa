@@ -190,33 +190,3 @@ class RandomSearch(Algorithm):
 
         return self.results_table._get_table()
 
-
-class BayesianOptimization(Algorithm):
-    def __init__(self, model_function, hparam_ranges,
-                 repo_dir='./random_search_repository', dataset=None,
-                 generator_function=None, train_gen_args=None,
-                 steps_per_epoch=None, valid_gen_args=None,
-                 validation_steps=None):
-        raise NotImplementedError("This is not done yet!")
-        super(BayesianOptimization, self).__init__(model_function=model_function,
-                                            repo_dir=repo_dir,
-                                            dataset=dataset,
-                                            generator_function=generator_function,
-                                            train_gen_args=train_gen_args,
-                                            steps_per_epoch=steps_per_epoch,
-                                            valid_gen_args=valid_gen_args,
-                                            validation_steps=validation_steps)
-        self.hparam_gen = GaussianProcessEI(hparam_ranges)
-
-    def run(self, num_experiments, num_epochs):
-        run = 1
-        for id in range(num_experiments):
-            X = self.results_table.get_columns('Hyperparameters:')
-            y = self.results_table.get_columns('Val_loss')
-            next_hparams = self.hparam_gen.next(X=X, y=y)
-            self.scheduler.submit(run_id=(run, id),
-                                  hparams=next_hparams,
-                                  epochs=num_epochs)
-            print(self.results_table._get_table())
-
-        return self.results_table._get_table()
