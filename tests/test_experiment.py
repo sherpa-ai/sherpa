@@ -51,7 +51,7 @@ import h5py
 #
 #     shutil.rmtree(tmp_folder)
 
-
+@pytest.mark.run(order=4)
 def test_experiment_with_generator():
     """
     Runs tests on experiment class when the dataset is from a generator

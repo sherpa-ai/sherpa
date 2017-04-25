@@ -69,7 +69,8 @@ class Hyperband(object):
     results = hband.run(R=20, eta=3)
     ```
     """
-    def __init__(self, model_function, hparam_ranges, repo_dir='./hyperband_repository', dataset=None,
+    def __init__(self, model_function, hparam_ranges, loss='val_loss',
+                 repo_dir='./hyperband_repository', dataset=None,
                  generator_function=None, train_gen_args=None, steps_per_epoch=None,
                  valid_gen_args=None, validation_steps=None):
         assert hparam_ranges
@@ -86,6 +87,7 @@ class Hyperband(object):
                           dataset=dataset,
                           results_table=self.results_table,
                           dir=repo_dir,
+                          loss=loss,
                           generator_function=generator_function,
                           train_gen_args=train_gen_args,
                           steps_per_epoch=steps_per_epoch,

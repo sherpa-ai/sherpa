@@ -48,7 +48,7 @@ class Experiment(object):
         with open(self._get_path('_history.pkl'), 'wb') as f:
             pickle.dump(self.history, f)
 
-    def fit(self, **kwargs):
+    def fit(self, loss='val_loss', **kwargs):
         """
         Fits model for one iteration
         Args:
@@ -64,8 +64,9 @@ class Experiment(object):
             keras_hist = self.model.fit_generator(initial_epoch=self.history['epochs'], epochs=epochs, max_q_size=20, **kwargs)
         else:
             keras_hist = self.model.fit(initial_epoch=self.history['epochs'], epochs=epochs, **kwargs)
-
-        this_loss = min(keras_hist.history['val_loss'])
+        
+        # Save best loss.
+        this_loss = min(keras_hist.history[loss])
         self.history['best_loss'] = min(this_loss, self.history['best_loss'])
         self.history['epochs'] += len(keras_hist.epoch)
         self._save()

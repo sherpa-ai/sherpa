@@ -9,7 +9,7 @@ class ResultsTable(object):
     """
     def __init__(self, dir):
         self.csv_path = os.path.join(dir, 'results.csv')
-        self.keys = ('Run', 'ID', 'Hparams', 'Val Loss', 'Epochs')
+        self.keys = ('Run', 'ID', 'Hparams', 'Loss', 'Epochs')
         df = self._create_table()
         self._save(df)
         return
@@ -27,7 +27,7 @@ class ResultsTable(object):
         """
         df = self._get_table()
         df_run = df[df['Run'] == run]
-        sorted_df_run = df_run.sort_values(by='Val Loss', ascending=True)
+        sorted_df_run = df_run.sort_values(by='Loss', ascending=True)
         return list(sorted_df_run['ID'][0:k])
 
     def get_k_lowest(self, k):
@@ -41,7 +41,7 @@ class ResultsTable(object):
              list with run-id strings to identify models 
         """
         df = self._get_table()
-        sorted_df_run = df.sort_values(by='Val Loss', ascending=True)
+        sorted_df_run = df.sort_values(by='Loss', ascending=True)
         ids = list(sorted_df_run['ID'][0:k])
         runs = list(sorted_df_run['Run'][0:k])
         id_run = []
@@ -49,13 +49,13 @@ class ResultsTable(object):
             id_run.append(self._get_idx(row_id[0], row_id[1]))
         return id_run
 
-    def set(self, run_id, val_loss, epochs, hparams=None):
+    def set(self, run_id, loss, epochs, hparams=None):
         """
         Sets a value for a model using (run, id) as identifier and saves the hyperparameter description of it. 
         
         # Args:
             run_id: Tuple, contains run and id numbers
-            val_loss: float, validation loss value to set in table
+            loss: float, e.g. validation loss value to set in table
             hparams:
 
 
@@ -63,11 +63,11 @@ class ResultsTable(object):
         df = self._get_table()
         run, id = run_id
         if hparams:
-            new_line = pd.DataFrame({key: [val] for key, val in zip(self.keys, (run, id, hparams, val_loss, epochs))},
+            new_line = pd.DataFrame({key: [val] for key, val in zip(self.keys, (run, id, hparams, loss, epochs))},
                                     index=[self._get_idx(run, id)])
             df = df.append(new_line)
         else:
-            df.set_value(index=self._get_idx(run, id), col='Val Loss', value=val_loss)
+            df.set_value(index=self._get_idx(run, id), col='Loss', value=loss)
             df.set_value(index=self._get_idx(run, id), col='Epochs', value=epochs)
         self._save(df)
 
@@ -119,8 +119,8 @@ class ResultsTable(object):
             'parameter must match with one of the keys of resultstable, found {}'.format(parameter)
         return df.ix[self._get_idx(run, id)][parameter]
 
-    def get_val_loss(self, run_id):
-        return self._get(run_id, 'Val Loss')
+    def get_loss(self, run_id):
+        return self._get(run_id, 'Loss')
 
     def _load(self, path):
         """
@@ -130,7 +130,7 @@ class ResultsTable(object):
         return pd.read_csv(path, index_col=0, dtype={'Run': np.int32,
                                                      'Epochs': np.int32,
                                                      'ID': np.int32,
-                                                     'Val Loss': np.float64,
+                                                     'Loss': np.float64,
                                                      'Hparams': np.dtype('U')})
 
     def _save(self, df):

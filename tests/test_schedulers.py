@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 from hobbit.utils.testing_utils import read_nvidia_smi, gpu_exists
 
-@pytest.mark.run(order=6)
+@pytest.mark.run(order=7)
 def test_job_scheduler():
     tmp_folder = tempfile.mkdtemp(prefix='test_repo')
 
@@ -34,7 +34,7 @@ def test_job_scheduler():
     scheduler.submit(run_id=(1, 1), epochs=3)
     scheduler.submit(run_id=(1, 2), epochs=3)
 
-    assert np.isclose(results_table.get_val_loss((1, 1)), results_table.get_val_loss((1, 2)), rtol=0.02, atol=0.02)
+    assert np.isclose(results_table.get_loss((1, 1)), results_table.get_loss((1, 2)), rtol=0.02, atol=0.02)
 
     shutil.rmtree(tmp_folder)
 

@@ -22,7 +22,7 @@ def test_resultstable_methods():
     run = 1
     for id in range(1, 11):
         hparams = {'num_layers': id}
-        restab.set(run_id=(run, id), hparams=hparams, val_loss=id/100, epochs=5)  # create new entries
+        restab.set(run_id=(run, id), hparams=hparams, loss=id/100, epochs=5)  # create new entries
 
     # retrieve test_k best models
     test_k = 5
@@ -36,17 +36,18 @@ def test_resultstable_methods():
         next(reader)
         for i, line in enumerate(reader, start=1):
             print(line)
-            run_id, epochs, hparams, id, run, val_loss = line
+            #run_id, epochs, hparams, id, run, loss = line
+            run_id, epochs, hparams, id, loss, run = line
             assert int(run) == 1
             assert int(id) == i
             print(hparams)
             assert hparams == '{\'num_layers\': ' + str(i) + '}'
-            assert float(val_loss) == i/100.
+            assert float(loss) == i/100.
             assert int(epochs) == 5
 
     # test set for updating
-    restab.set(run_id=(1, 2), val_loss=0.9, epochs=2)
-    assert restab.get_val_loss((1, 2)) == 0.9
+    restab.set(run_id=(1, 2), loss=0.9, epochs=2)
+    assert restab.get_loss((1, 2)) == 0.9
     assert restab.get_k_lowest_from_run(k=1, run=1) == [1]
 
     shutil.rmtree(tmp_folder)
