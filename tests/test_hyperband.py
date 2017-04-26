@@ -24,7 +24,7 @@ def test_hyperband():
 
     tmp_folder = tempfile.mkdtemp(prefix='test_repo')
 
-    my_dataset = load_dataset(short=True)
+    my_dataset = load_dataset(short=False)
 
     my_hparam_ranges = [Hyperparameter(name='num_units', distr_args=[(1, 5, 50)], distribution='choice'),
                         Hyperparameter(name='lr', distr_args=[(0.01,)], distribution='choice')]
@@ -111,4 +111,4 @@ def test_hyperband_with_generator():
 
 if __name__ == '__main__':
     # pytest.main([__file__])
-    test_hyperband_with_generator()
+    test_hyperband()

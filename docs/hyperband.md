@@ -37,16 +37,6 @@ __Methods__
 Runs the algorithm with **R** maximum epochs per stage and cut factor
 **eta** between stages.
 
-__run__
-
-- __R__: The maximum epochs per stage. Hyperband has multiple runs each of
-	which goes through multiple stages to discard configurations. At each
-	of those stages Hyperband will train for a total of R epochs
-- __eta__: The cut-factor. After each stage Hyperband will reduce the number
-	of configurations by this factor. The training
-	iterations for configurations that move to the next stage increase
-	by this factor
-
 __Example__
 
 ```python
@@ -68,3 +58,54 @@ hband = Hyperband(model_function=my_model,
 
 results = hband.run(R=20, eta=3)
 ```
+
+
+
+__run__
+
+- __R__: The maximum epochs per stage. Hyperband has multiple runs each of
+	which goes through multiple stages to discard configurations. At each
+	of those stages Hyperband will train for a total of R epochs
+- __eta__: The cut-factor. After each stage Hyperband will reduce the number
+	of configurations by this factor. The training
+	iterations for configurations that move to the next stage increase
+	by this factor
+
+__Notes__
+
+At the beginning of the optimization Hobbit prints the schedule in which
+it will initiate new configurations and continue old ones and the total
+number of epochs. For example:
+
+```python
+
+----------------------------------------------------------------------------------------------------
+	run=1		run=2		run=3		run=4		run=5
+	models	epochs	models	epochs	models	epochs	models	epochs	models	epochs
+Init	81	1	34	3	15	9	8	27	5	81
+Cont	27	3	11	9	5	27	2	81
+Cont	9	9	3	27	1	81
+Cont	3	27	1	81
+Cont	1	81
+----------------------------------------------------------------------------------------------------
+Total epochs=1902
+----------------------------------------------------------------------------------------------------
+```
+This means in the first run 81 models are initialized and trained for one
+epoch, then the 27 best are continued for 3 epochs etc., in the next run
+34 configurations are initialized and 11 continued etc. The training
+schedule depends on **R** and **eta**. You can experiment with the values
+of those by calling the function ```visualize_hyperband_params()``` in
+```hobbit.utils.monitoring_utils```. After the first model has been trained
+Hobbit will also print an estimate of how long the entire optimization
+will take.
+
+__Reducing Optimization Time__
+
+If you want to explore many models but don't have the time for a long
+optimization we recommend to cut the number of training batches and
+validation batches and have your generators start from a random point
+in the dataset. That way an epoch is shorter in time, yet if you train
+for multiple epochs you still get to use your entire dataset.
+
+

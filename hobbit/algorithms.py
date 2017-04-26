@@ -1,7 +1,9 @@
 from __future__ import absolute_import
+from __future__ import division
 from .schedulers import JobScheduler
 from .resultstable import ResultsTable
 from .hparam_generators import RandomGenerator
+from .utils.monitoring_utils import visualize_hyperband_params, timedcall
 from . import Repository
 import math
 import os
@@ -131,6 +133,9 @@ class Hyperband(Algorithm):
         self.hparam_gen = RandomGenerator(hparam_ranges)
 
     def run(self, R=20, eta=3):
+
+        total_epochs = visualize_hyperband_params(R=R, eta=eta)
+
         log_eta = lambda x: math.log(x) / math.log(eta)
         s_max = int(log_eta(R))
         B = (s_max + 1) * R
@@ -145,13 +150,32 @@ class Hyperband(Algorithm):
 
                 run = s_max - s + 1
                 if i == 0:
-                    [self.scheduler.submit(run_id=(run, j),
-                                           hparams=self.hparam_gen.next(),
-                                           epochs=r_i) for j in range(1,
-                                                                      n_i+1)]
+                    for j in range(1, n_i+1):
+                        if s==s_max and i==0 and j==1:
+                            time, result = timedcall(self.scheduler.submit,
+                                                    {'run_id': (run, j),
+                                                     'hparams':
+                                                         self.hparam_gen.next(),
+                                                     'epochs': r_i})
+
+                            secs = total_epochs*time/r_i
+                            hrs = secs//3600
+                            mins =(secs%3600)//60
+                            print('-'*100)
+                            print('\nThe complete Hyperband optimization is '
+                                  'estimated to take {}hrs and {} '
+                                  'mins\n'.format(
+                                hrs, mins))
+                            print('-'*100)
+
+                        else:
+                            self.scheduler.submit(run_id=(run, j),
+                                                  hparams=self.hparam_gen.next(),
+                                                  epochs=r_i)
                 else:
-                    [self.scheduler.submit(run_id=(run, T_j), epochs=r_i) for
-                     T_j in self.results_table.get_k_lowest_from_run(n_i, run)]
+                    for T_j in self.results_table.get_k_lowest_from_run(n_i,
+                                                                        run):
+                        self.scheduler.submit(run_id=(run, T_j), epochs=r_i)
 
         return self.results_table.get_table()
 
