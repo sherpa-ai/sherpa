@@ -54,7 +54,7 @@ class Repository(object):
     """
     def __init__(self, model_function, results_table, dir='./', loss='val_loss', dataset=None,
                  generator_function=None, train_gen_args=None, steps_per_epoch=None,
-                 valid_gen_args=None, validation_steps=None):
+                 validation_data=None, valid_gen_args=None, validation_steps=None):
         assert isinstance(results_table, ResultsTable)
         assert isinstance(dataset, tuple) if dataset else True
         assert isinstance(dir, str)
@@ -67,6 +67,7 @@ class Repository(object):
         self.generator_function = generator_function
         self.train_gen_args = train_gen_args
         self.steps_per_epoch = steps_per_epoch
+        self.validation_data = validation_data
         self.valid_gen_args = valid_gen_args
         self.validation_steps = validation_steps
         return
@@ -89,8 +90,8 @@ class Repository(object):
         exp = self._get_experiment(run_id=run_id, hparams=hparams)
 
         if self.dataset:
-            lowest_loss, epochs_seen = exp.fit(x=self.dataset[0][0], y=self.dataset[0][1], epochs=epochs, loss=self.loss,
-                                                   batch_size=100, validation_data=self.dataset[1])
+            lowest_loss, epochs_seen = exp.fit(x=self.dataset[0], y=self.dataset[1], epochs=epochs, loss=self.loss,
+                                                   batch_size=100, validation_data=self.validation_data)
         else:
             train_gen_function, valid_gen_function = self.get_train_and_validation_generator_functions()
 
@@ -107,14 +108,9 @@ class Repository(object):
         self.results_table.set(run_id=run_id, hparams=hparams, loss=lowest_loss, epochs=epochs_seen)
 
     def get_train_and_validation_generator_functions(self):
-        if isinstance(self.generator_function, tuple):
-            assert len(self.generator_function) == 2, "Generator function" \
-                                                      "tuple needs to be " \
-                                                      "length 2, one " \
-                                                      "training and one " \
-                                                      "validation."
-            train_gen_function = self.generator_function[0]
-            valid_gen_function = self.generator_function[1]
+        if self.generator_function and self.validation_data:
+            train_gen_function = self.generator_function
+            valid_gen_function = self.validation_data
         else:
             train_gen_function = self.generator_function
             valid_gen_function = self.generator_function
