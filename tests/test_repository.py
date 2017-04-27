@@ -20,7 +20,7 @@ def test_repository():
 
     (x_train, y_train), (x_test, y_test) = load_dataset()
 
-    repo = Repository(model_function=create_model, dataset=((x_train, y_train), (x_test, y_test)),
+    repo = Repository(model_function=create_model, dataset=(x_train, y_train), validation_data=(x_test, y_test),
                       results_table=results_table, dir=tmp_folder)
 
     hparams = {'lr': 0.01, 'num_units': 100}
@@ -31,7 +31,7 @@ def test_repository():
     repo.train(run_id=(1, 1), epochs=3)
     repo.train(run_id=(1, 2), epochs=3)
 
-    assert np.isclose(results_table.get_loss((1, 1)), results_table.get_loss((1, 2)), rtol=0.05, atol=0.05)
+    assert np.isclose(results_table.get((1, 1), parameter='Loss'), results_table.get((1, 2), parameter='Loss'), rtol=0.05, atol=0.05)
 
     # train model in regular way for 5 epochs
     total_epochs = 5
@@ -41,8 +41,8 @@ def test_repository():
                           batch_size=batch_size, epochs=total_epochs,
                           verbose=1, validation_data=(x_test, y_test))
 
-    assert np.isclose(results_table.get_loss(run_id=(1, 1)), min(hist.history['val_loss']), rtol=0.05, atol=0.05)
-    assert np.isclose(results_table.get_loss(run_id=(1, 2)), min(hist.history['val_loss']), rtol=0.05, atol=0.05)
+    assert np.isclose(results_table.get(run_id=(1, 1), parameter='Loss'), min(hist.history['val_loss']), rtol=0.05, atol=0.05)
+    assert np.isclose(results_table.get(run_id=(1, 2), parameter='Loss'), min(hist.history['val_loss']), rtol=0.05, atol=0.05)
 
     # manually load tmp_folder/results.csv
     with open(os.path.join(tmp_folder, 'results.csv')) as f:
@@ -85,7 +85,7 @@ def test_repository_with_generator():
         repo.train(run_id=(1, 1), epochs=3)
         repo.train(run_id=(1, 2), epochs=3)
 
-        assert np.isclose(results_table.get_loss((1, 1)), results_table.get_loss((1, 2)), rtol=0.05, atol=0.05)
+        assert np.isclose(results_table.get((1, 1), parameter='Loss'), results_table.get((1, 2), parameter='Loss'), rtol=0.05, atol=0.05)
 
         # train model in regular way for 5 epochs
         total_epochs = 5
@@ -99,8 +99,8 @@ def test_repository_with_generator():
                                                                            batch_size=batch_size),
                                         validation_steps=num_test_batches)
 
-        assert np.isclose(results_table.get_loss(run_id=(1, 1)), min(hist.history['val_loss']), rtol=0.2, atol=0.2)
-        assert np.isclose(results_table.get_loss(run_id=(1, 2)), min(hist.history['val_loss']), rtol=0.2, atol=0.2)
+        assert np.isclose(results_table.get(run_id=(1, 1), parameter='Loss'), min(hist.history['val_loss']), rtol=0.2, atol=0.2)
+        assert np.isclose(results_table.get(run_id=(1, 2), parameter='Loss'), min(hist.history['val_loss']), rtol=0.2, atol=0.2)
 
     shutil.rmtree(tmp_folder)
 

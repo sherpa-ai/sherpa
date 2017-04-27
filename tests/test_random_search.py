@@ -17,14 +17,15 @@ def test_random_search():
 
     tmp_folder = tempfile.mkdtemp(prefix='test_repo')
 
-    my_dataset = load_dataset()
+    train_dataset, valid_dataset = load_dataset()
 
     my_hparam_ranges = [Hyperparameter('learning_rate', distr_args=(0.0001, 0.1), distribution='log-uniform'),
                         Hyperparameter('activation', distr_args=[('sigmoid', 'tanh', 'relu')], distribution='choice'),
                         Hyperparameter('dropout', distr_args=(0., 1.), distribution='uniform')]
 
     rs = RandomSearch(model_function=my_model,
-                        dataset=my_dataset,
+                        dataset=train_dataset,
+                        validation_data=valid_dataset,
                         hparam_ranges=my_hparam_ranges,
                         repo_dir=tmp_folder)
 

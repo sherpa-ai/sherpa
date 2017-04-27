@@ -21,7 +21,7 @@ def test_job_scheduler():
 
     (x_train, y_train), (x_test, y_test) = load_dataset()
 
-    repo = Repository(model_function=create_model, dataset=((x_train, y_train), (x_test, y_test)),
+    repo = Repository(model_function=create_model, dataset=(x_train, y_train), validation_data=(x_test, y_test),
                       results_table=results_table, dir=tmp_folder)
 
     scheduler = JobScheduler(repository=repo)
@@ -34,7 +34,7 @@ def test_job_scheduler():
     scheduler.submit(run_id=(1, 1), epochs=3)
     scheduler.submit(run_id=(1, 2), epochs=3)
 
-    assert np.isclose(results_table.get_loss((1, 1)), results_table.get_loss((1, 2)), rtol=0.02, atol=0.02)
+    assert np.isclose(results_table.get((1, 1), parameter='Loss'), results_table.get((1, 2), parameter='Loss'), rtol=0.02, atol=0.02)
 
     shutil.rmtree(tmp_folder)
 

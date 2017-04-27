@@ -13,21 +13,20 @@ class Algorithm(object):
     def __init__(self, model_function, loss='val_loss',
                  repo_dir='./hyperband_repository', dataset=None,
                  generator_function=None, train_gen_args=None, steps_per_epoch=None,
+                 validation_data=None,
                  valid_gen_args=None, validation_steps=None):
         assert model_function and callable(model_function)
         assert dataset or generator_function, "You need to pass either a" \
                                               "dataset array or generator" \
                                               "arguments"
+
         if generator_function:
             assert steps_per_epoch and validation_steps,\
                 "You need to pass the number of batches/steps per epoch for" \
                 "training and validation"
-            if isinstance(generator_function, tuple):
-                assert callable(generator_function[0]) and callable(
-                    generator_function[1]), "Generator needs to be a function"
-            else:
-                assert callable(generator_function),\
-                    "Generator needs to be a function"
+
+            assert callable(generator_function), "Generator needs to be a function"
+            assert callable(validation_data), "Validation data must be a function"
 
         os.makedirs(repo_dir) if not os.path.exists(repo_dir) else None
 
@@ -41,6 +40,7 @@ class Algorithm(object):
                           generator_function=generator_function,
                           train_gen_args=train_gen_args,
                           steps_per_epoch=steps_per_epoch,
+                          validation_data=validation_data,
                           valid_gen_args=valid_gen_args,
                           validation_steps=validation_steps)
 
@@ -67,14 +67,13 @@ class Hyperband(Algorithm):
         dataset: a dataset of the form ((x_train, y_train), (x_valid, y_valid))
             where x_, y_ are NumPy arrays
         generator_function: alternatively to dataset, a generator function can
-            be passed or a tuple of generator functions. This is a function
-            that returns a generator, not a generator itself. For a tuple
-            the first item is the generator function for training, the second
-            for validation.
+            be passed. This is a function that returns a generator, not a generator 
+            itself.
         train_gen_args: arguments to be passed to generator_function when
             producing a training generator
         steps_per_epoch: number of batches for one epoch of training when
             using a generator
+        validation_data: generator function for the validation data, not the generator
         valid_gen_args: arguments to be passed to generator_function when
             producing a validation generator
         validation_steps: number of batches for one epoch of validation when
@@ -119,8 +118,8 @@ class Hyperband(Algorithm):
                  repo_dir='./hyperband_repository', loss='val_loss',
                  dataset=None,
                  generator_function=None, train_gen_args=None,
-                 steps_per_epoch=None, valid_gen_args=None,
-                 validation_steps=None):
+                 steps_per_epoch=None, validation_data=None,
+                 valid_gen_args=None, validation_steps=None):
         super(self.__class__, self).__init__(model_function=model_function,
                                              loss=loss,
                                         repo_dir=repo_dir,
@@ -128,8 +127,10 @@ class Hyperband(Algorithm):
                                         generator_function=generator_function,
                                         train_gen_args=train_gen_args,
                                         steps_per_epoch=steps_per_epoch,
+                                        validation_data=validation_data,
                                         valid_gen_args=valid_gen_args,
                                         validation_steps=validation_steps)
+        print(generator_function)
         self.hparam_gen = RandomGenerator(hparam_ranges)
 
     def run(self, R=20, eta=3):
@@ -187,16 +188,16 @@ class RandomSearch(Algorithm):
     def __init__(self, model_function, hparam_ranges, loss='val_loss',
                  repo_dir='./random_search_repository', dataset=None,
                  generator_function=None, train_gen_args=None,
-                 steps_per_epoch=None, valid_gen_args=None,
-                 validation_steps=None):
+                 steps_per_epoch=None, validation_data=None,
+                 valid_gen_args=None, validation_steps=None):
         super(self.__class__, self).__init__(model_function=model_function,
                                             loss=loss,
                                             repo_dir=repo_dir,
                                             dataset=dataset,
-                                            generator_function=
-                                            generator_function,
+                                            generator_function=generator_function,
                                             train_gen_args=train_gen_args,
                                             steps_per_epoch=steps_per_epoch,
+                                            validation_data=validation_data,
                                             valid_gen_args=valid_gen_args,
                                             validation_steps=validation_steps)
         self.hparam_gen = RandomGenerator(hparam_ranges)
