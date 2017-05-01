@@ -1,7 +1,7 @@
 import numpy as np
 import math
-from sklearn.gaussian_process import GaussianProcessRegressor
-from scipy.stats import norm
+# from sklearn.gaussian_process import GaussianProcessRegressor
+# from scipy.stats import norm
 
 
 def sample_from(dist, distr_args):
