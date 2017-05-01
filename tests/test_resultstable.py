@@ -47,7 +47,7 @@ def test_resultstable_methods():
 
     # test set for updating
     restab.set(run_id=(1, 2), loss=0.9, epochs=2)
-    assert restab.get_loss((1, 2)) == 0.9
+    assert restab.get((1, 2), parameter='Loss') == 0.9
     assert restab.get_k_lowest_from_run(k=1, run=1) == [1]
 
     shutil.rmtree(tmp_folder)

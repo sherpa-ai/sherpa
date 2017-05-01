@@ -24,14 +24,15 @@ def test_hyperband():
 
     tmp_folder = tempfile.mkdtemp(prefix='test_repo')
 
-    my_dataset = load_dataset(short=False)
+    train_dataset, valid_dataset = load_dataset(short=False)
 
     my_hparam_ranges = [Hyperparameter(name='num_units', distr_args=[(1, 5, 50)], distribution='choice'),
                         Hyperparameter(name='lr', distr_args=[(0.01,)], distribution='choice')]
 
 
     hband = Hyperband(model_function=create_model,
-                        dataset=my_dataset,
+                        dataset=train_dataset,
+                        validation_data=valid_dataset,
                         hparam_ranges=my_hparam_ranges,
                         repo_dir=tmp_folder)
 
@@ -82,8 +83,9 @@ def test_hyperband_with_generator():
         hband = Hyperband(model_function=create_model,
                           hparam_ranges=my_hparam_ranges,
                           repo_dir=tmp_folder,
-                          generator_function=(get_hdf5_generator, get_hdf5_generator),
+                          generator_function=get_hdf5_generator,
                           train_gen_args=(f['x_train'], f['y_train'], batch_size),
+                          validation_data=get_hdf5_generator,
                           valid_gen_args={'x': f['x_test'], 'y': f['y_test'], 'batch_size': batch_size},
                           steps_per_epoch=num_train_batches,
                           validation_steps=num_test_batches)
@@ -111,4 +113,5 @@ def test_hyperband_with_generator():
 
 if __name__ == '__main__':
     # pytest.main([__file__])
-    test_hyperband()
+    test_hyperband_with_generator()
+    #test_hyperband()
