@@ -2,7 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from .schedulers import JobScheduler
 from .resultstable import ResultsTable
-from .hparam_generators import RandomGenerator
+from .hparam_generators import RandomGenerator, GaussianProcessEI
 from .utils.monitoring_utils import visualize_hyperband_params, timedcall
 from . import Repository
 import math
@@ -211,3 +211,35 @@ class RandomSearch(Algorithm):
 
         return self.results_table.get_table()
 
+
+class BayesianOptimization(Algorithm):
+    def __init__(self, model_function, hparam_ranges, loss='val_loss',
+                 repo_dir='./bayesian_optimization_repository', dataset=None,
+                 generator_function=None, train_gen_args=None,
+                 steps_per_epoch=None, valid_gen_args=None,
+                 validation_steps=None):
+        super(self.__class__, self).__init__(model_function=model_function,
+                                            loss=loss,
+                                            repo_dir=repo_dir,
+                                            dataset=dataset,
+                                            generator_function=
+                                            generator_function,
+                                            train_gen_args=train_gen_args,
+                                            steps_per_epoch=steps_per_epoch,
+                                            valid_gen_args=valid_gen_args,
+                                            validation_steps=validation_steps)
+        self.hparam_gen = GaussianProcessEI(hparam_ranges)
+        raise NotImplementedError('This is not finished yet')
+
+    def run(self, num_experiments, num_epochs):
+        run = 1
+        for id in range(num_experiments):
+            X = self.results_table.get_hparams_df(as_design_matrix=True)
+            y = self.results_table.get_column('Loss')
+            next_hparams = self.hparam_gen.next(X=X, y=y)
+            self.scheduler.submit(run_id=(run, id),
+                                  hparams=next_hparams,
+                                  epochs=num_epochs)
+            print(self.results_table.get_table())
+
+        return self.results_table.get_table()

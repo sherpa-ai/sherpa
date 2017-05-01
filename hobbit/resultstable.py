@@ -7,11 +7,12 @@ class ResultsTable(object):
     """
     Handles input/output of an underlying hard-disk stored .csv that stores the results
     """
-    def __init__(self, dir):
+    def __init__(self, dir, recreate=False):
         self.csv_path = os.path.join(dir, 'results.csv')
         self.keys = ('Run', 'ID', 'Hparams', 'Loss', 'Epochs')
-        df = self._create_table()
-        self._save(df)
+        if not recreate:
+            df = self._create_table()
+            self._save(df)
         return
 
     def get_k_lowest_from_run(self, k, run):
@@ -133,3 +134,13 @@ class ResultsTable(object):
 
         """
         df.to_csv(self.csv_path)
+
+    def get_hparams_df(self, as_design_matrix=False):
+        df = self.get_table()
+        hparam_df = pd.DataFrame([eval(item) for item in df['Hparams']])
+        return hparam_df if not as_design_matrix else pd.get_dummies(
+            hparam_df, drop_first=True)
+
+    def get_column(self, key='Loss'):
+        df = self.get_table()
+        return df[key]
