@@ -2,3 +2,4 @@
 site/
 .idea/
 *.pyc
+tests/.cache
