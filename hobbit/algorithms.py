@@ -64,6 +64,7 @@ class Hyperband(Algorithm):
             those hyperparameters
         hparam_ranges: a list of Hyperparameter objects
         repo_dir: the directory to store weights and results table in
+        loss: which loss to optimize e.g. 'val_loss', 'val_mse' etc.
         dataset: a dataset of the form ((x_train, y_train), (x_valid, y_valid))
             where x_, y_ are NumPy arrays
         generator_function: alternatively to dataset, a generator function can
