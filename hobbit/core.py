@@ -90,7 +90,7 @@ class Repository(object):
         exp = self._get_experiment(run_id=run_id, hparams=hparams)
 
         batch_size = 100
-        if hparams and 'batch_size' in hparams:
+        if hparams and 'batch_size' in hparams and self.dataset:
             batch_size = hparams['batch_size']
 
         if self.dataset:
