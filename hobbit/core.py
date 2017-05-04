@@ -89,9 +89,13 @@ class Repository(object):
 
         exp = self._get_experiment(run_id=run_id, hparams=hparams)
 
+        batch_size = 100
+        if hparams and 'batch_size' in hparams:
+            batch_size = hparams['batch_size']
+
         if self.dataset:
             lowest_loss, epochs_seen = exp.fit(x=self.dataset[0], y=self.dataset[1], epochs=epochs, loss=self.loss,
-                                                   batch_size=100, validation_data=self.validation_data)
+                                                   batch_size=batch_size, validation_data=self.validation_data)
         else:
             train_gen_function, valid_gen_function = self.get_train_and_validation_generator_functions()
 

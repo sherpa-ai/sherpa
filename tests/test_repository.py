@@ -23,7 +23,7 @@ def test_repository():
     repo = Repository(model_function=create_model, dataset=(x_train, y_train), validation_data=(x_test, y_test),
                       results_table=results_table, dir=tmp_folder)
 
-    hparams = {'lr': 0.01, 'num_units': 100}
+    hparams = {'lr': 0.01, 'num_units': 100, 'batch_size': 64}
 
     repo.train(run_id=(1, 1), hparams=hparams, epochs=2)
     repo.train(run_id=(1, 2), hparams=hparams, epochs=2)
