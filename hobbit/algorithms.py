@@ -131,7 +131,6 @@ class Hyperband(Algorithm):
                                         validation_data=validation_data,
                                         valid_gen_args=valid_gen_args,
                                         validation_steps=validation_steps)
-        print(generator_function)
         self.hparam_gen = RandomGenerator(hparam_ranges)
 
     def run(self, R=20, eta=3):
@@ -215,23 +214,23 @@ class RandomSearch(Algorithm):
 
 
 class BayesianOptimization(Algorithm):
-    def __init__(self, model_function, hparam_ranges, loss='val_loss',
-                 repo_dir='./bayesian_optimization_repository', dataset=None,
+    def __init__(self, model_function, hparam_ranges,
+                 repo_dir='./hyperband_repository', loss='val_loss',
+                 dataset=None,
                  generator_function=None, train_gen_args=None,
-                 steps_per_epoch=None, valid_gen_args=None,
-                 validation_steps=None):
+                 steps_per_epoch=None, validation_data=None,
+                 valid_gen_args=None, validation_steps=None):
         super(self.__class__, self).__init__(model_function=model_function,
-                                            loss=loss,
-                                            repo_dir=repo_dir,
-                                            dataset=dataset,
-                                            generator_function=
-                                            generator_function,
-                                            train_gen_args=train_gen_args,
-                                            steps_per_epoch=steps_per_epoch,
-                                            valid_gen_args=valid_gen_args,
-                                            validation_steps=validation_steps)
+                                             loss=loss,
+                                        repo_dir=repo_dir,
+                                        dataset=dataset,
+                                        generator_function=generator_function,
+                                        train_gen_args=train_gen_args,
+                                        steps_per_epoch=steps_per_epoch,
+                                        validation_data=validation_data,
+                                        valid_gen_args=valid_gen_args,
+                                        validation_steps=validation_steps)
         self.hparam_gen = GaussianProcessEI(hparam_ranges)
-        raise NotImplementedError('This is not finished yet')
 
     def run(self, num_experiments, num_epochs):
         run = 1
@@ -242,6 +241,6 @@ class BayesianOptimization(Algorithm):
             self.scheduler.submit(run_id=(run, id),
                                   hparams=next_hparams,
                                   epochs=num_epochs)
-            print(self.results_table.get_table())
+            # print(self.results_table.get_table())
 
         return self.results_table.get_table()

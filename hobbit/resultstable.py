@@ -138,8 +138,8 @@ class ResultsTable(object):
     def get_hparams_df(self, as_design_matrix=False):
         df = self.get_table()
         hparam_df = pd.DataFrame([eval(item) for item in df['Hparams']])
-        return hparam_df if not as_design_matrix else pd.get_dummies(
-            hparam_df, drop_first=True)
+        return hparam_df if not as_design_matrix or hparam_df.empty else \
+            pd.get_dummies(hparam_df, drop_first=True)
 
     def get_column(self, key='Loss'):
         df = self.get_table()

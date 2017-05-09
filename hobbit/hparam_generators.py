@@ -1,7 +1,7 @@
 import numpy as np
 import math
-# from sklearn.gaussian_process import GaussianProcessRegressor
-# from scipy.stats import norm
+from sklearn.gaussian_process import GaussianProcessRegressor
+from scipy.stats import norm
 
 
 def sample_from(dist, distr_args):
@@ -53,14 +53,16 @@ class GaussianProcessEI(HyperparameterGenerator):
         self.best_y = np.inf if self.lower_is_better else -np.inf
         self.num_grid_points = num_grid_points
         self.explored_idxs = set()
+        self.old_hparam_idx = None
 
     def next(self, X, y):
         if len(y) < 1:
             return self.random_generator.next()
         else:
             X_grid = self.get_grid(X, num_grid_points=3)
-        if len(y) < X_grid.shape[0]:
-            next_hparam_idx = len(y)
+        if len(y) <= X_grid.shape[0]:
+            next_hparam_idx = len(y)-1
+            return self.turn_array_to_hparam_dict(X_grid[next_hparam_idx], X)
         else:
             self.best_y = np.min(y) if self.lower_is_better else np.max(y)
 
@@ -74,13 +76,17 @@ class GaussianProcessEI(HyperparameterGenerator):
             expected_improvement_grid = self.get_expected_improvement(y_grid,
                                                                  y_grid_std)
 
-            next_hparam_idx_cands = expected_improvement_grid.argsort()
-            for next_hparam_idx in np.flip(next_hparam_idx_cands, -1):
-                if next_hparam_idx not in self.explored_idxs:
-                    self.explored_idxs.add(next_hparam_idx)
-                    break
-
-        return self.turn_array_to_hparam_dict(X_grid[next_hparam_idx], X)
+            next_hparam_idx = expected_improvement_grid.argmax()
+            # next_hparam_idx_cands = expected_improvement_grid.argsort()
+            # for next_hparam_idx in np.flip(next_hparam_idx_cands, -1):
+            #     if next_hparam_idx not in self.explored_idxs:
+            #         self.explored_idxs.add(next_hparam_idx)
+            #         break
+            if next_hparam_idx == self.old_hparam_idx:
+                return self.random_generator.next()
+            else:
+                self.old_hparam_idx = next_hparam_idx
+                return self.turn_array_to_hparam_dict(X_grid[next_hparam_idx], X)
 
     def get_grid(self, X, num_grid_points):
         """

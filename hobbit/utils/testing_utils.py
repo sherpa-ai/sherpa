@@ -18,7 +18,8 @@ def create_model(hparams):
     """
     # set seed for recreatability
     model = Sequential()
-    model.add(Dense(hparams['num_units'], activation='relu', input_shape=(784,),
+    model.add(Dense(int(hparams['num_units']), activation='relu', input_shape=(
+        784,),
                       kernel_initializer=glorot_uniform(seed=1234), bias_initializer=Zeros()))
     model.add(Dense(10, activation='softmax',
                       kernel_initializer=glorot_uniform(seed=1234), bias_initializer=Zeros()))
