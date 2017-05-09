@@ -31,6 +31,27 @@ class ResultsTable(object):
         sorted_df_run = df_run.sort_values(by='Loss', ascending=True)
         return list(sorted_df_run['ID'][0:k])
 
+    def sample_k_ids_from_run(self, k, run, temperature=1.):
+        """
+        Samples k models with  probability proportional to inverse loss
+        from a specific run. Note this is not necesarily the global minimum
+
+        # Args:
+            k: Integer, number of id's to return
+            run: Integer, refers to hyper-band run
+
+        # Returns:
+            list of id's from this run
+        """
+        df = self.get_table()
+        df_run = df[df['Run'] == run]
+        # p = 1/df_run['Loss']
+        p = np.exp(-df_run['Loss']/temperature)
+        sampled_ids = np.random.choice(df_run['ID'], size=k, replace=False,
+                                       p=p/np.sum(p))
+        return list(sampled_ids)
+
+
     def get_k_lowest(self, k):
         """
         Gets the k models with lowest global loss.

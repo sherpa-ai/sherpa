@@ -153,21 +153,13 @@ class Hyperband(Algorithm):
                 if i == 0:
                     for j in range(1, n_i+1):
                         if s==s_max and i==0 and j==1:
-                            time, result = timedcall(self.scheduler.submit,
-                                                    {'run_id': (run, j),
-                                                     'hparams':
-                                                         self.hparam_gen.next(),
-                                                     'epochs': r_i})
-
-                            secs = total_epochs*time/r_i
-                            hrs = secs//3600
-                            mins =(secs%3600)//60
-                            print('-'*100)
-                            print('\nThe complete Hyperband optimization is '
-                                  'estimated to take {}hrs and {} '
-                                  'mins\n'.format(
-                                hrs, mins))
-                            print('-'*100)
+                            self.estimate_time(self.scheduler.submit,
+                                               {'run_id': (run, j),
+                                                'hparams':
+                                                    self.hparam_gen.next(),
+                                                'epochs': r_i},
+                                               total_epochs=total_epochs,
+                                               r_i=r_i)
 
                         else:
                             self.scheduler.submit(run_id=(run, j),
@@ -179,6 +171,94 @@ class Hyperband(Algorithm):
                         self.scheduler.submit(run_id=(run, T_j), epochs=r_i)
 
         return self.results_table.get_table()
+
+    @staticmethod
+    def estimate_time(f, args, total_epochs, r_i):
+        time, result = timedcall(f, args)
+
+        secs = total_epochs * time / r_i
+        hrs = secs // 3600
+        mins = (secs % 3600) // 60
+        print('-' * 100)
+        print('\nThe complete Hyperband optimization is '
+              'estimated to take {}hrs and {} '
+              'mins\n'.format(
+            hrs, mins))
+        print('-' * 100)
+
+
+class TemperatureHyperband(Algorithm):
+    def __init__(self, model_function, hparam_ranges,
+                 repo_dir='./hyperband_repository', loss='val_loss',
+                 dataset=None,
+                 generator_function=None, train_gen_args=None,
+                 steps_per_epoch=None, validation_data=None,
+                 valid_gen_args=None, validation_steps=None):
+        super(self.__class__, self).__init__(model_function=model_function,
+                                             loss=loss,
+                                        repo_dir=repo_dir,
+                                        dataset=dataset,
+                                        generator_function=generator_function,
+                                        train_gen_args=train_gen_args,
+                                        steps_per_epoch=steps_per_epoch,
+                                        validation_data=validation_data,
+                                        valid_gen_args=valid_gen_args,
+                                        validation_steps=validation_steps)
+        self.hparam_gen = RandomGenerator(hparam_ranges)
+
+    def run(self, R=20, eta=3):
+        total_epochs = visualize_hyperband_params(R=R, eta=eta)
+
+        log_eta = lambda x: math.log(x) / math.log(eta)
+        s_max = int(log_eta(R))
+        B = (s_max + 1) * R
+
+        for s in reversed(range(s_max + 1)):
+            n = int(math.ceil(B / R / (s + 1) * eta ** s))
+            r = R * eta ** (-s)
+
+            for i in range(s + 1):
+                n_i = int(n * eta ** (-i))
+                r_i = int(round(r * eta ** (i)))
+
+                run = s_max - s + 1
+                if i == 0:
+                    for j in range(1, n_i+1):
+                        if s==s_max and i==0 and j==1:
+                            self.estimate_time(self.scheduler.submit,
+                                               {'run_id': (run, j),
+                                                'hparams':
+                                                    self.hparam_gen.next(),
+                                                'epochs': r_i},
+                                               total_epochs=total_epochs,
+                                               r_i=r_i)
+
+                        else:
+                            self.scheduler.submit(run_id=(run, j),
+                                                  hparams=self.hparam_gen.next(),
+                                                  epochs=r_i)
+                else:
+                    for T_j in self.results_table.sample_k_ids_from_run(k=n_i,
+                                                                        run=run):
+                        self.scheduler.submit(run_id=(run, T_j), epochs=r_i)
+
+        return self.results_table.get_table()
+
+    @staticmethod
+    def estimate_time(f, args, total_epochs, r_i):
+        time, result = timedcall(f, args)
+
+        secs = total_epochs * time / r_i
+        hrs = secs // 3600
+        mins = (secs % 3600) // 60
+        print('-' * 100)
+        print('\nThe complete Hyperband optimization is '
+              'estimated to take {}hrs and {} '
+              'mins\n'.format(
+            hrs, mins))
+        print('-' * 100)
+
+
 
 
 class RandomSearch(Algorithm):
