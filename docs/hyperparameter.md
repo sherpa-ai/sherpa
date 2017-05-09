@@ -14,8 +14,11 @@ __Arguments__
 		In the default case of a Uniform distribution these refer to the minimum and maximum values from 
 		which to sample from. In general these are the  arguments taken as input by the corresponding numpy 
 		distribution function.
-- __distribution__: String, name of the distribution to be used for sampling the values. Must be numpy.random compatible. 
-		  Uniform distribution is used as default.
+- __distribution__: String, name of the distribution to be used for sampling
+		the values. Must be numpy.random compatible. Exception is
+		'log-uniform' which samples uniformly between low and high
+		on a log-scale. Uniform distribution is used as
+		default.
 
 __Examples__
 

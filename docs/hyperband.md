@@ -1,12 +1,12 @@
 ### Hyperband
 
 ```python
-hobbit.algorithms.Hyperband(model_function, hparam_ranges, repo_dir='./hyperband_repository', dataset=None, generator_function=None, train_gen_args=None, steps_per_epoch=None, valid_gen_args=None, validation_steps=None)
+hobbit.algorithms.Hyperband(model_function, hparam_ranges, repo_dir='./hyperband_repository', loss='val_loss', dataset=None, generator_function=None, train_gen_args=None, steps_per_epoch=None, validation_data=None, valid_gen_args=None, validation_steps=None)
 ```
 
 
-A Hyperband instance initializes the entire pipeline needed to run a
-Hyperband hyperparameter optimization. The run() method is used to start
+An Algorithm instance initializes the entire pipeline needed to run a
+hyperparameter optimization. The run() method is used to start
 the optimization.
 
 __Arguments__
@@ -16,17 +16,17 @@ __Arguments__
 	those hyperparameters
 - __hparam_ranges__: a list of Hyperparameter objects
 - __repo_dir__: the directory to store weights and results table in
+- __loss__: which loss to optimize e.g. 'val_loss', 'val_mse' etc.
 - __dataset__: a dataset of the form ((x_train, y_train), (x_valid, y_valid))
 	where x_, y_ are NumPy arrays
 - __generator_function__: alternatively to dataset, a generator function can
-	be passed or a tuple of generator functions. This is a function
-	that returns a generator, not a generator itself. For a tuple
-	the first item is the generator function for training, the second
-	for validation.
+	be passed. This is a function that returns a generator, not a generator 
+	itself.
 - __train_gen_args__: arguments to be passed to generator_function when
 	producing a training generator
 - __steps_per_epoch__: number of batches for one epoch of training when
 	using a generator
+- __validation_data__: generator function for the validation data, not the generator
 - __valid_gen_args__: arguments to be passed to generator_function when
 	producing a validation generator
 - __validation_steps__: number of batches for one epoch of validation when
@@ -36,6 +36,17 @@ __Methods__
 
 Runs the algorithm with **R** maximum epochs per stage and cut factor
 **eta** between stages.
+
+__run__
+
+Depends on each optimization algorithm. For Hyperband this is:
+- __R__: The maximum epochs per stage. Hyperband has multiple runs each of
+	which goes through multiple stages to discard configurations. At each
+	of those stages Hyperband will train for a total of R epochs
+- __eta__: The cut-factor. After each stage Hyperband will reduce the number
+	of configurations by this factor. The training
+	iterations for configurations that move to the next stage increase
+	by this factor
 
 __Example__
 
@@ -59,17 +70,6 @@ hband = Hyperband(model_function=my_model,
 results = hband.run(R=20, eta=3)
 ```
 
-
-
-__run__
-
-- __R__: The maximum epochs per stage. Hyperband has multiple runs each of
-	which goes through multiple stages to discard configurations. At each
-	of those stages Hyperband will train for a total of R epochs
-- __eta__: The cut-factor. After each stage Hyperband will reduce the number
-	of configurations by this factor. The training
-	iterations for configurations that move to the next stage increase
-	by this factor
 
 __Notes__
 
