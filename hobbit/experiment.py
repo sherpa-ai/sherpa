@@ -63,7 +63,8 @@ class Experiment(object):
         if 'generator' in kwargs.keys():
             keras_hist = self.model.fit_generator(initial_epoch=self.history['epochs'], epochs=epochs, max_q_size=20, **kwargs)
         else:
-            keras_hist = self.model.fit(initial_epoch=self.history['epochs'], epochs=epochs, **kwargs)
+            keras_hist = self.model.fit(initial_epoch=self.history[
+                'epochs'], epochs=epochs, verbose=2, **kwargs)
         
         # Save best loss.
         this_loss = min(keras_hist.history[loss])

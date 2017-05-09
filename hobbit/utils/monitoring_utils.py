@@ -3,6 +3,8 @@ from __future__ import division
 import math
 import sys
 import time
+import re
+import numpy as np
 
 
 def timedcall(fn, kwargs):
@@ -74,6 +76,21 @@ def visualize_hyperband_params(R=None, eta=None):
     print('\n\n')
 
     return total_epochs
+
+
+def extract_loss_history_from_log(path, key='val_loss'):
+    losses = []
+    best_loss = np.inf
+    with open(path, 'rb') as f:
+        for line in f:
+            this_loss = re.findall(r'{}: (\d\.[0-9]+)'.format(key),
+                                   line.decode('utf-8'))
+            this_loss = float(this_loss[0]) if this_loss != [] else np.inf
+            best_loss = min(this_loss, best_loss)
+            losses.append(best_loss)
+
+    return losses
+
 
 
 if __name__ == '__main__':
