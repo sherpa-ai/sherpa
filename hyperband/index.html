@@ -109,11 +109,11 @@
             <div class="section">
               
                 <h3 id="hyperband">Hyperband</h3>
-<pre><code class="python">hobbit.algorithms.Hyperband(model_function, hparam_ranges, repo_dir='./hyperband_repository', dataset=None, generator_function=None, train_gen_args=None, steps_per_epoch=None, valid_gen_args=None, validation_steps=None)
+<pre><code class="python">hobbit.algorithms.Hyperband(model_function, hparam_ranges, repo_dir='./hyperband_repository', loss='val_loss', dataset=None, generator_function=None, train_gen_args=None, steps_per_epoch=None, validation_data=None, valid_gen_args=None, validation_steps=None)
 </code></pre>
 
-<p>A Hyperband instance initializes the entire pipeline needed to run a
-Hyperband hyperparameter optimization. The run() method is used to start
+<p>An Algorithm instance initializes the entire pipeline needed to run a
+hyperparameter optimization. The run() method is used to start
 the optimization.</p>
 <p><strong>Arguments</strong></p>
 <ul>
@@ -122,17 +122,17 @@ the optimization.</p>
     those hyperparameters</li>
 <li><strong>hparam_ranges</strong>: a list of Hyperparameter objects</li>
 <li><strong>repo_dir</strong>: the directory to store weights and results table in</li>
+<li><strong>loss</strong>: which loss to optimize e.g. 'val_loss', 'val_mse' etc.</li>
 <li><strong>dataset</strong>: a dataset of the form ((x_train, y_train), (x_valid, y_valid))
     where x_, y_ are NumPy arrays</li>
 <li><strong>generator_function</strong>: alternatively to dataset, a generator function can
-    be passed or a tuple of generator functions. This is a function
-    that returns a generator, not a generator itself. For a tuple
-    the first item is the generator function for training, the second
-    for validation.</li>
+    be passed. This is a function that returns a generator, not a generator 
+    itself.</li>
 <li><strong>train_gen_args</strong>: arguments to be passed to generator_function when
     producing a training generator</li>
 <li><strong>steps_per_epoch</strong>: number of batches for one epoch of training when
     using a generator</li>
+<li><strong>validation_data</strong>: generator function for the validation data, not the generator</li>
 <li><strong>valid_gen_args</strong>: arguments to be passed to generator_function when
     producing a validation generator</li>
 <li><strong>validation_steps</strong>: number of batches for one epoch of validation when
@@ -141,6 +141,15 @@ the optimization.</p>
 <p><strong>Methods</strong></p>
 <p>Runs the algorithm with <strong>R</strong> maximum epochs per stage and cut factor
 <strong>eta</strong> between stages.</p>
+<p><strong>run</strong></p>
+<p>Depends on each optimization algorithm. For Hyperband this is:
+- <strong>R</strong>: The maximum epochs per stage. Hyperband has multiple runs each of
+    which goes through multiple stages to discard configurations. At each
+    of those stages Hyperband will train for a total of R epochs
+- <strong>eta</strong>: The cut-factor. After each stage Hyperband will reduce the number
+    of configurations by this factor. The training
+    iterations for configurations that move to the next stage increase
+    by this factor</p>
 <p><strong>Example</strong></p>
 <pre><code class="python">def my_model(hparams):
 '''Keras model defintion returns compiled Keras model based on hparams'''
@@ -161,21 +170,12 @@ hband = Hyperband(model_function=my_model,
 results = hband.run(R=20, eta=3)
 </code></pre>
 
-<p><strong>run</strong></p>
-<ul>
-<li><strong>R</strong>: The maximum epochs per stage. Hyperband has multiple runs each of
-    which goes through multiple stages to discard configurations. At each
-    of those stages Hyperband will train for a total of R epochs</li>
-<li><strong>eta</strong>: The cut-factor. After each stage Hyperband will reduce the number
-    of configurations by this factor. The training
-    iterations for configurations that move to the next stage increase
-    by this factor</li>
-</ul>
 <p><strong>Notes</strong></p>
 <p>At the beginning of the optimization Hobbit prints the schedule in which
 it will initiate new configurations and continue old ones and the total
 number of epochs. For example:</p>
-<pre><code>----------------------------------------------------------------------------------------------------
+<pre><code class="python">
+----------------------------------------------------------------------------------------------------
     run=1       run=2       run=3       run=4       run=5
     models  epochs  models  epochs  models  epochs  models  epochs  models  epochs
 Init    81  1   34  3   15  9   8   27  5   81
