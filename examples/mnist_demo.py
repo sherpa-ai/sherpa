@@ -10,7 +10,7 @@ def mnist_demo():
 
     tmp_folder = './test_repo'
 
-    my_dataset = load_dataset()
+    train_data, valid_data = load_dataset()
 
     my_hparam_ranges = [Hyperparameter(name='learning_rate', distr_args=(0.0001, 0.1), distribution='log-uniform'),
                         Hyperparameter(name='activation', distr_args=[('sigmoid', 'tanh', 'relu')], distribution='choice'),
@@ -18,9 +18,10 @@ def mnist_demo():
 
 
     hband = Hyperband(model_function=my_model,
-                        dataset=my_dataset,
                         hparam_ranges=my_hparam_ranges,
-                        repo_dir=tmp_folder)
+                        dataset=train_data,
+                        repo_dir=tmp_folder,
+                        validation_data=valid_data)
 
     tab = hband.run(R=20, eta=3)
 
