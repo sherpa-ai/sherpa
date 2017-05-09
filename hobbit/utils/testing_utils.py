@@ -1,5 +1,6 @@
 from __future__ import division
 import keras
+import keras.backend as K
 from keras.datasets import mnist
 from keras.models import Sequential
 from keras.layers import Dense, Dropout
@@ -46,7 +47,7 @@ def create_model_two(hparams):
     return model
 
 
-def load_dataset(short=False):
+def load_dataset(short=False, as_images=False):
     """
     Returns:
         A ready-to-train-on dataset for testing. Here, MNIST.
@@ -62,6 +63,15 @@ def load_dataset(short=False):
     x_test = x_test.astype('float32')
     x_train /= 255
     x_test /= 255
+
+    if as_images:
+        img_rows, img_cols = 28, 28
+        if K.image_data_format() == 'channels_first':
+            x_train = x_train.reshape(x_train.shape[0], 1, img_rows, img_cols)
+            x_test = x_test.reshape(x_test.shape[0], 1, img_rows, img_cols)
+        else:
+            x_train = x_train.reshape(x_train.shape[0], img_rows, img_cols, 1)
+            x_test = x_test.reshape(x_test.shape[0], img_rows, img_cols, 1)
 
     # convert class vectors to binary class matrices
     y_train = keras.utils.np_utils.to_categorical(y_train, num_classes)
