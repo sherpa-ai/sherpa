@@ -206,7 +206,7 @@ class TemperatureHyperband(Algorithm):
                                         validation_steps=validation_steps)
         self.hparam_gen = RandomGenerator(hparam_ranges)
 
-    def run(self, R=20, eta=3):
+    def run(self, R=20, eta=3, temperature=1.):
         total_epochs = visualize_hyperband_params(R=R, eta=eta)
 
         log_eta = lambda x: math.log(x) / math.log(eta)
@@ -239,7 +239,8 @@ class TemperatureHyperband(Algorithm):
                                                   epochs=r_i)
                 else:
                     for T_j in self.results_table.sample_k_ids_from_run(k=n_i,
-                                                                        run=run):
+                                                                        run=run,
+                                                                        temperature=temperature):
                         self.scheduler.submit(run_id=(run, T_j), epochs=r_i)
 
         return self.results_table.get_table()
