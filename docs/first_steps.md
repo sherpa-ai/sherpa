@@ -42,7 +42,7 @@ def my_model(hparams):
 
 
 # The dataset
-The dataset is loaded as a tuple of training and validation objects. These objects are usually numpy arrays with each sample as a row and each column as a feature. If there is some preprocessing for the data it has to be done before passing it to Hobbit. Here we load the MNIST dataset using Keras and do some simple preprocessing.
+The training and validation datasets are loaded as a tuple of training and a tuple of validation data, respectively. These objects are usually numpy arrays with each sample as a row and each column as a feature. If there is some preprocessing for the data it has to be done before passing it to Hobbit. Here we load the MNIST dataset using Keras and do some simple preprocessing.
 
 
 ```python
@@ -62,7 +62,8 @@ x_test /= 255
 y_train = keras.utils.np_utils.to_categorical(y_train, num_classes)
 y_test = keras.utils.np_utils.to_categorical(y_test, num_classes)
 
-my_dataset = (x_train, y_train), (x_test, y_test)
+my_dataset = (x_train, y_train)
+my_validation_data = (x_test, y_test)
 ```
 
 ## Hyperband
@@ -74,7 +75,8 @@ from hobbit.algorithms import Hyperband
 hband = Hyperband(model_function=my_model,
                   dataset=my_dataset,
                   hparam_ranges=my_hparam_ranges,
-                  repo_dir='./my_test_repo')
+                  repo_dir='./my_test_repo',
+                  validation_data=my_validation_data)
 ```
 
 ## Running
