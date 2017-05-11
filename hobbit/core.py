@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 from .experiment import Experiment
 from .resultstable import ResultsTable
+import keras.backend as K
 
 
 class Hyperparameter(object):
@@ -108,6 +109,7 @@ class Repository(object):
                                                    loss=self.loss,
                                                    validation_data=valid_gen,
                                                    validation_steps=self.validation_steps)
+        K.clear_session()
 
         self.results_table.set(run_id=run_id, hparams=hparams, loss=lowest_loss, epochs=epochs_seen)
 
