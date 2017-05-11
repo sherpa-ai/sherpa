@@ -325,3 +325,56 @@ class BayesianOptimization(Algorithm):
             # print(self.results_table.get_table())
 
         return self.results_table.get_table()
+
+
+class Hyperbayes(Algorithm):
+    def __init__(self, model_function, hparam_ranges,
+                 repo_dir='./hyperbayes_repository', loss='val_loss',
+                 dataset=None,
+                 generator_function=None, train_gen_args=None,
+                 steps_per_epoch=None, validation_data=None,
+                 valid_gen_args=None, validation_steps=None):
+        super(self.__class__, self).__init__(model_function=model_function,
+                                             loss=loss,
+                                        repo_dir=repo_dir,
+                                        dataset=dataset,
+                                        generator_function=generator_function,
+                                        train_gen_args=train_gen_args,
+                                        steps_per_epoch=steps_per_epoch,
+                                        validation_data=validation_data,
+                                        valid_gen_args=valid_gen_args,
+                                        validation_steps=validation_steps)
+        self.hparam_gen = GaussianProcessEI(hparam_ranges)
+
+    def run(self, R=20, eta=3):
+
+        total_epochs = visualize_hyperband_params(R=R, eta=eta)
+
+        log_eta = lambda x: math.log(x) / math.log(eta)
+        s_max = int(log_eta(R))
+        B = (s_max + 1) * R
+
+        for s in reversed(range(s_max + 1)):
+            n = int(math.ceil(B / R / (s + 1) * eta ** s))
+            r = R * eta ** (-s)
+
+            for i in range(s + 1):
+                n_i = int(n * eta ** (-i))
+                r_i = int(round(r * eta ** (i)))
+
+                run = s_max - s + 1
+                if i == 0:
+                    for j in range(1, n_i+1):
+                        X = self.results_table.get_hparams_df(
+                            as_design_matrix=True)
+                        y = self.results_table.get_column('Loss')
+                        next_hparams = self.hparam_gen.next(X=X, y=y)
+                        self.scheduler.submit(run_id=(run, j),
+                                                  hparams=next_hparams,
+                                                  epochs=r_i)
+                else:
+                    for T_j in self.results_table.get_k_lowest_from_run(n_i,
+                                                                        run):
+                        self.scheduler.submit(run_id=(run, T_j), epochs=r_i)
+
+        return self.results_table.get_table()

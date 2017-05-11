@@ -1,13 +1,13 @@
 from __future__ import print_function
 from __future__ import absolute_import
-from hobbit.utils.testing_utils import create_model, load_dataset, store_mnist_hdf5, get_hdf5_generator
+from hobbit.utils.testing_utils import create_model, load_dataset
 import tempfile
 import shutil
 import os
 import pytest
 
 
-def test_bayesian_optimization():
+def test_hyperbayes():
     """
     # Strategy
 
@@ -16,7 +16,7 @@ def test_bayesian_optimization():
     non-increasing sequence in the number of units. Note second sort needs to be stable
 
     """
-    from hobbit.algorithms import BayesianOptimization
+    from hobbit.algorithms import Hyperbayes
     from hobbit import Hyperparameter
 
     tmp_folder = tempfile.mkdtemp(prefix='test_repo')
@@ -30,13 +30,13 @@ def test_bayesian_optimization():
                                        distribution='uniform')]
 
 
-    bo = BayesianOptimization(model_function=create_model,
+    bo = Hyperbayes(model_function=create_model,
                                 dataset=train_dataset,
                                 validation_data=valid_dataset,
                                 hparam_ranges=my_hparam_ranges,
                                 repo_dir=tmp_folder)
 
-    tab = bo.run(num_experiments=15, num_epochs=1)
+    tab = bo.run(R=20, eta=3)
 
     print(tab)
 
@@ -59,4 +59,4 @@ def test_bayesian_optimization():
 
 
 if __name__=='__main__':
-    test_bayesian_optimization()
+    test_hyperbayes()

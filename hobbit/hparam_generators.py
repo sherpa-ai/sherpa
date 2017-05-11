@@ -56,13 +56,13 @@ class GaussianProcessEI(HyperparameterGenerator):
         self.old_hparam_idx = None
 
     def next(self, X, y):
-        if len(y) < 1:
+        if len(y) <= len(self.hparam_dict):
             return self.random_generator.next()
-        else:
-            X_grid = self.get_grid(X, num_grid_points=3)
-        if len(y) <= X_grid.shape[0]:
-            next_hparam_idx = len(y)-1
-            return self.turn_array_to_hparam_dict(X_grid[next_hparam_idx], X)
+        # else:
+        #     X_grid = self.get_grid(X, num_grid_points=3)
+        # if len(y) <= X_grid.shape[0]:
+        #     next_hparam_idx = len(y)-1
+        #     return self.turn_array_to_hparam_dict(X_grid[next_hparam_idx], X)
         else:
             self.best_y = np.min(y) if self.lower_is_better else np.max(y)
 
