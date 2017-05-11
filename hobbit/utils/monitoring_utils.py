@@ -78,17 +78,19 @@ def visualize_hyperband_params(R=None, eta=None):
     return total_epochs
 
 
-def extract_loss_history_from_log(path, key='val_loss'):
+def extract_loss_history_from_log(path, key='val_loss', lower_is_better=True):
     losses = []
-    best_loss = np.inf
+    best_loss = np.inf if lower_is_better else -np.inf
     with open(path, 'rb') as f:
         for line in f:
             this_loss = re.findall(r'{}: (\d\.[0-9]+)'.format(key),
                                    line.decode('utf-8'))
-            this_loss = float(this_loss[0]) if this_loss != [] else np.inf
-            best_loss = min(this_loss, best_loss)
+            if this_loss == []:
+                continue
+            this_loss = float(this_loss[0])
+            best_loss = min(this_loss, best_loss) if lower_is_better else \
+                max(this_loss, best_loss)
             losses.append(best_loss)
-
     return losses
 
 
