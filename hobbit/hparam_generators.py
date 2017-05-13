@@ -4,7 +4,7 @@ import math
 from sklearn.gaussian_process import GaussianProcessRegressor
 from scipy.stats import norm
 from .core import GrowingHyperparameter
-
+import itertools
 
 def sample_from(dist, distr_args):
     """
@@ -188,4 +188,37 @@ class GaussianProcessEI(HyperparameterGenerator):
                     hparams[name] = val
         return hparams
 
-
+class GridSearch(HyperparameterGenerator):
+    """
+    Generate reasonable grid of hyperparameters based on parameter ranges.
+    
+    INCOMPLETE:
+    This is a partial solution that simply iterates over the different 
+    combinations of the choice hyperparameters. The other parameters 
+    are sampled as usual. This is because to build a grid, one must
+    know the total number of models in advance.
+    """
+    def __init__(self, param_ranges):
+        # Hyperparameter grid is decided on initialization.
+        self.param_ranges = param_ranges
+        
+        # Define a stateful iterator.
+        def griditer(param_ranges):
+            # Iterate through discrete choices in order, but sample from distributions.
+            # TODO: Compute grid choices for continuous distributions.
+            choices  = {p.name:p.distr_args[0] for p in param_ranges if p.distribution=='choice'}            
+            while True:
+                for ctuple in itertools.product(*choices.values()):
+                    # Sequential sample from choices.
+                    temp = dict(zip(choices.keys(), ctuple)) 
+                    # Independent sample.
+                    sample = {p.name: sample_from(p.distribution, p.distr_args) for p in param_ranges}
+                    sample.update(temp)
+                    yield sample
+        self.griditer = griditer(self.param_ranges)
+    
+    def next(self):
+        """
+        Returns a dictionary of d[hp_name] = hp_sample
+        """
+        return self.griditer.next()
