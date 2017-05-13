@@ -93,6 +93,11 @@ class ResultsTable(object):
             df.set_value(index=run_id, col='Epochs', value=epochs)
         self._save(df)
 
+    def set_value(self, run_id, col, value):
+        df = self.get_table()
+        df.set_value(index=run_id, col=col, value=value)
+        self._save(df)
+
     def _get_idx(self, run, id):
         """
         Returns the run, id in a string with the format to be used in the table

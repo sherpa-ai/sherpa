@@ -49,8 +49,12 @@ def test_resultstable_methods():
 
     # test set for updating
     restab.set(run_id='1_2', loss=0.9, epochs=2)
-    assert restab.get((1, 2), parameter='Loss') == 0.9
+    assert restab.get('1_2', parameter='Loss') == 0.9
     assert restab.get_k_lowest_from_run(k=1, run=1) == ['1_1']
+
+    # test arbitrary setting
+    restab.set_value(run_id='1_2', col='Run', value=2)
+    assert restab.get('1_2', parameter='Run') == 2
 
     shutil.rmtree(tmp_folder)
 
