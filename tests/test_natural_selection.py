@@ -39,23 +39,42 @@ def test_legoband():
 
     print(tab)
 
-    # Create a column for the hparam['num_units']
-    # tab['num_units'] = [eval(hparam)['num_units'] for hparam in tab['Hparams']]
-
-    # for run_number in tab['Run'].unique():
-    #     run = tab[tab['Run']==run_number]
-    #     sorted_run = run.sort_values(by='num_units', ascending=False).sort_values(by='Epochs', ascending=False, kind='quicksort')
-    #     l = list(sorted_run['num_units'])
-    #     assert all(l[i] >= l[i+1] for i in range(len(l)-1)), "Hyperband did not select expected model to continue" \
-    #                                                          " training"
-    #
-    #
-    # # check number of files in repo == 17 + 1 for csv
-    # assert len([fname for fname in os.listdir(tmp_folder) if fname.endswith('.csv') or
-    #             fname.endswith('.pkl') or fname.endswith('.h5')]) == 17*2 + 1
-
     shutil.rmtree(tmp_folder)
 
 
+def test_natural_selection():
+    """
+    # Strategy
+
+    Make a model where we know with certainty which model should be the best based on the hyperparameters, here number
+    of units. For each run sort by number of units and then by the number of epochs. Then test that this is a
+    non-increasing sequence in the number of units. Note second sort needs to be stable
+
+    """
+    from hobbit.algorithms import NaturalSelection
+    from hobbit import GrowingHyperparameter
+
+    tmp_folder = tempfile.mkdtemp(prefix='test_repo')
+
+    train_dataset, valid_dataset = load_dataset(short=False)
+
+    my_hparam_ranges = [GrowingHyperparameter(name='num_units', choices=[1,
+                                                                         5, 50]),
+                        GrowingHyperparameter(name='lr', choices=[0.01,0.05,
+                                                                  0.1])]
+
+
+    ns = NaturalSelection(model_function=create_model,
+                                dataset=train_dataset,
+                                validation_data=valid_dataset,
+                                hparam_ranges=my_hparam_ranges,
+                                repo_dir=tmp_folder)
+
+    tab = ns.run(factor=4, survivors=2)
+
+    print(tab)
+
+    shutil.rmtree(tmp_folder)
+
 if __name__=='__main__':
-    test_legoband()
+    test_natural_selection()

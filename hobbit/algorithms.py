@@ -2,7 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from .schedulers import JobScheduler
 from .resultstable import ResultsTable
-from .hparam_generators import RandomGenerator, GaussianProcessEI
+from .hparam_generators import RandomGenerator, GaussianProcessEI, LatinHypercube
 from .utils.monitoring_utils import visualize_hyperband_params, timedcall
 from . import Repository
 import math
@@ -442,3 +442,50 @@ class Legoband(Algorithm):
                                          parameter='Hparams')
         hparams = eval(hparams)
         self.hparam_gen.grow(hparams, amount)
+
+class NaturalSelection(Algorithm):
+    def __init__(self, model_function, hparam_ranges,
+                 repo_dir='./natural_selection_repository', loss='val_loss',
+                 dataset=None,
+                 generator_function=None, train_gen_args=None,
+                 steps_per_epoch=None, validation_data=None,
+                 valid_gen_args=None, validation_steps=None):
+        super(self.__class__, self).__init__(model_function=model_function,
+                                             loss=loss,
+                                        repo_dir=repo_dir,
+                                        dataset=dataset,
+                                        generator_function=generator_function,
+                                        train_gen_args=train_gen_args,
+                                        steps_per_epoch=steps_per_epoch,
+                                        validation_data=validation_data,
+                                        valid_gen_args=valid_gen_args,
+                                        validation_steps=validation_steps)
+        self.hparam_gen = LatinHypercube(hparam_ranges)
+
+    def run(self, factor=6, survivors=4):
+        id = 1
+        for run in range(factor):
+            n_i = 2**(factor-1)/(2**run)
+            r_i = 2**run
+            k = 0 if run==0 else min(survivors, n_i)
+
+            for run_id in self.results_table.get_k_lowest_from_run(int(k),
+                                                                   run-1):
+                self.scheduler.submit(run_id=run_id, epochs=r_i)
+                self.grow_dist(run_id=run_id, epochs=r_i/2)
+                self.results_table.set_value(run_id=run_id, col='Run',
+                                             value=run)
+
+            for i in range(int(n_i - k)):
+                self.scheduler.submit(run_id='{}_{}'.format(run, id),
+                                      epochs=r_i,
+                                      hparams=self.hparam_gen.next())
+                id += 1
+
+        return self.results_table.get_table()
+
+    def grow_dist(self, run_id, epochs):
+        hparams = self.results_table.get(run_id=run_id,
+                                         parameter='Hparams')
+        hparams = eval(hparams)
+        self.hparam_gen.grow(hparams=hparams, amount=epochs)

@@ -42,7 +42,7 @@ class Hyperparameter(object):
         return
 
 class GrowingHyperparameter(object):
-    def __init__(self, name, choices, start_value=100):
+    def __init__(self, name, choices, start_value=0.5):
         self.distribution = 'choice'
         self.choices = choices
         self.name = name

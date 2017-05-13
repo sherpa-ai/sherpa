@@ -56,6 +56,9 @@ def test_resultstable_methods():
     restab.set_value(run_id='1_2', col='Run', value=2)
     assert restab.get('1_2', parameter='Run') == 2
 
+    # test getting nothing from k lowest
+    assert restab.get_k_lowest_from_run(k=0, run=1) == []
+
     shutil.rmtree(tmp_folder)
 
 if __name__ == '__main__':

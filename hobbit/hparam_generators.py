@@ -52,6 +52,35 @@ class RandomGenerator(HyperparameterGenerator):
                              amount=amount)
             print("{}: {}".format(param_range.name, param_range.weights))
 
+class LatinHypercube(HyperparameterGenerator):
+    """
+    Generates random hyperparameters based on parameter ranges
+    """
+    def __init__(self, param_ranges):
+        self.param_ranges = param_ranges
+        self.previous_hparams = []
+
+    def next(self):
+        """
+        Returns a dictionary of d[hp_name] = hp_sample
+        """
+        hparams = {param.name: sample_from(param.distribution,
+                                           param.distr_args) for param in self.param_ranges}
+        while hparams in self.previous_hparams:
+            hparams = {param.name: sample_from(param.distribution,
+                                               param.distr_args) for param in
+                       self.param_ranges}
+
+        self.previous_hparams.append(hparams)
+        return hparams
+
+    def grow(self, hparams, amount):
+        for param_range in self.param_ranges:
+            assert isinstance(param_range, GrowingHyperparameter)
+            param_range.grow(value=hparams[param_range.name],
+                             amount=amount)
+            print("{}: {}".format(param_range.name, param_range.weights))
+
 
 class GaussianProcessEI(HyperparameterGenerator):
     def __init__(self, param_ranges, num_grid_points=11):
