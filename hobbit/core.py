@@ -101,7 +101,7 @@ class Repository(object):
         Returns:
 
         """
-        print("Training model {} in run {}:".format(run_id[1], run_id[0]))
+        print("Training model {} in run {}:".format(run_id[-1], run_id[0]))
         if hparams:
             print(''.join(['{}: {}\t\t'.format(key, str(hparams[key])) for key in hparams])) # Don't shorten hyperparameter.
 
@@ -165,5 +165,5 @@ class Repository(object):
 
         """
         new_model = self.model_function(hparams) if hparams else None
-        return Experiment(path=self.repo_dir, name=run_id_to_str(run_id),
+        return Experiment(path=self.repo_dir, name=run_id,
                           model=new_model)

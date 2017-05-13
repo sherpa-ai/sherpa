@@ -29,7 +29,7 @@ class ResultsTable(object):
         df = self.get_table()
         df_run = df[df['Run'] == run]
         sorted_df_run = df_run.sort_values(by='Loss', ascending=True)
-        return list(sorted_df_run['ID'][0:k])
+        return list(sorted_df_run.index[0:k])
 
     def sample_k_ids_from_run(self, k, run, temperature=1.):
         """
@@ -47,7 +47,7 @@ class ResultsTable(object):
         df_run = df[df['Run'] == run]
         # p = 1/df_run['Loss']
         p = np.exp(-df_run['Loss']/temperature)
-        sampled_ids = np.random.choice(df_run['ID'], size=k, replace=False,
+        sampled_ids = np.random.choice(df_run.index, size=k, replace=False,
                                        p=p/np.sum(p))
         return list(sampled_ids)
 
@@ -83,14 +83,14 @@ class ResultsTable(object):
 
         """
         df = self.get_table()
-        run, id = run_id
+        run, id = [int(num) for num in run_id.split('_')]
         if hparams:
             new_line = pd.DataFrame({key: [val] for key, val in zip(self.keys, (run, id, hparams, loss, epochs))},
-                                    index=[self._get_idx(run, id)])
+                                    index=[run_id])
             df = df.append(new_line)
         else:
-            df.set_value(index=self._get_idx(run, id), col='Loss', value=loss)
-            df.set_value(index=self._get_idx(run, id), col='Epochs', value=epochs)
+            df.set_value(index=run_id, col='Loss', value=loss)
+            df.set_value(index=run_id, col='Epochs', value=epochs)
         self._save(df)
 
     def _get_idx(self, run, id):
@@ -104,7 +104,7 @@ class ResultsTable(object):
         # Returns:
            String with correct format for identification
         """
-        return '{}-{}'.format(run, id)
+        return '{}_{}'.format(run, id)
 
     def _create_table(self):
         """
@@ -138,14 +138,13 @@ class ResultsTable(object):
         Returns: validation loss 
 
         """
-        run, id = run_id
         df = self.get_table()
         assert parameter is not None, "you must specify a parameter to get" \
                                       "from the resultstable keys"
         assert parameter in self.keys, \
             'parameter must match with one of the keys of resultstable,' \
             'found {}'.format(parameter)
-        return df.ix[self._get_idx(run, id)][parameter]
+        return df.ix[run_id][parameter]
 
     def _save(self, df):
         """

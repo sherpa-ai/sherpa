@@ -154,7 +154,7 @@ class Hyperband(Algorithm):
                     for j in range(1, n_i+1):
                         if s==s_max and i==0 and j==1:
                             self.estimate_time(self.scheduler.submit,
-                                               {'run_id': (run, j),
+                                               {'run_id': '{}_{}'.format(run,j),
                                                 'hparams':
                                                     self.hparam_gen.next(),
                                                 'epochs': r_i},
@@ -162,13 +162,14 @@ class Hyperband(Algorithm):
                                                r_i=r_i)
 
                         else:
-                            self.scheduler.submit(run_id=(run, j),
+                            self.scheduler.submit(run_id='{}_{}'.format(run,
+                                                                        j),
                                                   hparams=self.hparam_gen.next(),
                                                   epochs=r_i)
                 else:
-                    for T_j in self.results_table.get_k_lowest_from_run(n_i,
+                    for run_id in self.results_table.get_k_lowest_from_run(n_i,
                                                                         run):
-                        self.scheduler.submit(run_id=(run, T_j), epochs=r_i)
+                        self.scheduler.submit(run_id=run_id, epochs=r_i)
 
         return self.results_table.get_table()
 
@@ -223,10 +224,10 @@ class TemperatureHyperband(Algorithm):
 
                 run = s_max - s + 1
                 if i == 0:
-                    for j in range(1, n_i+1):
-                        if s==s_max and i==0 and j==1:
+                    for j in range(1, n_i + 1):
+                        if s == s_max and i == 0 and j == 1:
                             self.estimate_time(self.scheduler.submit,
-                                               {'run_id': (run, j),
+                                               {'run_id': '{}_{}'.format(run,j),
                                                 'hparams':
                                                     self.hparam_gen.next(),
                                                 'epochs': r_i},
@@ -234,14 +235,13 @@ class TemperatureHyperband(Algorithm):
                                                r_i=r_i)
 
                         else:
-                            self.scheduler.submit(run_id=(run, j),
+                            self.scheduler.submit(run_id='{}_{}'.format(run,
+                                                                        j),
                                                   hparams=self.hparam_gen.next(),
                                                   epochs=r_i)
                 else:
-                    for T_j in self.results_table.sample_k_ids_from_run(k=n_i,
-                                                                        run=run,
-                                                                        temperature=temperature):
-                        self.scheduler.submit(run_id=(run, T_j), epochs=r_i)
+                    for run_id in self.results_table.sample_k_ids_from_run(n_i, run):
+                        self.scheduler.submit(run_id=run_id, epochs=r_i)
 
         return self.results_table.get_table()
 
@@ -286,7 +286,7 @@ class RandomSearch(Algorithm):
     def run(self, num_experiments, num_epochs):
         run = 1
         for id in range(num_experiments):
-            self.scheduler.submit(run_id=(run, id),
+            self.scheduler.submit(run_id='{}_{}'.format(run, id),
                                   hparams=self.hparam_gen.next(),
                                   epochs=num_epochs)
             print(self.results_table.get_table())
@@ -319,7 +319,7 @@ class BayesianOptimization(Algorithm):
             X = self.results_table.get_hparams_df(as_design_matrix=True)
             y = self.results_table.get_column('Loss')
             next_hparams = self.hparam_gen.next(X=X, y=y)
-            self.scheduler.submit(run_id=(run, id),
+            self.scheduler.submit(run_id='{}_{}'.format(run, id),
                                   hparams=next_hparams,
                                   epochs=num_epochs)
             # print(self.results_table.get_table())
@@ -369,13 +369,13 @@ class Hyperbayes(Algorithm):
                             as_design_matrix=True)
                         y = self.results_table.get_column('Loss')
                         next_hparams = self.hparam_gen.next(X=X, y=y)
-                        self.scheduler.submit(run_id=(run, j),
+                        self.scheduler.submit(run_id='{}_{}'.format(run,j),
                                                   hparams=next_hparams,
                                                   epochs=r_i)
                 else:
-                    for T_j in self.results_table.get_k_lowest_from_run(n_i,
+                    for run_id in self.results_table.get_k_lowest_from_run(n_i,
                                                                         run):
-                        self.scheduler.submit(run_id=(run, T_j), epochs=r_i)
+                        self.scheduler.submit(run_id=run_id, epochs=r_i)
 
         return self.results_table.get_table()
 
@@ -417,11 +417,11 @@ class Legoband(Algorithm):
                 run = s_max - s + 1
                 if i == 0:
                     for j in range(1, n_i+1):
-                        self.scheduler.submit(run_id=(run, j),
+                        self.scheduler.submit(run_id='{}_{}'.format(run,j),
                                               hparams=self.hparam_gen.next(),
                                               epochs=r_i)
-                        self.grow_distributions(run=run,
-                                                id=j,
+                        self.grow_distributions(run_id='{}_{}'.format(run,j),
+                                                run=run,
                                                 epochs=r_i)
 
 
@@ -429,16 +429,16 @@ class Legoband(Algorithm):
                     for T_j in self.results_table.get_k_lowest_from_run(n_i,
                                                                         run):
                         self.scheduler.submit(run_id=(run, T_j), epochs=r_i)
-                        self.grow_distributions(run=run,
-                                                id=T_j,
+                        self.grow_distributions(run_id='{}_{}'.format(run,j),
+                                                run=run,
                                                 epochs=r_i)
 
         return self.results_table.get_table()
 
-    def grow_distributions(self, run, id, epochs):
+    def grow_distributions(self, run_id, run, epochs):
         best_id = self.results_table.get_k_lowest_from_run(1, run=run)[0]
-        amount = epochs if best_id == id else -epochs
-        hparams = self.results_table.get(run_id=(run, id),
+        amount = epochs if best_id == run_id else -epochs
+        hparams = self.results_table.get(run_id=run_id,
                                          parameter='Hparams')
         hparams = eval(hparams)
         self.hparam_gen.grow(hparams, amount)

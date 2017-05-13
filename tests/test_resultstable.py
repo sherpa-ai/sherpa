@@ -22,13 +22,15 @@ def test_resultstable_methods():
     run = 1
     for id in range(1, 11):
         hparams = {'num_layers': id}
-        restab.set(run_id=(run, id), hparams=hparams, loss=id/100, epochs=5)  # create new entries
+        restab.set(run_id='{}_{}'.format(run, id), hparams=hparams,
+                   loss=id/100,
+                   epochs=5)  # create new entries
 
     # retrieve test_k best models
     test_k = 5
     k_best = restab.get_k_lowest_from_run(k=test_k, run=1)
-    for the_id, expected_id in zip(k_best, range(1, test_k)):
-        assert the_id == expected_id
+    for the_run_id, expected_id in zip(k_best, range(1, test_k)):
+        assert the_run_id == '1_{}'.format(expected_id)
 
     # manually load tmp_folder/results.csv
     with open(os.path.join(tmp_folder, 'results.csv')) as f:
@@ -46,9 +48,9 @@ def test_resultstable_methods():
             assert int(epochs) == 5
 
     # test set for updating
-    restab.set(run_id=(1, 2), loss=0.9, epochs=2)
+    restab.set(run_id='1_2', loss=0.9, epochs=2)
     assert restab.get((1, 2), parameter='Loss') == 0.9
-    assert restab.get_k_lowest_from_run(k=1, run=1) == [1]
+    assert restab.get_k_lowest_from_run(k=1, run=1) == ['1_1']
 
     shutil.rmtree(tmp_folder)
 
