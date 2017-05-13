@@ -1,7 +1,9 @@
+from __future__ import absolute_import
 import numpy as np
 import math
 from sklearn.gaussian_process import GaussianProcessRegressor
 from scipy.stats import norm
+from .core import GrowingHyperparameter
 
 
 def sample_from(dist, distr_args):
@@ -25,13 +27,13 @@ def sample_from(dist, distr_args):
             AttributeError("Please choose an existing distribution from numpy.random and valid input parameters")
 
 
-
 class HyperparameterGenerator(object):
     def __init__(self, param_ranges):
         self.param_ranges = param_ranges
 
     def next(self):
         pass
+
 
 class RandomGenerator(HyperparameterGenerator):
     """
@@ -42,6 +44,13 @@ class RandomGenerator(HyperparameterGenerator):
         Returns a dictionary of d[hp_name] = hp_sample
         """
         return {param.name: sample_from(param.distribution, param.distr_args) for param in self.param_ranges}
+
+    def grow(self, hparams, amount):
+        for param_range in self.param_ranges:
+            assert isinstance(param_range, GrowingHyperparameter)
+            param_range.grow(value=hparams[param_range.name],
+                             amount=amount)
+            print("{}: {}".format(param_range.name, param_range.weights))
 
 
 class GaussianProcessEI(HyperparameterGenerator):

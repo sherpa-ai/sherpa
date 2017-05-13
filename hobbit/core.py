@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+from __future__ import division
 from .experiment import Experiment
 from .resultstable import ResultsTable
 import keras.backend as K
@@ -39,6 +40,22 @@ class Hyperparameter(object):
         self.distr_args = distr_args
         self.distribution = distribution
         return
+
+class GrowingHyperparameter(object):
+    def __init__(self, name, choices, start_value=100):
+        self.distribution = 'choice'
+        self.choices = choices
+        self.name = name
+        self.weights = [start_value] * len(self.choices)
+        self.norm = lambda w: [v/sum(w) for v in w]
+
+    def grow(self, value, amount):
+        idx = self.choices.index(value)
+        self.weights[idx] = max(self.weights[idx] + amount, 0)
+
+    @property
+    def distr_args(self):
+        return {'a': self.choices, 'p': self.norm(self.weights)}
 
 
 def run_id_to_str(run_id):
