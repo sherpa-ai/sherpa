@@ -462,12 +462,12 @@ class NaturalSelection(Algorithm):
                                         validation_steps=validation_steps)
         self.hparam_gen = LatinHypercube(hparam_ranges)
 
-    def run(self, factor=6, survivors=4):
+    def run(self, factor=6):
         id = 1
         for run in range(factor):
             n_i = 2**(factor-1)/(2**run)
             r_i = 2**run
-            k = 0 if run==0 else min(survivors, n_i)
+            k = 0 if run==0 else n_i//2
 
             for run_id in self.results_table.get_k_lowest_from_run(int(k),
                                                                    run-1):

@@ -83,7 +83,7 @@ def mnist_natural_selection():
                         GrowingHyperparameter(name='dropout',
                                               choices=list(np.linspace(
                                                   0.001,0.8,8)),
-                                              start_value=10.)]
+                                              start_value=5.)]
 
 
     hband = NaturalSelection(model_function=my_model,
@@ -92,7 +92,7 @@ def mnist_natural_selection():
                      repo_dir=tmp_folder,
                      validation_data=valid_data)
 
-    tab = hband.run(factor=5, survivors=2)
+    tab = hband.run(factor=5)
 
     print(tab)
 
