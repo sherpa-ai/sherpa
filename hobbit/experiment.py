@@ -61,7 +61,9 @@ class Experiment(object):
         epochs = kwargs.pop('epochs') + self.history['epochs']
 
         if 'generator' in kwargs.keys():
-            keras_hist = self.model.fit_generator(initial_epoch=self.history['epochs'], epochs=epochs, max_q_size=20, **kwargs)
+            keras_hist = self.model.fit_generator(
+                initial_epoch=self.history['epochs'], epochs=epochs,
+                max_q_size=20, verbose=2, **kwargs)
         else:
             keras_hist = self.model.fit(initial_epoch=self.history[
                 'epochs'], epochs=epochs, verbose=2, **kwargs)
