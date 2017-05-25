@@ -1,8 +1,8 @@
 from __future__ import print_function
 from __future__ import absolute_import
-from hobbit.core import Repository
-from hobbit.resultstable import ResultsTable
-from hobbit.utils.testing_utils import create_model, load_dataset, store_mnist_hdf5, get_hdf5_generator
+from sherpa.core import Repository
+from sherpa.resultstable import ResultsTable
+from sherpa.utils.testing_utils import create_model, load_dataset, store_mnist_hdf5, get_hdf5_generator
 import tempfile
 import shutil
 import numpy as np

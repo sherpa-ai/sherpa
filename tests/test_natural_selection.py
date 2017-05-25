@@ -1,6 +1,6 @@
 from __future__ import print_function
 from __future__ import absolute_import
-from hobbit.utils.testing_utils import create_model, load_dataset
+from sherpa.utils.testing_utils import create_model, load_dataset
 import tempfile
 import shutil
 import os
@@ -16,8 +16,8 @@ def test_legoband():
     non-increasing sequence in the number of units. Note second sort needs to be stable
 
     """
-    from hobbit.algorithms import Legoband
-    from hobbit import GrowingHyperparameter
+    from sherpa.algorithms import Legoband
+    from sherpa import GrowingHyperparameter
 
     tmp_folder = tempfile.mkdtemp(prefix='test_repo')
 
@@ -51,8 +51,8 @@ def test_natural_selection():
     non-increasing sequence in the number of units. Note second sort needs to be stable
 
     """
-    from hobbit.algorithms import NaturalSelection
-    from hobbit import GrowingHyperparameter
+    from sherpa.algorithms import NaturalSelection
+    from sherpa import GrowingHyperparameter
 
     tmp_folder = tempfile.mkdtemp(prefix='test_repo')
 

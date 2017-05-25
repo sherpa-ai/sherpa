@@ -6,10 +6,10 @@ import numpy as np
 import pandas as pd
 import math
 import shutil
-from hobbit.core import Hyperparameter
-from hobbit import hparam_generators
-from hobbit.resultstable import ResultsTable
-from hobbit.utils.testing_utils import branin
+from sherpa.core import Hyperparameter
+from sherpa import hparam_generators
+from sherpa.resultstable import ResultsTable
+from sherpa.utils.testing_utils import branin
 
 
 def get_example_hparam_ranges():

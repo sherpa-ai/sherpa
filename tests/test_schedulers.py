@@ -3,15 +3,15 @@ Lazy test suite, furnish out when more schedulers are available
 """
 from __future__ import print_function
 from __future__ import absolute_import
-from hobbit.core import Repository
-from hobbit.resultstable import ResultsTable
-from hobbit.schedulers import JobScheduler
-from hobbit.utils.testing_utils import create_model, load_dataset
+from sherpa.core import Repository
+from sherpa.resultstable import ResultsTable
+from sherpa.schedulers import JobScheduler
+from sherpa.utils.testing_utils import create_model, load_dataset
 import tempfile
 import shutil
 import numpy as np
 import pytest
-from hobbit.utils.testing_utils import read_nvidia_smi, gpu_exists
+from sherpa.utils.testing_utils import read_nvidia_smi, gpu_exists
 
 @pytest.mark.run(order=7)
 def test_job_scheduler():

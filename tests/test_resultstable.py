@@ -1,7 +1,7 @@
 from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
-import hobbit.resultstable as rt
+import sherpa.resultstable as rt
 import pytest
 import shutil
 import tempfile

@@ -1,6 +1,6 @@
 from __future__ import print_function
 from __future__ import absolute_import
-from hobbit.utils.testing_utils import store_mnist_hdf5, get_hdf5_generator
+from sherpa.utils.testing_utils import store_mnist_hdf5, get_hdf5_generator
 import tempfile
 import shutil
 import numpy as np

@@ -1,6 +1,6 @@
 from __future__ import print_function
 from __future__ import absolute_import
-from hobbit.utils.testing_utils import create_model, load_dataset, store_mnist_hdf5, get_hdf5_generator
+from sherpa.utils.testing_utils import create_model, load_dataset, store_mnist_hdf5, get_hdf5_generator
 import tempfile
 import shutil
 import os
@@ -19,8 +19,8 @@ def test_hyperband():
     non-increasing sequence in the number of units. Note second sort needs to be stable
 
     """
-    from hobbit.algorithms import Hyperband
-    from hobbit import Hyperparameter
+    from sherpa.algorithms import Hyperband
+    from sherpa import Hyperparameter
 
     tmp_folder = tempfile.mkdtemp(prefix='test_repo')
 
@@ -67,8 +67,8 @@ def test_hyperband_with_generator():
     non-increasing sequence in the number of units. Note second sort needs to be stable
 
     """
-    from hobbit.algorithms import Hyperband
-    from hobbit import Hyperparameter
+    from sherpa.algorithms import Hyperband
+    from sherpa import Hyperparameter
 
     tmp_folder = tempfile.mkdtemp(prefix='test_repo')
     my_hparam_ranges = [Hyperparameter(name='num_units', distr_args=[(1, 5, 50)], distribution='choice'),

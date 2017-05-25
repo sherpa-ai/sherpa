@@ -6,8 +6,8 @@ from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Conv2D, MaxPooling2D
 from keras.preprocessing.image import ImageDataGenerator
 import numpy as np
-from hobbit.algorithms import Hyperband
-from hobbit import Hyperparameter
+from sherpa.algorithms import Hyperband
+from sherpa import Hyperparameter
 
 num_classes = 10
 

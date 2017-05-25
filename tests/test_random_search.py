@@ -1,7 +1,7 @@
 from __future__ import print_function
 from __future__ import absolute_import
-from hobbit.utils.testing_utils import load_dataset
-from hobbit.utils.testing_utils import create_model_two as my_model
+from sherpa.utils.testing_utils import load_dataset
+from sherpa.utils.testing_utils import create_model_two as my_model
 import tempfile
 import shutil
 import os
@@ -9,8 +9,8 @@ import pytest
 
 @pytest.mark.run(order=8)
 def test_random_search():
-    from hobbit.algorithms import RandomSearch
-    from hobbit import Hyperparameter
+    from sherpa.algorithms import RandomSearch
+    from sherpa import Hyperparameter
 
     num_experiments = 2
     num_epochs = 2

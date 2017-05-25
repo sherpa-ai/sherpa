@@ -1,7 +1,7 @@
 from __future__ import print_function
 from __future__ import absolute_import
-import hobbit.experiment as experiment
-from hobbit.utils.testing_utils import create_model, load_dataset, store_mnist_hdf5, get_hdf5_generator
+import sherpa.experiment as experiment
+from sherpa.utils.testing_utils import create_model, load_dataset, store_mnist_hdf5, get_hdf5_generator
 import tempfile
 import shutil
 import numpy as np

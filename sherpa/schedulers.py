@@ -1,7 +1,7 @@
 """
 Job schedulers for local and remote model training
 """
-from hobbit import Repository
+from sherpa import Repository
 import multiprocessing as mp
 import os
 

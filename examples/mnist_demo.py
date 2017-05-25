@@ -1,13 +1,13 @@
 from __future__ import print_function
 from __future__ import absolute_import
-from hobbit.utils.testing_utils import load_dataset
-from hobbit.utils.testing_utils import create_model_two as my_model
+from sherpa.utils.testing_utils import load_dataset
+from sherpa.utils.testing_utils import create_model_two as my_model
 import numpy as np
 
 
 def mnist_demo():
-    from hobbit.algorithms import Hyperband
-    from hobbit import Hyperparameter
+    from sherpa.algorithms import Hyperband
+    from sherpa import Hyperparameter
 
     tmp_folder = './test_repo'
 
@@ -31,8 +31,8 @@ def mnist_demo():
 
 
 def mnist_legoband():
-    from hobbit.algorithms import Legoband
-    from hobbit import GrowingHyperparameter
+    from sherpa.algorithms import Legoband
+    from sherpa import GrowingHyperparameter
 
     tmp_folder = './test_repo'
 
@@ -64,8 +64,8 @@ def mnist_legoband():
 
 
 def mnist_natural_selection():
-    from hobbit.algorithms import NaturalSelection
-    from hobbit import GrowingHyperparameter
+    from sherpa.algorithms import NaturalSelection
+    from sherpa import GrowingHyperparameter
 
     tmp_folder = './ns_test_repo'
 
