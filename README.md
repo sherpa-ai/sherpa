@@ -1,5 +1,5 @@
-# Hobbit
-Welcome to Hobbit aka. **H**yperparameter **O**ptimization **B**y **B**and**IT**s. Our goal is to give you
+# SHERPA
+Welcome to SHERPA. Our goal is to give you
 fast and easy hyperparameter search for Keras. Hobbit is building on the Hyperband algorithm developed in
 > Li, Lisha, et al. "Hyperband: A Novel Bandit-Based Approach to Hyperparameter Optimization." arXiv preprint arXiv:1603.06560 (2016).
 
