@@ -1,7 +1,7 @@
 import re
 import inspect
-from hobbit.algorithms import Hyperband
-from hobbit import Hyperparameter
+from sherpa.algorithms import Hyperband
+from sherpa import Hyperparameter
 
 
 def get_function_signature(function, method=True):
