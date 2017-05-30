@@ -1,4 +1,4 @@
-# Hobbit
+# SHERPA
 Welcome to Hobbit aka. Hyperparameter Optimization By BandITs. Hobbit's goal is to give you a tool for fast and easy
 hyperparameter search.
 
