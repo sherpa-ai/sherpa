@@ -86,7 +86,7 @@ class Hyperhack():
             else:
                 k   = int(math.ceil(self.samples * self.survival**self.stage)) # Survivor number.
                 run_ids = results_table.get_k_lowest_from_run(k, run=1) # Only 1 run.
-                self.population = [(run_id, {}) for run_id in run_ids] # Use empty hp.
+                self.population = [(run_id, None) for run_id in run_ids] # Use empty hp to indicate restart training.
                 print('\nBegining stage %d with %d surviviors.' % (self.stage, k))
     
         run_id, hparams = self.population.pop(0)
