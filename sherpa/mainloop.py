@@ -26,7 +26,6 @@ class MainLoop():
         self.algorithm = algorithm
         self.loss      = loss      # Keras history channel e.g. 'loss' or 'val_loss' to be minimized.
         self.dir       = dir
-        self.results_table = results_table if results_table is not None else ResultsTable(dir, recreate=False)
         self.pending = {}  # Keep track of experiments that aren't finished.
         
         # Make dir if neccessary.
@@ -34,13 +33,15 @@ class MainLoop():
             os.makedirs(self.dir)
             #os.makedirs(os.path.dirname(self.dir))
         except:
-            print 'Found existing directory %s, restarting where we left off!' % self.dir
+            print '\nWARNING: Found existing directory %s, algorithm may not be able to make sense of old results!' % self.dir
             pass
-                
+        
+        self.results_table = results_table if results_table is not None else ResultsTable(dir, recreate=False)
+        
         return
 
     def run(self, max_concurrent=1):
-        
+         
         assert max_concurrent == 1, max_concurrent
         if max_concurrent > 1:
             self.run_parallel(max_concurrent=max_concurrent)
@@ -60,7 +61,7 @@ class MainLoop():
             # Run Experiment
             modelfile   = '%s/%s_model.h5' % (self.dir, run_id)
             historyfile = '%s/%s_history.pkl' % (self.dir, run_id)
-            checkpoint  = modelfile if os.path.isfile(modelfile) else None
+            checkpoint  = (modelfile, historyfile) if os.path.isfile(modelfile) else None
             module      = importlib.import_module(self.fname.rsplit('.', 1)[0]) # Must remove '.py' from file path.
             model, history = module.main(run_id=run_id, hparams=hparams, epochs=epochs, checkpoint=checkpoint, verbose=1)
             # Save results.

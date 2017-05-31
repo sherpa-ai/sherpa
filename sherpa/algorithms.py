@@ -15,7 +15,7 @@ class RandomSearch():
     """
     def __init__(self, samples, epochs, hp_ranges, max_concurrent=10):
         self.samples        = samples
-        self.epochs     = epochs
+        self.epochs         = epochs
         self.hp_ranges      = hp_ranges 
         self.hp_generator   = RandomGenerator(hp_ranges)
         self.max_concurrent = max_concurrent
@@ -45,78 +45,24 @@ class RandomSearch():
         else:
             return run_id, self.hp_generator.next(), self.epochs
 
-class Hyperband():
-    """
-    An Algorithm instance initializes the entire pipeline needed to run a
-    hyperparameter optimization. The run() method is used to start
-    the optimization.
-
-    # Arguments
-        model_function: a function that takes a dictionary of hyperparameters
-            as its only argument and returns a compiled Keras model object with
-            those hyperparameters
-        hparam_ranges: a list of Hyperparameter objects
-        repo_dir: the directory to store weights and results table in
-        loss: which loss to optimize e.g. 'val_loss', 'val_mse' etc.
-        dataset: a dataset of the form ((x_train, y_train), (x_valid, y_valid))
-            where x_, y_ are NumPy arrays
-        generator_function: alternatively to dataset, a generator function can
-            be passed. This is a function that returns a generator, not a generator 
-            itself.
-        train_gen_args: arguments to be passed to generator_function when
-            producing a training generator
-        steps_per_epoch: number of batches for one epoch of training when
-            using a generator
-        validation_data: generator function for the validation data, not the generator
-        valid_gen_args: arguments to be passed to generator_function when
-            producing a validation generator
-        validation_steps: number of batches for one epoch of validation when
-            using a generator
-
-    # Methods
-    Runs the algorithm with **R** maximum epochs per stage and cut factor
-    **eta** between stages.
-
-    # run
-    Depends on each optimization algorithm. For Hyperband this is:
-        R: The maximum epochs per stage. Hyperband has multiple runs each of
-            which goes through multiple stages to discard configurations. At each
-            of those stages Hyperband will train for a total of R epochs
-        eta: The cut-factor. After each stage Hyperband will reduce the number
-            of configurations by this factor. The training
-            iterations for configurations that move to the next stage increase
-            by this factor
-
-    # Example
-    ```python
-    def my_model(hparams):
-        '''Keras model defintion returns compiled Keras model based on hparams'''
-        return keras_model
-
-    my_dataset = load_my_dataset()
-
-    my_hparam_ranges = [Hyperparameter(name='learning_rate', distribution='log-uniform', distr_args=(0.0001, 0.1)),
-                    Hyperparameter(name='activation', distribution='choice', distr_args=[('sigmoid', 'tanh', 'relu')]),
-                    Hyperparameter(name='dropout', distribution='uniform', distr_args=(0., 1.))]
-
-
-    hband = Hyperband(model_function=my_model,
-                    dataset=my_dataset,
-                    hparam_ranges=my_hparam_ranges,
-                    repo_dir='./my_test_repo')
-
-    results = hband.run(R=20, eta=3)
-    ```
-    """
-    def __init__(self, R, eta, hp_ranges, max_concurrent=10):
-        self.R = R
-        self.eta = eta
-        self.hp_ranges = hp_ranges 
+class Hyperhack():
+    '''
+    Hyperhack algorithm by Peter 2017
+    '''
+    def __init__(self, samples, epochs_per_stage, stages, survival=0.5, hp_ranges={}, max_concurrent=10):
+        self.samples     = samples # Initial number of samples.
+        self.survival    = survival # Value in [0,1], population is reduced to this amount at each stage.
+        self.epochs_per_stage = epochs_per_stage
+        self.stages      = stages
+        self.hp_ranges   = hp_ranges 
         self.hp_generator = RandomGenerator(hp_ranges)
         self.max_concurrent = max_concurrent
         
-        total_epochs = visualize_hyperband_params(R=self.R, eta=self.eta)
-
+        # State
+        self.stage = 0
+        self.population = [(('1_%d'%i), self.hp_generator.next()) for i in range(samples)] # Only one run.
+        #print('\nBeginning stage %d with %d random samples.' % (self.stage, len(self.population)))
+        
     def next(self, results_table, pending):
         '''
         Examine current results and produce next experiment.
@@ -125,6 +71,60 @@ class Hyperband():
         2) 'wait': Signal to main loop that we are waiting.
         3) 'stop': Signal to main loop that we are finished.
         '''
+        if self.stage == 0 and len(self.population) == self.samples:
+            print('\nBeginning stage %d with %d random samples.' % (self.stage, len(self.population)))
+            
+        if len(pending) >= self.max_concurrent:
+            return 'wait'
+        
+        if len(self.population) == 0:
+            if len(pending) > 0:
+                return 'wait' # Don't start next stage until everyone finishes previous stage.
+            self.stage += 1
+            if self.stage > self.stages:
+                return 'stop'
+            else:
+                k   = int(math.ceil(self.samples * self.survival**self.stage)) # Survivor number.
+                run_ids = results_table.get_k_lowest_from_run(k, run=1) # Only 1 run.
+                self.population = [(run_id, {}) for run_id in run_ids] # Use empty hp.
+                print('\nBegining stage %d with %d surviviors.' % (self.stage, k))
+    
+        run_id, hparams = self.population.pop(0)
+        return run_id, hparams, self.epochs_per_stage      
+        
+class Hyperband():
+    '''
+    Hyperband
+    '''
+    def __init__(self, R, eta, hp_ranges, max_concurrent=10):
+        self.R = R
+        self.eta = eta
+        self.hp_ranges = hp_ranges 
+        self.hp_generator = RandomGenerator(hp_ranges)
+        self.max_concurrent = max_concurrent
+        
+        # Visualize schedule.
+        total_epochs = visualize_hyperband_params(R=self.R, eta=self.eta)
+        
+        # State variables.
+        log_eta = lambda x: math.log(x) / math.log(eta)
+        s_max = int(log_eta(R))
+        B = (s_max + 1) * R
+        self.s = 0
+        self.i = 0
+        self.j = 1 # range()
+        
+        
+        
+    def next(self, results_table, pending):
+        '''
+        Examine current results and produce next experiment.
+        Valid return values:
+        1) run_id, hparams, epochs: Tells main loop to start this experiment. 
+        2) 'wait': Signal to main loop that we are waiting.
+        3) 'stop': Signal to main loop that we are finished.
+        '''
+        
         if len(pending) >= max_concurrent:
             return 'wait'
         
