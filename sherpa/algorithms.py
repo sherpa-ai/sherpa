@@ -49,14 +49,16 @@ class Hyperhack():
     '''
     Hyperhack algorithm by Peter 2017
     '''
-    def __init__(self, samples, epochs_per_stage, stages, survival=0.5, hp_ranges={}, max_concurrent=10):
+    def __init__(self, samples, epochs_per_stage, stages, hp_generator=None, survival=0.5, hp_ranges={}, max_concurrent=10):
         self.samples     = samples # Initial number of samples.
         self.survival    = survival # Value in [0,1], population is reduced to this amount at each stage.
         self.epochs_per_stage = epochs_per_stage
         self.stages      = stages
         self.hp_ranges   = hp_ranges 
-        self.hp_generator = RandomGenerator(hp_ranges)
         self.max_concurrent = max_concurrent
+        if hp_generator is None:
+            hp_generator = RandomGenerator
+        self.hp_generator = hp_generator(hp_ranges) # Initial sampling method for hyperparameters.
         
         # State
         self.stage = 0
@@ -72,7 +74,7 @@ class Hyperhack():
         3) 'stop': Signal to main loop that we are finished.
         '''
         if self.stage == 0 and len(self.population) == self.samples:
-            print('\nBeginning stage %d with %d random samples.' % (self.stage, len(self.population)))
+            print('\nStage %d/%d with %d samples.' % (self.stage, self.stages, len(self.population)))
             
         if len(pending) >= self.max_concurrent:
             return 'wait'
@@ -81,13 +83,13 @@ class Hyperhack():
             if len(pending) > 0:
                 return 'wait' # Don't start next stage until everyone finishes previous stage.
             self.stage += 1
-            if self.stage > self.stages:
+            if self.stage >= self.stages:
                 return 'stop'
             else:
                 k   = int(math.ceil(self.samples * self.survival**self.stage)) # Survivor number.
                 run_ids = results_table.get_k_lowest_from_run(k, run=1) # Only 1 run.
                 self.population = [(run_id, None) for run_id in run_ids] # Use empty hp to indicate restart training.
-                print('\nBegining stage %d with %d surviviors.' % (self.stage, k))
+                print('\nStage %d/%d with %d surviviors.' % (self.stage, self.stages, k))
     
         run_id, hparams = self.population.pop(0)
         return run_id, hparams, self.epochs_per_stage      
