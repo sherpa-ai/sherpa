@@ -3,21 +3,21 @@
 
 # Before importing keras, decide which gpu to use. May find nothing acceptible and fail.
 import sys, os
-import socket
-import gpu_lock
 #if __name__=='__main__':
 if True:
     # Don't need to lock the gpu if we are just starting Sherpa.
     os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=cpu,floatX=float32,force_device=True,base_compiledir=~/.theano/cpu"
 else:
     # Lock gpu.
+    import socket
+    import gpu_lock
     gpuid = gpu_lock.obtain_lock_id() # Return gpuid, or -1 if there was a problem.
     #gpuid = 0 # Force gpu0
     assert gpuid >= 0, 'No gpu available.'
     print 'Running from GPU %s' % str(gpuid)
     os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=gpu%d,floatX=float32,force_device=True,base_compiledir=~/.theano/%s_gpu%d" % (gpuid, socket.gethostname(), gpuid)
 
-import h5py
+#import h5py
 import pickle as pkl
 import glob
 from collections import defaultdict
@@ -30,7 +30,6 @@ from keras.regularizers import *
 from keras.layers.normalization import *
 from keras.optimizers import *
 from keras.utils import np_utils
-from keras.datasets import mnist
 
 def dataset_bianchini(batchsize, nin=2, nt=1):
     # Dataset where we can control betti numbers.
