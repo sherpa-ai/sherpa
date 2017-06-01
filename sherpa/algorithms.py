@@ -74,7 +74,7 @@ class Hyperhack():
         3) 'stop': Signal to main loop that we are finished.
         '''
         if self.stage == 0 and len(self.population) == self.samples:
-            print('\nStage %d/%d with %d samples.' % (self.stage, self.stages, len(self.population)))
+            print('\nStage %d/%d: %d samples, %d epochs per stage.' % (self.stage, self.stages, len(self.population), self.epochs_per_stage))
             
         if len(pending) >= self.max_concurrent:
             return 'wait'
@@ -89,7 +89,13 @@ class Hyperhack():
                 k   = int(math.ceil(self.samples * self.survival**self.stage)) # Survivor number.
                 run_ids = results_table.get_k_lowest_from_run(k, run=1) # Only 1 run.
                 self.population = [(run_id, None) for run_id in run_ids] # Use empty hp to indicate restart training.
-                print('\nStage %d/%d with %d surviviors.' % (self.stage, self.stages, k))
+                print('\nStage %d/%d: %d surviviors, %d epochs per stage.' % (self.stage, self.stages, k, self.epochs_per_stage))
+                # Display best so far.
+                run_id = results_table.get_k_lowest_from_run(k=1, run=1)[0]
+                best   = {'ID':run_id}
+                for k in ['Loss', 'Epochs', 'Hparams']:
+                    best[k] = results_table.get(run_id=run_id, parameter=k)
+                print('Best loss:%0.4f epochs:%d id:%s hp:%s' % (best['Loss'], best['Epochs'], run_id, best['Hparams']))
     
         run_id, hparams = self.population.pop(0)
         return run_id, hparams, self.epochs_per_stage      
