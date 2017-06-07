@@ -5,7 +5,7 @@
 import sys, os
 #if __name__=='__main__':
 if True:
-    # Don't need to lock the gpu if we are just starting Sherpa.
+    # Don't need to lock the gpu if we are just starting Sherpa. 
     os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=cpu,floatX=float32,force_device=True,base_compiledir=~/.theano/cpu"
 else:
     # Lock gpu.
@@ -75,68 +75,46 @@ def define_model(hp):
     model.compile(optimizer=optimizer, loss=loss, metrics=metrics, loss_weights=loss_weights)
     return model
 
-def fit(model, hp, initial_epoch, epochs, verbose):
-    '''
-    ---------------------------------------------------------------------------
-    USER EDITS THIS METHOD
-    ---------------------------------------------------------------------------
-    Update or initialize model.
-    Input: 
-        model   = Instantiated model or None if needs to be instantiated.
-        initial_epoch = If 0, initialize the model.  
-        epochs  = Number of epochs to train here.
-        verbose = Pass this to fit_generator.
-    Returns: 
-        -(Partially) trained model.
-        -(Partial) history.
-    '''
-    if model is None or initial_epoch == 0:
-        # Initialize model.
-        model = define_model(hp=hp)
-    # Define dataset.
-    gtrain  = dataset_bianchini(batchsize=100, nin=2, nt=3)
-    # Train model
-    history = model.fit_generator(gtrain, steps_per_epoch=100, epochs=epochs+initial_epoch, initial_epoch=initial_epoch, verbose=verbose)
-    return model, history
-
 def main(modelfile, historyfile, hparams={}, epochs=1, verbose=2):
     '''
     ---------------------------------------------------------------------------
-    DO NOT EDIT (Edit fit method instead).
+    EDIT THIS METHOD
     ---------------------------------------------------------------------------
     This main function is called by Sherpa. No return value is given, 
     but it updates modelfile and historyfile.
     Input: 
-        run_id     = Name of experiment.
+        modelfile  = File containing model.
+        historyfile= File containing dictionary of per-epoch results.
         hparams    = Dictionary of hyperparameters.
         epochs     = Number of epochs to train this round. 
         verbose    = Passed to keras.fit_generator.
     Output:
         None
     '''
-    
     if hparams is None or len(hparams) == 0:
         # Restart from modelfile and historyfile.
         model   = keras.models.load_model(modelfile)
         history = pkl.load(open(historyfile, 'r'))
         initial_epoch = len(history['loss']) 
     else:
-        model  = None
+        # Create new model.
+        model = define_model(hp=hparams)
+        history = defaultdict(list)
         initial_epoch = 0
     
-    # Update (or initialize) model. 
-    model, partialh = fit(model=model, hp=hparams, initial_epoch=initial_epoch, epochs=epochs, verbose=verbose) 
+    # Define dataset.
+    gtrain  = dataset_bianchini(batchsize=100, nin=2, nt=3)
     
+    # Train model
+    partialh = model.fit_generator(gtrain, steps_per_epoch=100, epochs=epochs+initial_epoch, initial_epoch=initial_epoch, verbose=verbose)
+
     # Update history
     partialh = partialh.history
-    if initial_epoch == 0:
-        history = partialh
-    else:
-        for k in history:
-            history[k].extend(partialh[k])
-    assert 'loss' in history
+    for k in partialh:
+        history[k].extend(partialh[k])
+    assert 'loss' in history, 'Sherpa requires a loss to be defined in history.'
 
-    # Save files.
+    # Save model and history files.
     model.save(modelfile)
     with open(historyfile, 'w') as fid:
         pkl.dump(history, fid)       
@@ -181,8 +159,8 @@ def optimize():
     environment = '/home/pjsadows/profiles/auto.profile' # Specify environment variables. 
     submit_options = '-N myjob -P turbomole_geopt.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'' # SGE options.
     loop = sherpa.mainloop.MainLoop(fname=fname, algorithm=alg, dir=dir, environment=environment, submit_options=submit_options)
-    loop.run_parallel(max_concurrent=2) # Parallel version using SGE.
-    #loop.run() # Sequential.
+    #loop.run_parallel(max_concurrent=2) # Parallel version using SGE.
+    loop.run() # Sequential.
 
 if __name__=='__main__':
     #main() # Single run. 
