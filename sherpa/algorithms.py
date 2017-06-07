@@ -1,13 +1,10 @@
 from __future__ import absolute_import
 from __future__ import division
-#from .schedulers import JobScheduler
 from .resultstable import ResultsTable
 from .hparam_generators import RandomGenerator
 from .utils.monitoring_utils import visualize_hyperband_params, timedcall
-#from . import Repository
 import math
 import os
-
 
 class RandomSearch():
     """
@@ -89,7 +86,7 @@ class Hyperhack():
                 k   = int(math.ceil(self.samples * self.survival**self.stage)) # Survivor number.
                 run_ids = results_table.get_k_lowest_from_run(k, run=1) # Only 1 run.
                 self.population = [(run_id, None) for run_id in run_ids] # Use empty hp to indicate restart training.
-                print('\nStage %d/%d: %d surviviors, %d epochs per stage.' % (self.stage, self.stages, k, self.epochs_per_stage))
+                print('\nStage %d/%d: %d survivors, %d epochs per stage.' % (self.stage, self.stages, k, self.epochs_per_stage))
                 # Display best so far.
                 run_id = results_table.get_k_lowest_from_run(k=1, run=1)[0]
                 best   = {'ID':run_id}
@@ -122,8 +119,6 @@ class Hyperband():
         self.i = 0
         self.j = 1 # range()
         
-        
-        
     def next(self, results_table, pending):
         '''
         Examine current results and produce next experiment.
@@ -135,9 +130,6 @@ class Hyperband():
         
         if len(pending) >= max_concurrent:
             return 'wait'
-        
-        
-        
 
         log_eta = lambda x: math.log(x) / math.log(eta)
         s_max = int(log_eta(R))

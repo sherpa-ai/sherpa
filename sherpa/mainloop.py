@@ -92,7 +92,7 @@ class MainLoop():
                 run_id, hparams, epochs = rval    
                 p = self._start_subprocess(queue, rval)
                 processes[run_id] = p
-                time.sleep(1) # Delay might avoid errors in gpu locking.
+                time.sleep(3) # Delay might avoid errors in gpu locking.
                 assert len(processes) <= max_concurrent
         assert len(processes) == 0, processes
         assert queue.empty()
@@ -117,6 +117,7 @@ class MainLoop():
     
     def _start_subprocess(self, queue, rval):
         # Start subprocess to perform experiment specified by Algorithm.
+        # Overwrites modelfile and historyfile. 
         assert type(rval) == tuple and len(rval) == 3
         run_id, hparams, epochs = rval            
         modelfile   = '%s/%s_model.h5' % (self.dir, run_id)
@@ -137,7 +138,7 @@ class MainLoop():
             
     def _subprocess_sge(self, queue, run_id, modelfile, historyfile, hparams, epochs):
         # Submit experiment to SGE and return when finished.
-        # Process waits for SGE job to complete, then puts historyfile location in queue.
+        # Process waits for SGE job to complete, then puts to queue to signal that it is done.
         
         # Create temp directory.
         outdir = os.path.join(self.dir, 'output')
@@ -160,6 +161,7 @@ class MainLoop():
         job_script = '#$ -S /bin/bash\n'
         if self.environment:
             job_script += 'source %s\n' % self.environment  # Set environment variables.
+        job_script += 'echo "Running from" ${HOSTNAME}\n'
         job_script += 'python %s\n' % python_script_file # How do we pass args? via python file.
         #with open(job_script_file, 'w') as fid:
         #    fid.write(job_script)
@@ -173,6 +175,7 @@ class MainLoop():
         print '\t%d: job submitted for run_id %s' % (process_id, run_id)
 
         # Wait until SGE job finishes (either finishes or fails).
+        # These status messages will help solve problems where job hangs in SGE queue.
         import drmaa
         decodestatus = {drmaa.JobState.UNDETERMINED: 'process status cannot be determined',
                         drmaa.JobState.QUEUED_ACTIVE: 'job is queued and active',
@@ -204,6 +207,8 @@ class MainLoop():
             pass
         # Check that history file now exists.
         assert os.path.isfile(historyfile), 'Job %s for run_id %s must have failed. No historyfile %s' % (process_id, run_id, historyfile)
+        # TODO: Find a way to confirm that this subprocess succeeded.
+        
         # Let parent process know that this job is done.
         queue.put([run_id, hparams, None, historyfile]) # See _read_queue for details.
         return
