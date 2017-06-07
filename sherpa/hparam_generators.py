@@ -5,6 +5,7 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 from scipy.stats import norm
 from .core import GrowingHyperparameter
 import itertools
+import pandas as pd
 
 def sample_from(dist, distr_args):
     """
@@ -93,38 +94,71 @@ class GaussianProcessEI(HyperparameterGenerator):
         self.explored_idxs = set()
         self.old_hparam_idx = None
 
+    # def next(self, X, y):
+    #     if len(y) <= len(self.hparam_dict):
+    #         return self.random_generator.next()
+    #     # else:
+    #     #     X_grid = self.get_grid(X, num_grid_points=3)
+    #     # if len(y) <= X_grid.shape[0]:
+    #     #     next_hparam_idx = len(y)-1
+    #     #     return self.turn_array_to_hparam_dict(X_grid[next_hparam_idx], X)
+    #     else:
+    #         self.best_y = np.min(y) if self.lower_is_better else np.max(y)
+    #
+    #         gp = GaussianProcessRegressor()
+    #         gp.fit(X=X, y=y)
+    #         X_grid = self.get_grid(X, self.num_grid_points)
+    #         y_grid, y_grid_std = gp.predict(X=X_grid, return_std=True)
+    #
+    #         # expected_improvement = [self.get_expected_improvement(y, y_std) for
+    #         #                         y, y_std in zip(y_grid, y_grid_std)]
+    #         expected_improvement_grid = self.get_expected_improvement(y_grid,
+    #                                                              y_grid_std)
+    #
+    #         next_hparam_idx = expected_improvement_grid.argmax()
+    #         # next_hparam_idx_cands = expected_improvement_grid.argsort()
+    #         # for next_hparam_idx in np.flip(next_hparam_idx_cands, -1):
+    #         #     if next_hparam_idx not in self.explored_idxs:
+    #         #         self.explored_idxs.add(next_hparam_idx)
+    #         #         break
+    #         if next_hparam_idx == self.old_hparam_idx:
+    #             return self.random_generator.next()
+    #         else:
+    #             self.old_hparam_idx = next_hparam_idx
+    #             return self.turn_array_to_hparam_dict(X_grid[next_hparam_idx], X)
+
     def next(self, X, y):
-        if len(y) <= len(self.hparam_dict):
+        if len(y) < 2:
             return self.random_generator.next()
-        # else:
-        #     X_grid = self.get_grid(X, num_grid_points=3)
-        # if len(y) <= X_grid.shape[0]:
-        #     next_hparam_idx = len(y)-1
-        #     return self.turn_array_to_hparam_dict(X_grid[next_hparam_idx], X)
         else:
             self.best_y = np.min(y) if self.lower_is_better else np.max(y)
 
             gp = GaussianProcessRegressor()
             gp.fit(X=X, y=y)
-            X_grid = self.get_grid(X, self.num_grid_points)
-            y_grid, y_grid_std = gp.predict(X=X_grid, return_std=True)
+            X_candidates = []
+            expected_improvement = []
+            for i in range(1000):
+                HP_star = self.random_generator.next()
+                X_star = np.array(self.turn_hparam_dict_to_array(HP_star))
+                # print(X_star)
+                y_star, y_star_sd = gp.predict(X_star, return_std=True)
+                ei = self.get_expected_improvement(y_star, y_star_sd)
+                X_candidates.append(X_star)
+                expected_improvement.append(ei)
 
-            # expected_improvement = [self.get_expected_improvement(y, y_std) for
-            #                         y, y_std in zip(y_grid, y_grid_std)]
-            expected_improvement_grid = self.get_expected_improvement(y_grid,
-                                                                 y_grid_std)
+            # print(expected_improvement)
+            expected_improvement = np.array(expected_improvement)
+            # X_candidates = np.array(X_candidates)
 
-            next_hparam_idx = expected_improvement_grid.argmax()
-            # next_hparam_idx_cands = expected_improvement_grid.argsort()
-            # for next_hparam_idx in np.flip(next_hparam_idx_cands, -1):
-            #     if next_hparam_idx not in self.explored_idxs:
-            #         self.explored_idxs.add(next_hparam_idx)
-            #         break
-            if next_hparam_idx == self.old_hparam_idx:
-                return self.random_generator.next()
-            else:
-                self.old_hparam_idx = next_hparam_idx
-                return self.turn_array_to_hparam_dict(X_grid[next_hparam_idx], X)
+            # print(np.argmax(expected_improvement))
+            next_X = X_candidates[np.argmax(expected_improvement)]
+            # print(next_X)
+
+            next_hp = self.turn_array_to_hparam_dict(next_X, X)
+
+            print(next_hp)
+
+            return next_hp
 
     def get_grid(self, X, num_grid_points):
         """
@@ -178,6 +212,7 @@ class GaussianProcessEI(HyperparameterGenerator):
 
     def turn_array_to_hparam_dict(self, X_array, X_df):
         hparams = {}
+        X_array = X_array.squeeze()
         for j, column in enumerate(X_df):
             if column in self.hparam_dict:
                 hparams[column] = X_array[j]
@@ -187,6 +222,11 @@ class GaussianProcessEI(HyperparameterGenerator):
                     name = ''.join(column.split('_')[:-1])
                     hparams[name] = val
         return hparams
+
+    def turn_hparam_dict_to_array(self, d, as_design_matrix=False):
+        hparam_df = pd.DataFrame([d])
+        return hparam_df if not as_design_matrix or hparam_df.empty else \
+            pd.get_dummies(hparam_df, drop_first=True)
 
 class GridSearch(HyperparameterGenerator):
     """
