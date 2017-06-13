@@ -1,268 +1,188 @@
 from __future__ import absolute_import
 from __future__ import division
-from .schedulers import JobScheduler
+from __future__ import print_function
 from .resultstable import ResultsTable
 from .hparam_generators import RandomGenerator
 from .utils.monitoring_utils import visualize_hyperband_params, timedcall
-from . import Repository
 import math
 import os
 
-
-class Algorithm(object):
-    def __init__(self, model_function, loss='val_loss',
-                 repo_dir='./hyperband_repository', dataset=None,
-                 generator_function=None, train_gen_args=None, steps_per_epoch=None,
-                 validation_data=None,
-                 valid_gen_args=None, validation_steps=None):
-        assert model_function and callable(model_function)
-        assert dataset or generator_function, "You need to pass either a" \
-                                              "dataset array or generator" \
-                                              "arguments"
-
-        if generator_function:
-            assert steps_per_epoch and validation_steps,\
-                "You need to pass the number of batches/steps per epoch for" \
-                "training and validation"
-
-            assert callable(generator_function), "Generator needs to be a function"
-            assert callable(validation_data), "Validation data must be a function"
-
-        os.makedirs(repo_dir) if not os.path.exists(repo_dir) else None
-
-        self.results_table = ResultsTable(repo_dir)
-
-        repo = Repository(model_function=model_function,
-                          dataset=dataset,
-                          results_table=self.results_table,
-                          dir=repo_dir,
-                          loss=loss,
-                          generator_function=generator_function,
-                          train_gen_args=train_gen_args,
-                          steps_per_epoch=steps_per_epoch,
-                          validation_data=validation_data,
-                          valid_gen_args=valid_gen_args,
-                          validation_steps=validation_steps)
-
-        self.scheduler = JobScheduler(repository=repo)
-        # Note, if we pass a scheduler we still need to pass the repo to it
-
-    def run(self, *args, **kwargs):
-        raise NotImplemented("This function needs to be implemented in child"
-                             "classes")
-
-
-class Hyperband(Algorithm):
+class RandomSearch():
     """
-    An Algorithm instance initializes the entire pipeline needed to run a
-    hyperparameter optimization. The run() method is used to start
-    the optimization.
-
-    # Arguments
-        model_function: a function that takes a dictionary of hyperparameters
-            as its only argument and returns a compiled Keras model object with
-            those hyperparameters
-        hparam_ranges: a list of Hyperparameter objects
-        repo_dir: the directory to store weights and results table in
-        loss: which loss to optimize e.g. 'val_loss', 'val_mse' etc.
-        dataset: a dataset of the form ((x_train, y_train), (x_valid, y_valid))
-            where x_, y_ are NumPy arrays
-        generator_function: alternatively to dataset, a generator function can
-            be passed. This is a function that returns a generator, not a generator 
-            itself.
-        train_gen_args: arguments to be passed to generator_function when
-            producing a training generator
-        steps_per_epoch: number of batches for one epoch of training when
-            using a generator
-        validation_data: generator function for the validation data, not the generator
-        valid_gen_args: arguments to be passed to generator_function when
-            producing a validation generator
-        validation_steps: number of batches for one epoch of validation when
-            using a generator
-
-    # Methods
-    Runs the algorithm with **R** maximum epochs per stage and cut factor
-    **eta** between stages.
-
-    # run
-    Depends on each optimization algorithm. For Hyperband this is:
-        R: The maximum epochs per stage. Hyperband has multiple runs each of
-            which goes through multiple stages to discard configurations. At each
-            of those stages Hyperband will train for a total of R epochs
-        eta: The cut-factor. After each stage Hyperband will reduce the number
-            of configurations by this factor. The training
-            iterations for configurations that move to the next stage increase
-            by this factor
-
-    # Example
-    ```python
-    def my_model(hparams):
-        '''Keras model defintion returns compiled Keras model based on hparams'''
-        return keras_model
-
-    my_dataset = load_my_dataset()
-
-    my_hparam_ranges = [Hyperparameter(name='learning_rate', distribution='log-uniform', distr_args=(0.0001, 0.1)),
-                    Hyperparameter(name='activation', distribution='choice', distr_args=[('sigmoid', 'tanh', 'relu')]),
-                    Hyperparameter(name='dropout', distribution='uniform', distr_args=(0., 1.))]
-
-
-    hband = Hyperband(model_function=my_model,
-                    dataset=my_dataset,
-                    hparam_ranges=my_hparam_ranges,
-                    repo_dir='./my_test_repo')
-
-    results = hband.run(R=20, eta=3)
-    ```
+    Simple random search.
     """
-    def __init__(self, model_function, hparam_ranges,
-                 repo_dir='./hyperband_repository', loss='val_loss',
-                 dataset=None,
-                 generator_function=None, train_gen_args=None,
-                 steps_per_epoch=None, validation_data=None,
-                 valid_gen_args=None, validation_steps=None):
-        super(self.__class__, self).__init__(model_function=model_function,
-                                             loss=loss,
-                                        repo_dir=repo_dir,
-                                        dataset=dataset,
-                                        generator_function=generator_function,
-                                        train_gen_args=train_gen_args,
-                                        steps_per_epoch=steps_per_epoch,
-                                        validation_data=validation_data,
-                                        valid_gen_args=valid_gen_args,
-                                        validation_steps=validation_steps)
-        self.hparam_gen = RandomGenerator(hparam_ranges)
+    def __init__(self, samples, epochs, hp_ranges, max_concurrent=10):
+        self.samples        = samples
+        self.epochs         = epochs
+        self.hp_ranges      = hp_ranges
+        self.hp_generator   = RandomGenerator(hp_ranges)
+        self.max_concurrent = max_concurrent
 
-    def run(self, R=20, eta=3):
+        print('Sampling %d random hp combinations from %d dimensions.' % (
+            samples, len(hp_ranges)))
 
-        total_epochs = visualize_hyperband_params(R=R, eta=eta)
+    def next(self, results_table, pending):
+        '''
+        Examine current results and produce next experiment.
+        Valid return values:
+        1) run_id, hparams, epochs: Tells main loop to start this experiment.
+        2) 'wait': Signal to main loop that we are waiting.
+        3) 'stop': Signal to main loop that we are finished.
+        '''
+        assert isinstance(results_table, ResultsTable)
+        assert isinstance(pending, dict)
+        df     = results_table.get_table() # Pandas df
+        assert isinstance(df.shape[0], int)
+        assert isinstance(len(pending), int)
+        run_id = '1_%d' % (len(pending)+df.shape[0]) # Results table requires run_ids in this form.
+        if df.shape[0] == self.samples:
+            return 'stop'
+        elif len(pending) >= self.max_concurrent:
+            return 'wait'
+        elif len(pending)+df.shape[0] >= self.samples:
+            return 'wait'
+        else:
+            return run_id, self.hp_generator.next(), self.epochs
 
-        log_eta = lambda x: math.log(x) / math.log(eta)
-        s_max = int(log_eta(R))
-        B = (s_max + 1) * R
+class SuccessiveHalving():
+    '''
+    Jamieson et al. 2015
+    '''
+    def __init__(self, samples, epochs_per_stage, stages, hp_generator=None, survival=0.5, hp_ranges={}, max_concurrent=10):
+        self.samples     = samples # Initial number of samples.
+        self.survival    = survival # Value in [0,1], population is reduced to this amount at each stage.
+        self.epochs_per_stage = epochs_per_stage
+        self.stages      = stages
+        self.hp_ranges   = hp_ranges
+        self.max_concurrent = max_concurrent
+        if hp_generator is None:
+            hp_generator = RandomGenerator
+        self.hp_generator = hp_generator(hp_ranges) # Initial sampling method for hyperparameters.
 
-        for s in reversed(range(s_max + 1)):
-            n = int(math.ceil(B / R / (s + 1) * eta ** s))
-            r = R * eta ** (-s)
+        # State
+        self.stage = 0
+        self.population = [(('1_%d'%i), self.hp_generator.next()) for i in range(samples)] # Only one run.
+        #print('\nBeginning stage %d with %d random samples.' % (self.stage, len(self.population)))
 
-            for i in range(s + 1):
-                n_i = int(n * eta ** (-i))
-                r_i = int(round(r * eta ** (i)))
+    def next(self, results_table, pending):
+        '''
+        Examine current results and produce next experiment.
+        Valid return values:
+        1) run_id, hparams, epochs: Tells main loop to start this experiment.
+        2) 'wait': Signal to main loop that we are waiting.
+        3) 'stop': Signal to main loop that we are finished.
+        '''
+        if self.stage == 0 and len(self.population) == self.samples:
+            print('\nStage %d/%d: %d samples, %d epochs per stage.' % (
+                self.stage, self.stages, len(self.population),
+                self.epochs_per_stage))
 
-                run = s_max - s + 1
-                if i == 0:
-                    for j in range(1, n_i+1):
-                        if s==s_max and i==0 and j==1:
-                            self.estimate_time(self.scheduler.submit,
-                                               {'run_id': '{}_{}'.format(run,j),
-                                                'hparams':
-                                                    self.hparam_gen.next(),
-                                                'epochs': r_i},
-                                               total_epochs=total_epochs,
-                                               r_i=r_i)
+        if len(pending) >= self.max_concurrent:
+            return 'wait'
 
-                        else:
-                            self.scheduler.submit(run_id='{}_{}'.format(run,
-                                                                        j),
-                                                  hparams=self.hparam_gen.next(),
-                                                  epochs=r_i)
-                else:
-                    for run_id in self.results_table.get_k_lowest_from_run(n_i,
-                                                                        run):
-                        self.scheduler.submit(run_id=run_id, epochs=r_i)
-
-        return self.results_table.get_table()
-
-    @staticmethod
-    def estimate_time(f, args, total_epochs, r_i):
-        time, result = timedcall(f, args)
-
-        secs = total_epochs * time / r_i
-        hrs = secs // 3600
-        mins = (secs % 3600) // 60
-        print('-' * 100)
-        print('\nThe complete Hyperband optimization is '
-              'estimated to take {}hrs and {} '
-              'mins\n'.format(
-            hrs, mins))
-        print('-' * 100)
-
-
-class Halving(Algorithm):
-    """
-    Runs Successive Halving as described in 'Non-stochastic bandits best arm
-    selection'
-    """
-    def __init__(self, model_function, hparam_ranges,
-                 repo_dir='./hyperband_repository', loss='val_loss',
-                 dataset=None,
-                 generator_function=None, train_gen_args=None,
-                 steps_per_epoch=None, validation_data=None,
-                 valid_gen_args=None, validation_steps=None):
-        super(self.__class__, self).__init__(model_function=model_function,
-                                             loss=loss,
-                                        repo_dir=repo_dir,
-                                        dataset=dataset,
-                                        generator_function=generator_function,
-                                        train_gen_args=train_gen_args,
-                                        steps_per_epoch=steps_per_epoch,
-                                        validation_data=validation_data,
-                                        valid_gen_args=valid_gen_args,
-                                        validation_steps=validation_steps)
-        self.hparam_gen = RandomGenerator(hparam_ranges)
-
-    def run(self, num_models=100, num_start_epochs=1, cut_factor=2,
-            multiplication_factor=None):
-        multiplication_factor = multiplication_factor or cut_factor
-        num_stages = math.floor(math.log(num_models) / math.log(cut_factor))
-
-        run = 1
-        for stage in range(num_stages):
-            n_i = num_models/(cut_factor**stage)
-            r_i = num_start_epochs * multiplication_factor**stage
-
-            if stage == 0:
-                for j in range(1, n_i+1):
-                    self.scheduler.submit(run_id='{}_{}'.format(run,
-                                                                    j),
-                                              hparams=self.hparam_gen.next(),
-                                              epochs=r_i)
+        if len(self.population) == 0:
+            if len(pending) > 0:
+                return 'wait' # Don't start next stage until everyone finishes previous stage.
+            self.stage += 1
+            if self.stage >= self.stages:
+                return 'stop'
             else:
-                for run_id in self.results_table.get_k_lowest_from_run(n_i,
-                                                                    run):
-                    self.scheduler.submit(run_id=run_id, epochs=r_i)
+                k   = int(math.ceil(self.samples * self.survival**self.stage)) # Survivor number.
+                run_ids = results_table.get_k_lowest_from_run(k, run=1) # Only 1 run.
+                self.population = [(run_id, None) for run_id in run_ids] # Use empty hp to indicate restart training.
+                print('\nStage %d/%d: %d survivors, %d epochs per stage.' % (self.stage, self.stages, k, self.epochs_per_stage))
+                # Display best so far.
+                run_id = results_table.get_k_lowest_from_run(k=1, run=1)[0]
+                best   = {'ID':run_id}
+                for k in ['Loss', 'Epochs', 'Hparams']:
+                    best[k] = results_table.get(run_id=run_id, parameter=k)
+                print('Best loss:%0.4f epochs:%d id:%s hp:%s' % (best['Loss'], best['Epochs'], run_id, best['Hparams']))
 
-        return self.results_table.get_table()
+        run_id, hparams = self.population.pop(0)
+        return run_id, hparams, self.epochs_per_stage
 
-
-class RandomSearch(Algorithm):
-    """
-    Regular sequential random search.
-    """
-    def __init__(self, model_function, hparam_ranges, loss='val_loss',
-                 repo_dir='./random_search_repository', dataset=None,
-                 generator_function=None, train_gen_args=None,
-                 steps_per_epoch=None, validation_data=None,
-                 valid_gen_args=None, validation_steps=None):
-        super(self.__class__, self).__init__(model_function=model_function,
-                                            loss=loss,
-                                            repo_dir=repo_dir,
-                                            dataset=dataset,
-                                            generator_function=generator_function,
-                                            train_gen_args=train_gen_args,
-                                            steps_per_epoch=steps_per_epoch,
-                                            validation_data=validation_data,
-                                            valid_gen_args=valid_gen_args,
-                                            validation_steps=validation_steps)
-        self.hparam_gen = RandomGenerator(hparam_ranges)
-
-    def run(self, num_experiments, num_epochs):
-        run = 1
-        for id in range(num_experiments):
-            self.scheduler.submit(run_id='{}_{}'.format(run, id),
-                                  hparams=self.hparam_gen.next(),
-                                  epochs=num_epochs)
-            print(self.results_table.get_table())
-
-        return self.results_table.get_table()
-
+#
+# class Hyperband():
+#     '''
+#     Hyperband
+#     '''
+#     def __init__(self, R, eta, hp_ranges, max_concurrent=10):
+#         self.R = R
+#         self.eta = eta
+#         self.hp_ranges = hp_ranges
+#         self.hp_generator = RandomGenerator(hp_ranges)
+#         self.max_concurrent = max_concurrent
+#
+#         # Visualize schedule.
+#         total_epochs = visualize_hyperband_params(R=self.R, eta=self.eta)
+#
+#         # State variables.
+#         log_eta = lambda x: math.log(x) / math.log(eta)
+#         s_max = int(log_eta(R))
+#         B = (s_max + 1) * R
+#         self.s = 0
+#         self.i = 0
+#         self.j = 1 # range()
+#
+#     def next(self, results_table, pending):
+#         '''
+#         Examine current results and produce next experiment.
+#         Valid return values:
+#         1) run_id, hparams, epochs: Tells main loop to start this experiment.
+#         2) 'wait': Signal to main loop that we are waiting.
+#         3) 'stop': Signal to main loop that we are finished.
+#         '''
+#
+#         if len(pending) >= max_concurrent:
+#             return 'wait'
+#
+#         log_eta = lambda x: math.log(x) / math.log(eta)
+#         s_max = int(log_eta(R))
+#         B = (s_max + 1) * R
+#
+#         for s in reversed(range(s_max + 1)):
+#             n = int(math.ceil(B / R / (s + 1) * eta ** s))
+#             r = R * eta ** (-s)
+#
+#             for i in range(s + 1):
+#                 n_i = int(n * eta ** (-i))
+#                 r_i = int(round(r * eta ** (i)))
+#
+#                 run = s_max - s + 1
+#                 if i == 0:
+#                     for j in range(1, n_i+1):
+#                         if s==s_max and i==0 and j==1:
+#                             self.estimate_time(self.scheduler.submit,
+#                                                {'run_id': '{}_{}'.format(run,j),
+#                                                 'hparams':
+#                                                     self.hparam_gen.next(),
+#                                                 'epochs': r_i},
+#                                                total_epochs=total_epochs,
+#                                                r_i=r_i)
+#
+#                         else:
+#                             self.scheduler.submit(run_id='{}_{}'.format(run,
+#                                                                         j),
+#                                                   hparams=self.hparam_gen.next(),
+#                                                   epochs=r_i)
+#                 else:
+#                     for run_id in self.results_table.get_k_lowest_from_run(n_i,
+#                                                                         run):
+#                         self.scheduler.submit(run_id=run_id, epochs=r_i)
+#
+#         return self.results_table.get_table()
+#
+#     @staticmethod
+#     def estimate_time(f, args, total_epochs, r_i):
+#         time, result = timedcall(f, args)
+#
+#         secs = total_epochs * time / r_i
+#         hrs = secs // 3600
+#         mins = (secs % 3600) // 60
+#         print('-' * 100)
+#         print('\nThe complete Hyperband optimization is '
+#               'estimated to take {}hrs and {} '
+#               'mins\n'.format(
+#             hrs, mins))
+#         print('-' * 100)
+#

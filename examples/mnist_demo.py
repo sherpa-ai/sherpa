@@ -2,100 +2,69 @@ from __future__ import print_function
 from __future__ import absolute_import
 from sherpa.utils.testing_utils import load_dataset
 from sherpa.utils.testing_utils import create_model_two as my_model
-import numpy as np
+from sherpa.core import Hyperparameter
+import sherpa.hparam_generators
+import sherpa.algorithms
+import sherpa.mainloop
+import keras
+import os
+
+
+def main(modelfile, initial_epoch, hparams={}, epochs=1, verbose=2):
+    if hparams is None or len(hparams) == 0:
+        model = keras.models.load_model(modelfile)
+    else:
+        model = my_model(hparams)
+
+    train_data, valid_data = load_dataset()
+
+    partialh = model.fit(x=train_data[0], y=train_data[1], batch_size=128,
+                         validation_data=valid_data,
+                         epochs=epochs + initial_epoch,
+                         initial_epoch=initial_epoch,
+                         verbose=verbose)
+
+    model.save(modelfile)
+
+    return partialh.history
 
 
 def mnist_demo():
-    from sherpa.algorithms import Hyperband
-    from sherpa import Hyperparameter
+    '''
+    Run Sherpa hyperparameter optimization.
+    User may want to run this as a separate file.
+    '''
 
-    tmp_folder = './test_repo'
+    fname = os.path.basename(__file__)  # 'nn.py'
 
-    train_data, valid_data = load_dataset()
-
-    my_hparam_ranges = [Hyperparameter(name='learning_rate', distr_args=(0.0001, 0.1), distribution='log-uniform'),
-                        Hyperparameter(name='activation', distr_args=[('sigmoid', 'tanh', 'relu')], distribution='choice'),
-                        Hyperparameter(name='dropout', distr_args=(0., 0.8),
+    # Hyperparameter space.
+    my_hparam_ranges = [Hyperparameter(name='learning_rate',
+                                       distr_args=(0.0001, 0.1),
+                                       distribution='log-uniform'),
+                        Hyperparameter(name='activation',
+                                       distr_args=[('sigmoid', 'tanh', 'relu')],
+                                       distribution='choice'),
+                        Hyperparameter(name='dropout',
+                                       distr_args=(0., 0.8),
                                        distribution='uniform')]
 
 
-    hband = Hyperband(model_function=my_model,
-                        hparam_ranges=my_hparam_ranges,
-                        dataset=train_data,
-                        repo_dir=tmp_folder,
-                        validation_data=valid_data)
+    hp_generator = sherpa.hparam_generators.LatinHypercube
 
-    tab = hband.run(R=16, eta=2)
+    # Algorithm used for optimization.
+    alg = sherpa.algorithms.SuccessiveHalving(samples=4, epochs_per_stage=2,
+                                              stages=4,
+                                              survival=0.5,
+                                              hp_generator=hp_generator,
+                                              hp_ranges=my_hparam_ranges,
+                                              max_concurrent=10)
 
-    print(tab)
-
-
-def mnist_legoband():
-    from sherpa.algorithms import Legoband
-    from sherpa import GrowingHyperparameter
-
-    tmp_folder = './test_repo'
-
-    train_data, valid_data = load_dataset()
-
-    my_hparam_ranges = [GrowingHyperparameter(name='learning_rate',
-                                              choices=[0.0001, 0.001, 0.01,
-                                                        0.1],
-                                              start_value=10),
-                        GrowingHyperparameter(name='activation',
-                                              choices=['sigmoid', 'tanh',
-                                                        'relu'],
-                                              start_value=10),
-                        GrowingHyperparameter(name='dropout',
-                                              choices=[0.00001, 0.1, 0.2, 0.3,
-                                                        0.4, 0.5, 0.6, 0.7],
-                                              start_value=10)]
-
-
-    hband = Legoband(model_function=my_model,
-                     hparam_ranges=my_hparam_ranges,
-                     dataset=train_data,
-                     repo_dir=tmp_folder,
-                     validation_data=valid_data)
-
-    tab = hband.run(R=20, eta=3)
-
-    print(tab)
-
-
-def mnist_natural_selection():
-    from sherpa.algorithms import NaturalSelection
-    from sherpa import GrowingHyperparameter
-
-    tmp_folder = './ns_test_repo'
-
-    train_data, valid_data = load_dataset()
-
-    my_hparam_ranges = [GrowingHyperparameter(name='learning_rate',
-                                              choices=list(10.**np.linspace(
-                                                  np.log10(0.0001),
-                                                  np.log10(0.1), 8)),
-                                              start_value=2.),
-                        GrowingHyperparameter(name='activation',
-                                              choices=['sigmoid', 'tanh',
-                                                        'relu'],
-                                              start_value=0.1),
-                        GrowingHyperparameter(name='dropout',
-                                              choices=list(np.linspace(
-                                                  0.001,0.8,8)),
-                                              start_value=5.)]
-
-
-    hband = NaturalSelection(model_function=my_model,
-                     hparam_ranges=my_hparam_ranges,
-                     dataset=train_data,
-                     repo_dir=tmp_folder,
-                     validation_data=valid_data)
-
-    tab = hband.run(factor=5)
-
-    print(tab)
+    session_dir = './session_dir'
+    loop = sherpa.mainloop.MainLoop(fname=fname,
+                                    algorithm=alg,
+                                    dir=session_dir)
+    loop.run()
 
 
 if __name__ == '__main__':
-    mnist_natural_selection()
+    mnist_demo()
