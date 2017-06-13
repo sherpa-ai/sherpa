@@ -52,7 +52,7 @@ def mnist_demo():
     hp_generator = sherpa.hparam_generators.LatinHypercube
 
     # Algorithm used for optimization.
-    alg = sherpa.algorithms.SuccessiveHalving(samples=4, epochs_per_stage=2,
+    alg = sherpa.algorithms.Hyperhack(samples=4, epochs_per_stage=2,
                                               stages=4,
                                               survival=0.5,
                                               hp_generator=hp_generator,
