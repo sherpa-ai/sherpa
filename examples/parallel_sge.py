@@ -1,5 +1,7 @@
 # Demo for Sherpa Parallel optimization.
 # Author: Peter Sadowski
+# Edits: Lars Hertel
+from __future__ import print_function
 
 # Before importing keras, decide which gpu to use. May find nothing acceptible and fail.
 import sys, os
@@ -14,7 +16,7 @@ else:
     gpuid = gpu_lock.obtain_lock_id() # Return gpuid, or -1 if there was a problem.
     #gpuid = 0 # Force gpu0
     assert gpuid >= 0, 'No gpu available.'
-    print 'Running from GPU %s' % str(gpuid)
+    print('Running from GPU %s' % str(gpuid))
     os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=gpu%d,floatX=float32,force_device=True,base_compiledir=~/.theano/%s_gpu%d" % (gpuid, socket.gethostname(), gpuid)
 
 #import h5py
@@ -75,51 +77,45 @@ def define_model(hp):
     model.compile(optimizer=optimizer, loss=loss, metrics=metrics, loss_weights=loss_weights)
     return model
 
-def main(modelfile, historyfile, hparams={}, epochs=1, verbose=2):
+
+########################################################
+def main(modelfile, initial_epoch, hparams={}, epochs=1, verbose=2):
     '''
     ---------------------------------------------------------------------------
     EDIT THIS METHOD
     ---------------------------------------------------------------------------
-    This main function is called by Sherpa. No return value is given, 
+    This main function is called by Sherpa. No return value is given,
     but it updates modelfile and historyfile.
-    Input: 
+    Input:
         modelfile  = File containing model.
         historyfile= File containing dictionary of per-epoch results.
         hparams    = Dictionary of hyperparameters.
-        epochs     = Number of epochs to train this round. 
+        epochs     = Number of epochs to train this round.
         verbose    = Passed to keras.fit_generator.
     Output:
-        None
+        A list of losses or a dictionary of lists that describe history data
+        to be stored
     '''
     if hparams is None or len(hparams) == 0:
         # Restart from modelfile and historyfile.
-        model   = keras.models.load_model(modelfile)
-        history = pkl.load(open(historyfile, 'r'))
-        initial_epoch = len(history['loss']) 
+        model = keras.models.load_model(modelfile)
     else:
         # Create new model.
         model = define_model(hp=hparams)
-        history = defaultdict(list)
-        initial_epoch = 0
-    
-    # Define dataset.
-    gtrain  = dataset_bianchini(batchsize=100, nin=2, nt=3)
-    
-    # Train model
-    partialh = model.fit_generator(gtrain, steps_per_epoch=100, epochs=epochs+initial_epoch, initial_epoch=initial_epoch, verbose=verbose)
 
-    # Update history
-    partialh = partialh.history
-    for k in partialh:
-        history[k].extend(partialh[k])
-    assert 'loss' in history, 'Sherpa requires a loss to be defined in history.'
+    # Define dataset.
+    gtrain = dataset_bianchini(batchsize=100, nin=2, nt=3)
+
+    # Train model
+    partialh = model.fit_generator(gtrain, steps_per_epoch=100,
+                                   epochs=epochs + initial_epoch,
+                                   initial_epoch=initial_epoch,
+                                   verbose=verbose)
 
     # Save model and history files.
     model.save(modelfile)
-    with open(historyfile, 'w') as fid:
-        pkl.dump(history, fid)       
 
-    return
+    return partialh.history
 
 def optimize():
     ''' 
@@ -156,13 +152,13 @@ def optimize():
     #alg  = sherpa.algorithms.RandomSearch(samples=100, epochs=1, hp_ranges=hp_ranges, max_concurrent=10)
 
     dir         = './debug' # All files written to here.
-    environment = '/home/pjsadows/profiles/auto.profile' # Specify environment variables. 
+    environment = '/home/pjsadows/profiles/auto.profile' # Specify environment variables.
     submit_options = '-N myjob -P turbomole_geopt.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'' # SGE options.
     loop = sherpa.mainloop.MainLoop(fname=fname, algorithm=alg, dir=dir, environment=environment, submit_options=submit_options)
     #loop.run_parallel(max_concurrent=2) # Parallel version using SGE.
     loop.run() # Sequential.
 
 if __name__=='__main__':
-    #main() # Single run. 
+    #main() # Single run.
     optimize() # Sherpa optimization.
 
