@@ -44,9 +44,9 @@ class RandomSearch():
         else:
             return run_id, self.hp_generator.next(), self.epochs
 
-class SuccessiveHalving():
+class Hyperhack():
     '''
-    Jamieson et al. 2015
+    Peter 2017
     '''
     def __init__(self, samples, epochs_per_stage, stages, hp_generator=None, survival=0.5, hp_ranges={}, max_concurrent=10):
         self.samples     = samples # Initial number of samples.
