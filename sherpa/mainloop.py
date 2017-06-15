@@ -61,25 +61,15 @@ class MainLoop():
             else:
                 assert type(rval) == tuple and len(rval) == 3
                 run_id, hparams, epochs = rval
-                modelfile = '%s/%s_model.h5' % (self.dir, run_id)
+                modelfile   = '%s/%s_model.h5' % (self.dir, run_id)
                 historyfile = '%s/%s_history.pkl' % (self.dir, run_id)
-                history, initial_epoch = get_hist(hparams=hparams,
-                                                  historyfile=historyfile)
-                partialh = module.main(modelfile=modelfile,
-                                   hparams=hparams,
-                                   epochs=epochs,
-                                   initial_epoch=initial_epoch,
-                                   verbose=1)
+                rval = module.main(modelfile=modelfile, historyfile=historyfile, hparams=hparams, epochs=epochs, verbose=1)
                 # Update ResultsTable.
-                store_hist(partialh=partialh,
-                           history=history,
-                           historyfile=historyfile)
                 with open(historyfile, 'rb') as f:
                     history = pkl.load(f)
-                lowest_loss = min(history[self.loss])
-                epochs_seen = len(history[self.loss])
-                self.results_table.set(run_id=run_id, hparams=hparams,
-                                       loss=lowest_loss, epochs=epochs_seen)
+                lowest_loss   = min(history[self.loss])
+                epochs_seen   = len(history[self.loss])
+                self.results_table.set(run_id=run_id, hparams=hparams, loss=lowest_loss, epochs=epochs_seen)
 
     def run_parallel(self, max_concurrent=1):
         # Use multiprocessing to run jobs in subprocesses.
@@ -126,7 +116,8 @@ class MainLoop():
             p = processes.pop(run_id)
             p.join()  # Process should be finished.
             # Update results table by reading historyfile.
-            history = pkl.load(open(historyfile, 'r'))
+            with open(historyfile, 'rb') as f:
+                history = pkl.load(f)
             lowest_loss = min(history[self.loss])
             epochs_seen = len(history[self.loss])
             self.results_table.set(run_id=run_id, hparams=hparams,
@@ -173,19 +164,8 @@ class MainLoop():
         # Create python script that can run job with specified hyperparameters.
         python_script = 'import %s as mymodule\n' % self.fname.rsplit('.', 1)[
             0]  # Module.
-
-
-
-        python_script += inspect.getsource(get_hist)
-        python_script += 'history, initial_epoch = get_hist(hparams=%s, ' \
-                         'historyfile=historyfile)' \
-                         ')\n' % hparams
-        python_script += 'partialh=mymodule.main(\'%s\', initial_epoch=initial_epoch, hparams=%s, epochs=%d, verbose=2)' % (
-        modelfile, hparams, epochs)
-
-        python_script += inspect.getsource(store_hist)
-        python_script += 'store_hist(partialh, history, historyfile)\n'
-
+        python_script += 'rval=mymodule.main(\'%s\', \'%s\', hparams=%s, epochs=%d, verbose=2)' % (
+        modelfile, historyfile, hparams, epochs)
         python_script_file = os.path.join(outdir, run_id + '.py')
         with open(python_script_file, 'w') as fid:
             fid.write(python_script)
@@ -212,6 +192,7 @@ class MainLoop():
         assert ' -cwd' not in submit_command
         process_id = self._submit_job(submit_command,
                                       job_script)  # Submit using subprocess so we can get SGE process ID.
+
         print('\t%d: job submitted for run_id %s' % (process_id, run_id))
 
         # Wait until SGE job finishes (either finishes or fails).
@@ -333,24 +314,24 @@ class MainLoop():
         return alive
 
 
-def get_hist(hparams, historyfile):
-    if hparams is None or len(hparams) == 0:
-        # Restart from modelfile and historyfile.
-        with open(historyfile, 'rb') as f:
-            history = pkl.load(f)
-        initial_epoch = len(history['loss'])
-    else:
-        # Create new model.
-        history = defaultdict(list)
-        initial_epoch = 0
-    return history, initial_epoch
-
-
-def store_hist(partialh, history, historyfile):
-    # partialh = partialh.history
-    for k in partialh:
-        history[k].extend(partialh[k])
-    assert 'loss' in history, 'Sherpa requires a loss to be defined in history.'
-
-    with open(historyfile, 'wb') as fid:
-        pkl.dump(history, fid)
+# def get_hist(hparams, historyfile):
+#     if hparams is None or len(hparams) == 0:
+#         # Restart from modelfile and historyfile.
+#         with open(historyfile, 'rb') as f:
+#             history = pkl.load(f)
+#         initial_epoch = len(history['loss'])
+#     else:
+#         # Create new model.
+#         history = defaultdict(list)
+#         initial_epoch = 0
+#     return history, initial_epoch
+#
+#
+# def store_hist(partialh, history, historyfile):
+#     # partialh = partialh.history
+#     for k in partialh:
+#         history[k].extend(partialh[k])
+#     assert 'loss' in history, 'Sherpa requires a loss to be defined in history.'
+#
+#     with open(historyfile, 'wb') as fid:
+#         pkl.dump(history, fid)

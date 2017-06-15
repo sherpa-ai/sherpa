@@ -78,8 +78,8 @@ def define_model(hp):
     return model
 
 
-########################################################
-def main(modelfile, initial_epoch, hparams={}, epochs=1, verbose=2):
+
+def main(modelfile, historyfile, hparams={}, epochs=1, verbose=2):
     '''
     ---------------------------------------------------------------------------
     EDIT THIS METHOD
@@ -99,9 +99,14 @@ def main(modelfile, initial_epoch, hparams={}, epochs=1, verbose=2):
     if hparams is None or len(hparams) == 0:
         # Restart from modelfile and historyfile.
         model = keras.models.load_model(modelfile)
+        with open(historyfile, 'rb') as f:
+            history = pkl.load(f)
+        initial_epoch = len(history['loss'])
     else:
         # Create new model.
         model = define_model(hp=hparams)
+        history = defaultdict(list)
+        initial_epoch = 0
 
     # Define dataset.
     gtrain = dataset_bianchini(batchsize=100, nin=2, nt=3)
@@ -112,10 +117,19 @@ def main(modelfile, initial_epoch, hparams={}, epochs=1, verbose=2):
                                    initial_epoch=initial_epoch,
                                    verbose=verbose)
 
+    # Update history
+    partialh = partialh.history
+    for k in partialh:
+        history[k].extend(partialh[k])
+    assert 'loss' in history, 'Sherpa requires a loss to be defined in history.'
+
     # Save model and history files.
     model.save(modelfile)
+    with open(historyfile, 'wb') as fid:
+        pkl.dump(history, fid)
 
-    return partialh.history
+    return
+
 
 def optimize():
     ''' 
@@ -152,7 +166,8 @@ def optimize():
     #alg  = sherpa.algorithms.RandomSearch(samples=100, epochs=1, hp_ranges=hp_ranges, max_concurrent=10)
 
     dir         = './debug' # All files written to here.
-    environment = '/home/pjsadows/profiles/auto.profile' # Specify environment variables.
+    # environment = '/home/pjsadows/profiles/auto.profile' # Specify environment variables.
+    environment = None
     submit_options = '-N myjob -P turbomole_geopt.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'' # SGE options.
     loop = sherpa.mainloop.MainLoop(fname=fname, algorithm=alg, dir=dir, environment=environment, submit_options=submit_options)
     #loop.run_parallel(max_concurrent=2) # Parallel version using SGE.
