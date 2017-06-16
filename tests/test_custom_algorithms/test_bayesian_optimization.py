@@ -16,7 +16,7 @@ def test_bayesian_optimization():
     non-increasing sequence in the number of units. Note second sort needs to be stable
 
     """
-    from sherpa.algorithms import BayesianOptimization
+    from sherpa.custom_algorithms import BayesianOptimization
     from sherpa import Hyperparameter
 
     tmp_folder = tempfile.mkdtemp(prefix='test_repo')
@@ -24,8 +24,8 @@ def test_bayesian_optimization():
     train_dataset, valid_dataset = load_dataset(short=False)
 
     my_hparam_ranges = [Hyperparameter(name='num_units',
-                                       distr_args=[1, 50],
-                                       distribution='uniform'),
+                                       distr_args=[(1, 5, 50)],
+                                       distribution='choice'),
                         Hyperparameter(name='lr', distr_args=[0.01, 0.1],
                                        distribution='uniform')]
 
@@ -36,7 +36,7 @@ def test_bayesian_optimization():
                                 hparam_ranges=my_hparam_ranges,
                                 repo_dir=tmp_folder)
 
-    tab = bo.run(num_experiments=15, num_epochs=1)
+    tab = bo.run(num_experiments=30, num_epochs=5)
 
     print(tab)
 
