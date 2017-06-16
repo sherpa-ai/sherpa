@@ -152,6 +152,7 @@ def optimize():
     
     # Algorithm used for optimization.
     alg  = sherpa.algorithms.Hyperhack(samples=4, epochs_per_stage=2, stages=4, survival=0.5, hp_generator=hp_generator, hp_ranges=hp_ranges, max_concurrent=10)
+    #alg  = sherpa.algorithms.Hyperhack(samples=4, epochs_per_stage=2, stages=4, survival=0.5, hp_ranges=hp_ranges, max_concurrent=10)
     #alg  = sherpa.algorithms.Hyperband(R=3, eta=20, hpspace=hpspace)
     #alg  = sherpa.algorithms.RandomSearch(samples=100, epochs=1, hp_ranges=hp_ranges, max_concurrent=10)
 
