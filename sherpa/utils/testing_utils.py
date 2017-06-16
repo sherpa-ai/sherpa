@@ -6,9 +6,7 @@ from keras.models import Sequential
 from keras.layers import Dense, Dropout
 from keras.optimizers import RMSprop
 from keras.initializers import glorot_uniform, Zeros
-from subprocess import check_output
 import numpy as np
-import re
 import h5py
 import os
 
@@ -114,32 +112,7 @@ def get_hdf5_generator(x, y, batch_size=100):
             yield x[from_:to_], y[from_:to_]
 
 
-def read_nvidia_smi(gpus=list(range(4)), cutoff=60):
-    """
-    Args:
-        gpus: GPUs to be checked
-        cutoff: Usage (in MiB) above which a gpu is declared to be in use
 
-    Returns:
-        True/False depending on whether those gpus are in use
-    """
-
-    s = check_output(["nvidia-smi"])
-    matches = re.findall(r'([0-9]+)MiB / [0-9]+MiB', s)
-    usage = map(int, matches)
-    return all(gpu_usage >= cutoff for gpu_id, gpu_usage in enumerate(usage) if gpu_id in gpus)
-
-
-def gpu_exists():
-    """
-    Returns:
-        True/False depending on whether there is at least one GPU installed
-    """
-    try:
-        check_output(["nvidia-smi"])
-        return True
-    except(OSError):
-        return False
 
 
 def branin(x1, x2):

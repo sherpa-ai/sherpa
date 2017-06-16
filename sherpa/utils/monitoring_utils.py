@@ -5,6 +5,7 @@ import sys
 import time
 import re
 import numpy as np
+from subprocess import check_output
 
 
 def timedcall(fn, kwargs):
@@ -93,6 +94,33 @@ def extract_loss_history_from_log(path, key='val_loss', lower_is_better=True):
             losses.append(best_loss)
     return losses
 
+
+def read_nvidia_smi(gpus=list(range(4)), cutoff=60):
+    """
+    Args:
+        gpus: GPUs to be checked
+        cutoff: Usage (in MiB) above which a gpu is declared to be in use
+
+    Returns:
+        True/False depending on whether those gpus are in use
+    """
+
+    s = check_output(["nvidia-smi"])
+    matches = re.findall(r'([0-9]+)MiB / [0-9]+MiB', s)
+    usage = map(int, matches)
+    return all(gpu_usage >= cutoff for gpu_id, gpu_usage in enumerate(usage) if gpu_id in gpus)
+
+
+def gpu_exists():
+    """
+    Returns:
+        True/False depending on whether there is at least one GPU installed
+    """
+    try:
+        check_output(["nvidia-smi"])
+        return True
+    except(OSError):
+        return False
 
 
 if __name__ == '__main__':
