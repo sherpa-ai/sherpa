@@ -3,9 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from .resultstable import ResultsTable
 from .hparam_generators import RandomGenerator
-from .utils.monitoring_utils import visualize_hyperband_params, timedcall
 import math
-import os
 
 class RandomSearch():
     """
