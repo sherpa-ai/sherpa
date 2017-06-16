@@ -23,15 +23,8 @@ else:
 import pickle as pkl
 import glob
 from collections import defaultdict
+import numpy as np
 
-import keras
-from keras.models import Model
-from keras.layers import *
-from keras.activations import *
-from keras.regularizers import *
-from keras.layers.normalization import *
-from keras.optimizers import *
-from keras.utils import np_utils
 
 def dataset_bianchini(batchsize, nin=2, nt=1):
     # Dataset where we can control betti numbers.
@@ -53,6 +46,9 @@ def dataset_bianchini(batchsize, nin=2, nt=1):
 def define_model(hp):
     # Return compiled model with specified hyperparameters.
     # Model Architecture
+    from keras.models import Model
+    from keras.layers import Dense, Input
+    from keras.optimizers import SGD
     nin    = 2
     nout   = 1
     nhidu  = hp['nhid']
@@ -96,6 +92,7 @@ def main(modelfile, historyfile, hparams={}, epochs=1, verbose=2):
         A list of losses or a dictionary of lists that describe history data
         to be stored
     '''
+    import keras
     if hparams is None or len(hparams) == 0:
         # Restart from modelfile and historyfile.
         model = keras.models.load_model(modelfile)
