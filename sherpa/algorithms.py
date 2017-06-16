@@ -46,21 +46,33 @@ class Hyperhack():
     '''
     Peter 2017
     '''
-    def __init__(self, samples, epochs_per_stage, stages, hp_generator=None, survival=0.5, hp_ranges={}, max_concurrent=10):
+    def __init__(self, samples, epochs_per_stage, stages, hp_generator=RandomGenerator, survival=0.5, hp_ranges={}, max_concurrent=10, constraints=[]):
         self.samples     = samples # Initial number of samples.
         self.survival    = survival # Value in [0,1], population is reduced to this amount at each stage.
         self.epochs_per_stage = epochs_per_stage
         self.stages      = stages
         self.hp_ranges   = hp_ranges
         self.max_concurrent = max_concurrent
-        if hp_generator is None:
-            hp_generator = RandomGenerator
+        #if hp_generator is None:
+        #    hp_generator = RandomGenerator
         self.hp_generator = hp_generator(hp_ranges) # Initial sampling method for hyperparameters.
-
-        # State
+        
+        # State of the algorithm.
         self.stage = 0
-        self.population = [(('1_%d'%i), self.hp_generator.next()) for i in range(samples)] # Only one run.
-        #print('\nBeginning stage %d with %d random samples.' % (self.stage, len(self.population)))
+        self.population = []
+        # Initialize population with hp combinations from generator that fit constraints.
+        if len(constraints) == 0:
+            self.population = [(('1_%d'%i), self.hp_generator.next()) for i in range(samples)] # Only one run.
+        else:
+            count = 0
+            while count < samples:
+                sample = self.hp_generator.next()
+                sat = True
+                for constraint in constraints:
+                    sat = sat and constraint(sample)
+                if sat:
+                    self.population.append(('1_%d'%count, sample))
+                    count += 1
 
     def next(self, results_table, pending):
         '''
@@ -69,6 +81,11 @@ class Hyperhack():
         1) run_id, hparams, epochs: Tells main loop to start this experiment.
         2) 'wait': Signal to main loop that we are waiting.
         3) 'stop': Signal to main loop that we are finished.
+
+        TODO: 
+        1) The algorithm might want access to more information, e.g. the model and the full history.
+           Therefore, I think the results table should include the modelfile and historyfile.
+
         '''
         if self.stage == 0 and len(self.population) == self.samples:
             print('\nStage %d/%d: %d samples, %d epochs per stage.' % (
