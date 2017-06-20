@@ -6,10 +6,7 @@ from sherpa.core import Hyperparameter
 import sherpa.hparam_generators
 import sherpa.algorithms
 import sherpa.mainloop
-#import keras
 import os
-#import pickle as pkl
-#from collections import defaultdict
 from sherpa.utils.loading_and_saving_utils import load_model, update_history, save_model
 
 
