@@ -27,16 +27,16 @@ def main(modelfile, historyfile, hparams={}, epochs=1, verbose=2):
 
     train_data, valid_data = load_dataset()
 
-    partialh = model.fit(x=train_data[0], y=train_data[1], batch_size=128,
+    partial_history = model.fit(x=train_data[0], y=train_data[1], batch_size=128,
                          validation_data=valid_data,
                          epochs=epochs + initial_epoch,
                          initial_epoch=initial_epoch,
                          verbose=verbose)
 
     # Update history
-    partialh = partialh.history
-    for k in partialh:
-        history[k].extend(partialh[k])
+    partial_history = partial_history.history
+    for k in partial_history:
+        history[k].extend(partial_history[k])
     assert 'loss' in history, 'Sherpa requires a loss to be defined in history.'
 
     # Save model and history files.
