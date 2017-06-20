@@ -1,7 +1,8 @@
 # Demo for Sherpa Parallel optimization.
 # Author: Peter Sadowski
-# Edits: Lars Hertel
+# Edits: Lars Hertel, Julian Collado
 from __future__ import print_function
+from sherpa.utils.loading_and_saving_utils import load_model, update_history, save_model
 
 # Before importing keras, decide which gpu to use. May find nothing acceptible and fail.
 import sys, os
@@ -43,7 +44,8 @@ def dataset_bianchini(batchsize, nin=2, nt=1):
         Y = (np.apply_along_axis(f, axis=1, arr=X) > 0.0).astype('float32')
         yield {'input':X}, {'output':Y}
 
-def define_model(hp):
+
+def my_model(hp):
     # Return compiled model with specified hyperparameters.
     # Model Architecture
     from keras.models import Model
@@ -74,56 +76,42 @@ def define_model(hp):
     return model
 
 
-
-def main(modelfile, historyfile, hparams={}, epochs=1, verbose=2):
-    '''
+def main(model_file, history_file, hparams={}, epochs=1, verbose=2):
+    """
     ---------------------------------------------------------------------------
     EDIT THIS METHOD
     ---------------------------------------------------------------------------
     This main function is called by Sherpa. No return value is given,
-    but it updates modelfile and historyfile.
+    but it updates model_file and history_file.
     Input:
-        modelfile  = File containing model.
-        historyfile= File containing dictionary of per-epoch results.
+        model_file  = File containing model.
+        history_file= File containing dictionary of per-epoch results.
         hparams    = Dictionary of hyperparameters.
         epochs     = Number of epochs to train this round.
         verbose    = Passed to keras.fit_generator.
     Output:
         A list of losses or a dictionary of lists that describe history data
         to be stored
-    '''
-    import keras
-    if hparams is None or len(hparams) == 0:
-        # Restart from modelfile and historyfile.
-        model = keras.models.load_model(modelfile)
-        with open(historyfile, 'rb') as f:
-            history = pkl.load(f)
-        initial_epoch = len(history['loss'])
-    else:
-        # Create new model.
-        model = define_model(hp=hparams)
-        history = defaultdict(list)
-        initial_epoch = 0
+    """
+
+    model, history, initial_epoch = load_model(hparams, my_model, model_file, history_file)
 
     # Define dataset.
     gtrain = dataset_bianchini(batchsize=100, nin=2, nt=3)
+    gvalid = dataset_bianchini(batchsize=100, nin=2, nt=3)
 
     # Train model
-    partialh = model.fit_generator(gtrain, steps_per_epoch=100,
-                                   epochs=epochs + initial_epoch,
-                                   initial_epoch=initial_epoch,
-                                   verbose=verbose)
+    partial_history = model.fit_generator(gtrain, steps_per_epoch=100,
+                                          validation_data=gvalid, validation_steps=10,
+                                          epochs=epochs + initial_epoch,
+                                          initial_epoch=initial_epoch,
+                                          verbose=verbose)
 
     # Update history
-    partialh = partialh.history
-    for k in partialh:
-        history[k].extend(partialh[k])
-    assert 'loss' in history, 'Sherpa requires a loss to be defined in history.'
+    update_history(partial_history, history)
 
     # Save model and history files.
-    model.save(modelfile)
-    with open(historyfile, 'wb') as fid:
-        pkl.dump(history, fid)
+    save_model(model, model_file, history, history_file)
 
     return
 
