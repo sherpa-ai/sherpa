@@ -12,18 +12,46 @@ import pickle as pkl
 from collections import defaultdict
 
 
-def main(modelfile, historyfile, hparams={}, epochs=1, verbose=2):
+def get_model(hparams, modelfile, historyfile):
+    # Loads or creates a keras model
     if hparams is None or len(hparams) == 0:
-        # Restart from modelfile and historyfile.
-        model = keras.models.load_model(modelfile)
-        with open(historyfile, 'rb') as f:
-            history = pkl.load(f)
-        initial_epoch = len(history['loss'])
+        return load_keras_model(modelfile, historyfile)
     else:
-        # Create new model.
-        model = my_model(hparams)
-        history = defaultdict(list)
-        initial_epoch = 0
+        return create_keras_model(hparams)
+
+
+def load_keras_model(modelfile, historyfile):
+    # Restart from modelfile and historyfile.
+    model = keras.models.load_model(modelfile)
+    with open(historyfile, 'rb') as f:
+        history = pkl.load(f)
+    initial_epoch = len(history['loss'])
+    return [model, history, initial_epoch]
+
+
+def create_keras_model(hparams):
+    model = my_model(hparams)
+    history = defaultdict(list)
+    initial_epoch = 0
+    return [model, history, initial_epoch]
+
+
+def save(model, modelfile, history, historyfile):
+    # Save model and history files.
+    model.save(modelfile)
+    with open(historyfile, 'wb') as fid:
+        pkl.dump(history, fid)
+
+
+def update_history(partial_history, history):
+    partial_history = partial_history.history
+    for k in partial_history:
+        history[k].extend(partial_history[k])
+    assert 'loss' in history, 'Sherpa requires a loss to be defined in history.'
+
+
+def main(modelfile, historyfile, hparams={}, epochs=1, verbose=2):
+    model, history, initial_epoch = get_model(hparams, modelfile, historyfile)
 
     train_data, valid_data = load_dataset()
 
@@ -34,15 +62,10 @@ def main(modelfile, historyfile, hparams={}, epochs=1, verbose=2):
                          verbose=verbose)
 
     # Update history
-    partial_history = partial_history.history
-    for k in partial_history:
-        history[k].extend(partial_history[k])
-    assert 'loss' in history, 'Sherpa requires a loss to be defined in history.'
+    update_history(partial_history, history)
 
     # Save model and history files.
-    model.save(modelfile)
-    with open(historyfile, 'wb') as fid:
-        pkl.dump(history, fid)
+    save(model, modelfile, history, historyfile)
 
     return
 
