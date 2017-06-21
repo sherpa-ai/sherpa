@@ -6,10 +6,16 @@ from sherpa.utils.loading_and_saving_utils import load_model, update_history, sa
 
 # Before importing keras, decide which gpu to use. May find nothing acceptible and fail.
 import sys, os
-#if __name__=='__main__':
-if True:
-    # Don't need to lock the gpu if we are just starting Sherpa. 
-    os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=cpu,floatX=float32,force_device=True,base_compiledir=~/.theano/cpu"
+backend='theano'
+
+if __name__=='__main__':
+#if True:
+    # Don't need to lock the gpu if we are just starting Sherpa.
+    if backend == 'theano':
+        os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=cpu,floatX=float32,force_device=True,base_compiledir=~/.theano/cpu"
+    elif backend == 'tensorflow':
+        os.environ['KERAS_BACKEND'] = "tensorflow"
+
 else:
     # Lock gpu.
     import socket
@@ -18,7 +24,11 @@ else:
     #gpuid = 0 # Force gpu0
     assert gpuid >= 0, 'No gpu available.'
     print('Running from GPU %s' % str(gpuid))
-    os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=gpu%d,floatX=float32,force_device=True,base_compiledir=~/.theano/%s_gpu%d" % (gpuid, socket.gethostname(), gpuid)
+    if backend == 'theano':
+        os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=gpu%d,floatX=float32,force_device=True,base_compiledir=~/.theano/%s_gpu%d" % (gpuid, socket.gethostname(), gpuid)
+    elif backend == 'tensorflow':
+        os.environ['KERAS_BACKEND'] = "tensorflow"
+        os.environ['CUDA_VISIBLE_DEVICES'] = "%i" % int(gpuid)
 
 #import h5py
 import pickle as pkl
