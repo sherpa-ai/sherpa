@@ -3,39 +3,37 @@
 # Edits: Lars Hertel, Julian Collado
 from __future__ import print_function
 from sherpa.utils.loading_and_saving_utils import load_model, update_history, save_model
-
-# Before importing keras, decide which gpu to use. May find nothing acceptible and fail.
 import sys, os
-backend='theano'
-
-if __name__=='__main__':
-#if True:
-    # Don't need to lock the gpu if we are just starting Sherpa.
-    if backend == 'theano':
-        os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=cpu,floatX=float32,force_device=True,base_compiledir=~/.theano/cpu"
-    elif backend == 'tensorflow':
-        os.environ['KERAS_BACKEND'] = "tensorflow"
-
-else:
-    # Lock gpu.
-    import socket
-    import gpu_lock
-    gpuid = gpu_lock.obtain_lock_id() # Return gpuid, or -1 if there was a problem.
-    #gpuid = 0 # Force gpu0
-    assert gpuid >= 0, 'No gpu available.'
-    print('Running from GPU %s' % str(gpuid))
-    if backend == 'theano':
-        os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=gpu%d,floatX=float32,force_device=True,base_compiledir=~/.theano/%s_gpu%d" % (gpuid, socket.gethostname(), gpuid)
-    elif backend == 'tensorflow':
-        os.environ['KERAS_BACKEND'] = "tensorflow"
-        os.environ['CUDA_VISIBLE_DEVICES'] = "%i" % int(gpuid)
-
-#import h5py
 import pickle as pkl
 import glob
 from collections import defaultdict
 import numpy as np
 
+# Before importing keras, decide which gpu to use. May find nothing acceptible and fail.
+BACKEND = 'tensorflow'
+if __name__=='__main__':
+    # Don't use gpu if we are just starting Sherpa.
+    if BACKEND == 'theano':
+        os.environ['KERAS_BACKEND'] = "theano"
+        os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=cpu,floatX=float32,force_device=True,base_compiledir=~/.theano/cpu"
+    elif BACKEND == 'tensorflow':
+        os.environ['KERAS_BACKEND'] = "tensorflow"
+        os.environ['CUDA_VISIBLE_DEVICES'] = ""
+else:
+    # Lock gpu.
+    import socket
+    import gpu_lock
+    gpuid = gpu_lock.obtain_lock_id() # Return gpuid, or -1 if there was a problem.
+    assert gpuid >= 0, 'No gpu available.'
+    print('Running from GPU %s' % str(gpuid))
+    if BACKEND == 'theano':
+        os.environ['KERAS_BACKEND'] = "theano"
+        os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=gpu%d,floatX=float32,force_device=True,base_compiledir=~/.theano/%s_gpu%d" % (gpuid, socket.gethostname(), gpuid)
+    elif BACKEND == 'tensorflow':
+        os.environ['KERAS_BACKEND'] = "tensorflow"
+        os.environ['CUDA_VISIBLE_DEVICES'] = "%i" % int(gpuid)
+        #CONFIG = tf.ConfigProto(device_count = {'GPU': 1}, log_device_placement=True, allow_soft_placement=True) 
+        #CONFIG.gpu_options.allow_growth = True # Prevents tf from grabbing all memory.
 
 def dataset_bianchini(batchsize, nin=2, nt=1):
     # Dataset where we can control betti numbers.
@@ -53,7 +51,6 @@ def dataset_bianchini(batchsize, nin=2, nt=1):
         X = np.random.uniform(low=-1.,high=1.0 , size=(batchsize, nin))
         Y = (np.apply_along_axis(f, axis=1, arr=X) > 0.0).astype('float32')
         yield {'input':X}, {'output':Y}
-
 
 def my_model(hp):
     # Return compiled model with specified hyperparameters.
