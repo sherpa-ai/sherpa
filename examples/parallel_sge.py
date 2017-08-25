@@ -2,15 +2,16 @@
 # Author: Peter Sadowski
 # Edits: Lars Hertel, Julian Collado
 from __future__ import print_function
-from sherpa.utils.loading_and_saving_utils import load_model, update_history, save_model
 import sys, os
 import pickle as pkl
 import glob
 from collections import defaultdict
 import numpy as np
+import gpu_lock
 
 # Before importing keras, decide which gpu to use. May find nothing acceptible and fail.
-BACKEND = 'tensorflow'
+#BACKEND = 'tensorflow'
+BACKEND = 'theano'
 if __name__=='__main__':
     # Don't use gpu if we are just starting Sherpa.
     if BACKEND == 'theano':
@@ -23,17 +24,23 @@ else:
     # Lock gpu.
     import socket
     import gpu_lock
-    gpuid = gpu_lock.obtain_lock_id() # Return gpuid, or -1 if there was a problem.
-    assert gpuid >= 0, 'No gpu available.'
-    print('Running from GPU %s' % str(gpuid))
+    #GPUIDX = gpu_lock.obtain_lock_id() # Return gpuid, or -1 if there was a problem.
+    GPUIDX = 1
+    assert GPUIDX >= 0, '\nNo gpu available.'
+    print('\nRunning from GPU %s' % str(GPUIDX))
     if BACKEND == 'theano':
         os.environ['KERAS_BACKEND'] = "theano"
-        os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=gpu%d,floatX=float32,force_device=True,base_compiledir=~/.theano/%s_gpu%d" % (gpuid, socket.gethostname(), gpuid)
+        os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=gpu%d,floatX=float32,force_device=True,base_compiledir=~/.theano/%s_gpu%d" % (GPUIDX, socket.gethostname(), GPUIDX)
     elif BACKEND == 'tensorflow':
         os.environ['KERAS_BACKEND'] = "tensorflow"
-        os.environ['CUDA_VISIBLE_DEVICES'] = "%i" % int(gpuid)
-        #CONFIG = tf.ConfigProto(device_count = {'GPU': 1}, log_device_placement=True, allow_soft_placement=True) 
-        #CONFIG.gpu_options.allow_growth = True # Prevents tf from grabbing all memory.
+        os.environ['CUDA_VISIBLE_DEVICES'] = str(GPUIDX)
+        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+        import tensorflow as tf
+        CONFIG = tf.ConfigProto(device_count = {'GPU': 1}, log_device_placement=False, allow_soft_placement=False) 
+        CONFIG.gpu_options.allow_growth = True # Prevents tf from grabbing all gpu memory.
+        sess = tf.Session(config=CONFIG)
+        from keras import backend as K
+        K.set_session(sess)
 
 def dataset_bianchini(batchsize, nin=2, nt=1):
     # Dataset where we can control betti numbers.
@@ -52,7 +59,7 @@ def dataset_bianchini(batchsize, nin=2, nt=1):
         Y = (np.apply_along_axis(f, axis=1, arr=X) > 0.0).astype('float32')
         yield {'input':X}, {'output':Y}
 
-def my_model(hp):
+def define_model(hp):
     # Return compiled model with specified hyperparameters.
     # Model Architecture
     from keras.models import Model
@@ -83,7 +90,7 @@ def my_model(hp):
     return model
 
 
-def main(model_file, history_file, hparams={}, epochs=1, verbose=2):
+def main(modelfile, historyfile, hp={}, epochs=1, verbose=2):
     """
     ---------------------------------------------------------------------------
     EDIT THIS METHOD
@@ -91,39 +98,63 @@ def main(model_file, history_file, hparams={}, epochs=1, verbose=2):
     This main function is called by Sherpa. No return value is given,
     but it updates model_file and history_file.
     Input:
-        model_file  = File containing model.
-        history_file= File containing dictionary of per-epoch results.
-        hparams    = Dictionary of hyperparameters.
+        modelfile  = File containing model.
+        historyfile= File containing dictionary of per-epoch results.
+        hp         = Dictionary of hyperparameters.
         epochs     = Number of epochs to train this round.
         verbose    = Passed to keras.fit_generator.
     Output:
         A list of losses or a dictionary of lists that describe history data
         to be stored
     """
-
-    model, history, initial_epoch = load_model(hparams, my_model, model_file, history_file)
+    print('Running with {}'.format(str(hp)))
+    import keras
+    if hp is None or len(hp) == 0:
+        # Restart from modelfile and historyfile.
+        model = keras.models.load_model(modelfile)
+        with open(historyfile, 'rb') as f:
+            history = pkl.load(f)
+        initial_epoch = len(history['loss'])
+    else:
+        # Create new model.
+        model = define_model(hp=hp)
+        history = defaultdict(list)
+        initial_epoch = 0
 
     # Define dataset.
     gtrain = dataset_bianchini(batchsize=100, nin=2, nt=3)
     gvalid = dataset_bianchini(batchsize=100, nin=2, nt=3)
 
-    # Train model
-    partial_history = model.fit_generator(gtrain, steps_per_epoch=100,
+    # DEBUG
+    if False:
+        print('Training model.')
+        history['loss'] = [0.1]
+        history['kl']   = [0.2]
+        pkl.dump(history, open(historyfile, 'wb'))
+        model.save(modelfile)
+        return 
+    
+    model.fit_generator(gtrain, steps_per_epoch=100,
                                           validation_data=gvalid, validation_steps=10,
                                           epochs=epochs + initial_epoch,
                                           initial_epoch=initial_epoch,
                                           verbose=verbose)
 
     # Update history
-    update_history(partial_history, history)
+    partialh = model.history.history
+    for k in partialh:
+        history[k].extend(partialh[k])
+    assert 'loss' in history, 'Sherpa requires a loss to be defined in history.'
 
     # Save model and history files.
-    save_model(model, model_file, history, history_file)
+    model.save(modelfile)
+    with open(historyfile, 'wb') as fid:
+        pkl.dump(history, fid)
 
     return
 
 
-def optimize():
+def run_example():
     ''' 
     Run Sherpa hyperparameter optimization.
     User may want to run this as a separate file.
@@ -134,9 +165,6 @@ def optimize():
     import sherpa.algorithms
     import sherpa.hparam_generators
 
-    # Specify filename that contains main method. This file contains example. 
-    fname = os.path.basename(__file__) #'nn.py'
- 
     # Hyperparameter space. 
     hp_ranges = [
                  Hyperparameter(name='lrinit', distribution='choice', distr_args=[(0.1, 0.01, 0.001)]),
@@ -158,15 +186,24 @@ def optimize():
     #alg  = sherpa.algorithms.Hyperband(R=3, eta=20, hpspace=hpspace)
     #alg  = sherpa.algorithms.RandomSearch(samples=100, epochs=1, hp_ranges=hp_ranges, max_concurrent=10)
 
+    # Specify filename that contains main method. This file contains example. 
+    filename = os.path.basename(__file__) #'nn.py'
+    
+    # Parallel options. 
     dir         = './debug' # All files written to here.
-    # environment = '/home/pjsadows/profiles/auto.profile' # Specify environment variables.
-    environment = None
+    environment = '/home/pjsadows/profiles/auto.profile' # Specify environment variables.
     submit_options = '-N myjob -P turbomole_geopt.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'' # SGE options.
-    loop = sherpa.mainloop.MainLoop(fname=fname, algorithm=alg, dir=dir, environment=environment, submit_options=submit_options)
-    #loop.run_parallel(max_concurrent=2) # Parallel version using SGE.
-    loop.run() # Sequential.
+    
+    loop = sherpa.mainloop.MainLoop(filename=filename, algorithm=alg, dir=dir, environment=environment, submit_options=submit_options)
+    #from sherpa.scheduler import LocalScheduler
+    #loop.run_parallel(max_concurrent=2, scheduler=LocalScheduler(filename=filename)) # Parallel version using SGE.
+    loop.run_parallel(max_concurrent=1)
+    #loop.run() # Sequential.
+
+def dummy(**kwargs):
+    return 5.0
 
 if __name__=='__main__':
     #main() # Single run.
-    optimize() # Sherpa optimization.
+    run_example() # Sherpa optimization.
 
