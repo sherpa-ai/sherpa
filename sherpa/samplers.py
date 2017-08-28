@@ -46,10 +46,10 @@ class RandomGenerator(HyperparameterGenerator):
         """
         return {param.name: sample_from(param.distribution, param.distr_args) for param in self.param_ranges}
 
-    def grow(self, hparams, amount):
+    def grow(self, hp, amount):
         for param_range in self.param_ranges:
             assert isinstance(param_range, GrowingHyperparameter)
-            param_range.grow(value=hparams[param_range.name],
+            param_range.grow(value=hp[param_range.name],
                              amount=amount)
             print("{}: {}".format(param_range.name, param_range.weights))
 
@@ -59,26 +59,26 @@ class LatinHypercube(HyperparameterGenerator):
     """
     def __init__(self, param_ranges):
         self.param_ranges = param_ranges
-        self.previous_hparams = []
+        self.previous_hp = []
 
     def next(self):
         """
         Returns a dictionary of d[hp_name] = hp_sample
         """
-        hparams = {param.name: sample_from(param.distribution,
+        hp = {param.name: sample_from(param.distribution,
                                            param.distr_args) for param in self.param_ranges}
-        while hparams in self.previous_hparams:
-            hparams = {param.name: sample_from(param.distribution,
+        while hp in self.previous_hp:
+            hp = {param.name: sample_from(param.distribution,
                                                param.distr_args) for param in
                        self.param_ranges}
 
-        self.previous_hparams.append(hparams)
-        return hparams
+        self.previous_hp.append(hp)
+        return hp
 
-    def grow(self, hparams, amount):
+    def grow(self, hp, amount):
         for param_range in self.param_ranges:
             assert isinstance(param_range, GrowingHyperparameter)
-            param_range.grow(value=hparams[param_range.name],
+            param_range.grow(value=hp[param_range.name],
                              amount=amount)
             print("{}: {}".format(param_range.name, param_range.weights))
 
@@ -211,17 +211,17 @@ class GaussianProcessEI(HyperparameterGenerator):
         return expected_improvement
 
     def turn_array_to_hparam_dict(self, X_array, X_df):
-        hparams = {}
+        hp = {}
         X_array = X_array.squeeze()
         for j, column in enumerate(X_df):
             if column in self.hparam_dict:
-                hparams[column] = X_array[j]
+                hp[column] = X_array[j]
             else:
                 if X_array[j] == 1:
                     val = column.split('_')[-1]
                     name = ''.join(column.split('_')[:-1])
-                    hparams[name] = val
-        return hparams
+                    hp[name] = val
+        return hp
 
     def turn_hparam_dict_to_array(self, d, as_design_matrix=False):
         hparam_df = pd.DataFrame([d])
@@ -247,18 +247,19 @@ class GridSearch(HyperparameterGenerator):
             # Iterate through discrete choices in order, but sample from distributions.
             # TODO: Compute grid choices for continuous distributions.
             choices  = {p.name:p.distr_args[0] for p in param_ranges if p.distribution=='choice'}            
-            while True:
-                for ctuple in itertools.product(*choices.values()):
-                    # Sequential sample from choices.
-                    temp = dict(zip(choices.keys(), ctuple)) 
-                    # Independent sample.
-                    sample = {p.name: sample_from(p.distribution, p.distr_args) for p in param_ranges}
-                    sample.update(temp)
-                    yield sample
+            for ctuple in itertools.product(*choices.values()):
+                # Sequential sample from choices.
+                temp = dict(zip(choices.keys(), ctuple)) 
+                # Independent sample.
+                sample = {p.name: sample_from(p.distribution, p.distr_args) for p in param_ranges}
+                sample.update(temp)
+                yield sample
+            raise StopIteration
+        
         self.griditer = griditer(self.param_ranges)
     
     def next(self):
         """
         Returns a dictionary of d[hp_name] = hp_sample
         """
-        return self.griditer.next()
+        return next(self.griditer)

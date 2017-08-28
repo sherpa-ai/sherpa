@@ -9,6 +9,14 @@ from collections import defaultdict
 import numpy as np
 import gpu_lock
 
+import sherpa
+import sherpa.mainloop
+import sherpa.algorithms
+import sherpa.samplers
+from sherpa.core import Hyperparameter
+
+
+
 # Before importing keras, decide which gpu to use. May find nothing acceptible and fail.
 #BACKEND = 'tensorflow'
 BACKEND = 'theano'
@@ -24,8 +32,8 @@ else:
     # Lock gpu.
     import socket
     import gpu_lock
-    #GPUIDX = gpu_lock.obtain_lock_id() # Return gpuid, or -1 if there was a problem.
-    GPUIDX = 1
+    GPUIDX = gpu_lock.obtain_lock_id() # Return gpuid, or -1 if there was a problem.
+    #GPUIDX = 1
     assert GPUIDX >= 0, '\nNo gpu available.'
     print('\nRunning from GPU %s' % str(GPUIDX))
     if BACKEND == 'theano':
@@ -153,18 +161,27 @@ def main(modelfile, historyfile, hp={}, epochs=1, verbose=2):
 
     return
 
-
 def run_example():
+    filename = os.path.basename(__file__) #'nn.py'
+    dir = './debug' # All files written to here.
+    env = '/home/pjsadows/profiles/auto.profile' # Script specifying environment variables.
+    #opt = '-N myjob -P turbomole_geopt.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'' # SGE options.
+    opt = '-N myjob -P turbomole_geopt.p -q arcus.q -l hostname=\'(arcus-2)\'' # SGE options.
+
+    # Iterate algorithm accepts dictionary containing lists of possible values. 
+    hp_space = {'lrinit':[0.1, 0.01],
+                'act':['tanh', 'relu']}
+    alg = sherpa.algorithms.Iterate(epochs=2, hp_ranges=hp_space)
+    loop = sherpa.mainloop.MainLoop(filename=filename, algorithm=alg, dir=dir, environment=env, submit_options=opt)
+    #loop.run() # Runs locally.
+    loop.run_parallel(max_concurrent=2) # Uses SGE.
+    
+
+def run_example_advanced():
     ''' 
     Run Sherpa hyperparameter optimization.
     User may want to run this as a separate file.
     '''
-    import sherpa
-    from sherpa.core import Hyperparameter
-    import sherpa.mainloop
-    import sherpa.algorithms
-    import sherpa.hparam_generators
-
     # Hyperparameter space. 
     hp_ranges = [
                  Hyperparameter(name='lrinit', distribution='choice', distr_args=[(0.1, 0.01, 0.001)]),
@@ -177,11 +194,11 @@ def run_example():
                 ]
     
     # Specify how initial hp combinations are sampled.
-    hp_generator =  sherpa.hparam_generators.LatinHypercube
-    #hp_generator =  sherpa.hparam_generators.RandomGenerator
+    sampler =  sherpa.samplers.LatinHypercube
+    #sampler =  sherpa.samplers.RandomGenerator
     
     # Algorithm used for optimization.
-    alg  = sherpa.algorithms.Hyperhack(samples=4, epochs_per_stage=2, stages=4, survival=0.5, hp_generator=hp_generator, hp_ranges=hp_ranges, max_concurrent=10)
+    alg  = sherpa.algorithms.Hyperhack(samples=4, epochs_per_stage=2, stages=4, survival=0.5, sampler=sampler, hp_ranges=hp_ranges, max_concurrent=10)
     #alg  = sherpa.algorithms.Hyperhack(samples=4, epochs_per_stage=2, stages=4, survival=0.5, hp_ranges=hp_ranges, max_concurrent=10)
     #alg  = sherpa.algorithms.Hyperband(R=3, eta=20, hpspace=hpspace)
     #alg  = sherpa.algorithms.RandomSearch(samples=100, epochs=1, hp_ranges=hp_ranges, max_concurrent=10)
@@ -200,10 +217,8 @@ def run_example():
     loop.run_parallel(max_concurrent=1)
     #loop.run() # Sequential.
 
-def dummy(**kwargs):
-    return 5.0
-
 if __name__=='__main__':
     #main() # Single run.
     run_example() # Sherpa optimization.
+    #run_example_advanced() # Sherpa optimization.
 

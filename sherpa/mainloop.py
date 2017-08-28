@@ -1,6 +1,5 @@
 from __future__ import absolute_import
 from __future__ import division
-from .resultstable import ResultsTable
 import time
 import importlib
 import pickle as pkl
@@ -8,7 +7,8 @@ import os
 import sys
 import re
 from collections import defaultdict
-from sherpa.scheduler import SGEScheduler,LocalScheduler
+from .resultstable import ResultsTable
+from .scheduler import SGEScheduler,LocalScheduler
 
 class MainLoop():
     """
@@ -21,7 +21,7 @@ class MainLoop():
     def __init__(self, filename, algorithm, dir='./', loss='loss',
                  results_table=None, environment=None, submit_options=''):
         assert isinstance(dir, str)
-        self.filename = filename  # Module file with method main(run_id, hparams) (e.g. nn.py).
+        self.filename = filename  # Module file with method main(run_id, hp) (e.g. nn.py).
         self.algorithm = algorithm  # Instantiated Sherpa Algorithm object.
         self.loss = loss  # Key in Keras history to be minimized, e.g. 'loss' or 'val_loss'.
         self.dir = dir  # Directory in which all files are stored: models, history, and other output.
@@ -50,7 +50,7 @@ class MainLoop():
             self.filename.rsplit('.', 1)[0])  # Must remove '.py' from file path.
         while True:
             # Query Algorithm
-            rval = self.algorithm.next(self.results_table, pending={})
+            rval = self.algorithm.next(self.results_table, pending=[])
             if rval == 'stop':
                 break  # Done
             elif rval == 'wait':
@@ -59,13 +59,13 @@ class MainLoop():
                 assert type(rval) == tuple and len(rval) == 3
                 run_id, hp, epochs = rval
                 modelfile, historyfile = self.id2filenames(run_id)
-                rval = module.main(modelfile=modelfile, historyfile=historyfile, hparams=hp, epochs=epochs, verbose=1)
+                rval = module.main(modelfile=modelfile, historyfile=historyfile, hp=hp, epochs=epochs, verbose=1)
                 # Update ResultsTable.
                 with open(historyfile, 'rb') as f:
                     history = pkl.load(f)
                 lowest_loss   = min(history[self.loss])
                 epochs_seen   = len(history[self.loss])
-                self.results_table.set(run_id=run_id, hparams=hp, loss=lowest_loss, epochs=epochs_seen)
+                self.results_table.set(run_id=run_id, hp=hp, loss=lowest_loss, epochs=epochs_seen)
 
     def run_parallel(self, max_concurrent=1, scheduler=None):
         # Use multiprocessing to run jobs in subprocesses.
@@ -78,20 +78,29 @@ class MainLoop():
             # Collect any results in the queue and write directly to ResultsTable.
             self._collect_results()
 
+            # Check pending processes.
+            pending = list(self.scheduler.active_processes.keys())
+            
             # Limit number of concurrent subprocesses.
-            if len(self.scheduler.active_processes) >= max_concurrent:
+            if len(pending) >= max_concurrent:
                 time.sleep(5)
                 continue
 
             # Query Algorithm about next experiment.
-            rval = self.algorithm.next(self.results_table,pending=list(self.scheduler.active_processes.keys()))
-            if rval == 'stop':
+            rval = self.algorithm.next(self.results_table,pending=pending)
+            if rval == 'stop' and len(pending) == 0: 
                 # Finished.
                 break
-            elif rval == 'wait':
-                # Wait for more jobs to complete before submitting more.
+            elif rval == 'stop' and len(pending)>0:
+                # Wait for all jobs to complete before submitting more.
                 time.sleep(5)
                 continue
+            elif rval == 'wait' and len(pending)>0:
+                # Wait for all jobs to complete before submitting more.
+                time.sleep(5)
+                continue
+            elif rval == 'wait' and len(pending)==0:
+                raise Exception('Algorithm shouldnt wait if there are no pending jobs.')
             else:
                 # Start new experiment specified by Algorithm.
                 run_id, hp, epochs = rval
@@ -100,7 +109,7 @@ class MainLoop():
                 self.id2hp[run_id] = hp
                 time.sleep(3)  # Delay might avoid errors in gpu locking.
                 assert len(self.scheduler.active_processes) <= max_concurrent
-        assert len(self.scheduler.active_processes) == 0, self.scheduler.active_processes
+        assert len(self.scheduler.active_processes) == 0, (self.scheduler.active_processes, list(self.scheduler.active_processes.keys()) )
         assert self.scheduler.queue_is_empty()
 
     def _collect_results(self):
@@ -113,7 +122,7 @@ class MainLoop():
                 history = pkl.load(f)
             lowest_loss = min(history[self.loss])
             epochs_seen = len(history[self.loss])
-            self.results_table.set(run_id=run_id, hparams=self.id2hp[run_id],
+            self.results_table.set(run_id=run_id, hp=self.id2hp[run_id],
                                    loss=lowest_loss, epochs=epochs_seen)
 
     def id2filenames(self, run_id):
@@ -122,8 +131,8 @@ class MainLoop():
         return modelfile, historyfile 
 
 
-# def get_hist(hparams, historyfile):
-#     if hparams is None or len(hparams) == 0:
+# def get_hist(hp, historyfile):
+#     if hp is None or len(hp) == 0:
 #         # Restart from modelfile and historyfile.
 #         with open(historyfile, 'rb') as f:
 #             history = pkl.load(f)

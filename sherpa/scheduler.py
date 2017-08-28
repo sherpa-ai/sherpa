@@ -27,15 +27,18 @@ class AbstractScheduler(object):
     
     @abc.abstractmethod
     def _subprocess(self, run_id, hp, epochs, modelfile, historyfile):
-        '''Run experiment in subprocess, updates modelfile and historyfile,
-        and puts (run_id, rval) pair in the queue when done.'''
+        '''
+        Run experiment in subprocess,
+        updates modelfile and historyfile,
+        and puts (run_id, rval) pair in the queue when done.
+        '''
         return
     
     def read_queue(self):
         # Collect any results in the queue.
         # Each result consists of the following:
         # run_id  = '%d_%d' unique to each experiment.
-        # hp      = If None or empty, existing hparams not overwritten in ResultsTable.
+        # hp      = If None or empty, existing hp not overwritten in ResultsTable.
         # rval    = Return value of experiment. Not used.
         # historyfile = File where loss information is saved.
         rvals = {}
@@ -53,7 +56,7 @@ class AbstractScheduler(object):
     
     
 class LocalScheduler(AbstractScheduler):
-    # Parallel runs on local machine
+    ''' Runs jobs as subprocesses on local machine.'''
     def __init__(self, filename, **kwargs):
         self.module = importlib.import_module(filename.rsplit('.', 1)[0])  # Must remove '.py' from file path.
         super(LocalScheduler, self).__init__(**kwargs)
@@ -65,6 +68,7 @@ class LocalScheduler(AbstractScheduler):
         self.queue.put((run_id, rval))
         
 class SGEScheduler(AbstractScheduler):
+    ''' Submits jobs to SGE.'''
     def __init__(self, dir, filename, environment, submit_options, **kwargs):
         self.dir   = dir
         self.filename = filename

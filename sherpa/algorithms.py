@@ -1,20 +1,59 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from .core import Hyperparameter
 from .resultstable import ResultsTable
-from .hparam_generators import RandomGenerator
+from .samplers import RandomGenerator,GridSearch
 import math
+import numpy as np
+
+class Iterate():
+    '''
+    Simply iterate over all combinations in discrete hp space, then stop.
+    '''
+    def __init__(self, epochs=1, hp_ranges=[]):
+        '''
+        Accepts hp_ranges as dictionary mapping hp names to lists.
+        '''
+        self.epochs  = epochs
+        if isinstance(hp_ranges, dict):
+            self.hp_ranges = [Hyperparameter.fromlist(name, choices) for (name,choices) in hp_ranges.items()]
+        else:
+            self.hp_ranges      = hp_ranges
+        self.sampler = GridSearch(self.hp_ranges) # Iterate over all combinations of hp.
+    
+    def next(self, results_table, pending):
+        '''
+        Examine current results and produce next experiment.
+        Valid return values:
+        1) run_id, hp, epochs: Tells main loop to start this experiment.
+        2) 'wait': Signal to main loop that we are waiting.
+        3) 'stop': Signal to main loop that we are finished.
+        '''
+        assert isinstance(results_table, ResultsTable)
+        assert isinstance(pending, list)
+        df     = results_table.get_table() # Pandas df
+        assert isinstance(df.shape[0], int)
+        assert isinstance(len(pending), int)
+        run_id = '1_%d' % (len(pending)+df.shape[0]) # Results table requires run_ids in this form.
+        try:
+            return run_id, self.sampler.next(), self.epochs
+        except StopIteration:
+            return 'stop'
+        
 
 class RandomSearch():
     """
-    Simple random search.
+    Random Search over hyperparameter space.
     """
-    def __init__(self, samples, epochs, hp_ranges, max_concurrent=10):
+    def __init__(self, samples, epochs, hp_ranges):
         self.samples        = samples
         self.epochs         = epochs
-        self.hp_ranges      = hp_ranges
-        self.hp_generator   = RandomGenerator(hp_ranges)
-        self.max_concurrent = max_concurrent
+        if isinstance(hp_ranges, dict):
+            self.hp_ranges = [Hyperparameter.fromlist(name, choices) in name,choices in hp_ranges.items()]
+        else:
+            self.hp_ranges      = hp_ranges
+        self.sampler   = RandomGenerator(hp_ranges)
 
         print('Sampling %d random hp combinations from %d dimensions.' % (
             samples, len(hp_ranges)))
@@ -23,50 +62,48 @@ class RandomSearch():
         '''
         Examine current results and produce next experiment.
         Valid return values:
-        1) run_id, hparams, epochs: Tells main loop to start this experiment.
+        1) run_id, hp, epochs: Tells main loop to start this experiment.
         2) 'wait': Signal to main loop that we are waiting.
         3) 'stop': Signal to main loop that we are finished.
         '''
         assert isinstance(results_table, ResultsTable)
-        assert isinstance(pending, dict)
+        assert isinstance(pending, list)
         df     = results_table.get_table() # Pandas df
         assert isinstance(df.shape[0], int)
         assert isinstance(len(pending), int)
         run_id = '1_%d' % (len(pending)+df.shape[0]) # Results table requires run_ids in this form.
-        if df.shape[0] == self.samples:
+        if df.shape[0] == self.samples and len(pending) == 0:
             return 'stop'
-        elif len(pending) >= self.max_concurrent:
-            return 'wait'
         elif len(pending)+df.shape[0] >= self.samples:
             return 'wait'
         else:
-            return run_id, self.hp_generator.next(), self.epochs
+            return run_id, self.sampler.next(), self.epochs
 
 class Hyperhack():
     '''
+    Successive halving variant. 
     Peter 2017
     '''
-    def __init__(self, samples, epochs_per_stage, stages, hp_generator=RandomGenerator, survival=0.5, hp_ranges={}, max_concurrent=10, constraints=[]):
+    def __init__(self, samples, epochs_per_stage, stages, sampler=RandomGenerator, survival=0.5, hp_ranges={},  constraints=[]):
         self.samples     = samples # Initial number of samples.
         self.survival    = survival # Value in [0,1], population is reduced to this amount at each stage.
         self.epochs_per_stage = epochs_per_stage
         self.stages      = stages
         self.hp_ranges   = hp_ranges
-        self.max_concurrent = max_concurrent
-        #if hp_generator is None:
-        #    hp_generator = RandomGenerator
-        self.hp_generator = hp_generator(hp_ranges) # Initial sampling method for hyperparameters.
+        #if sampler is None:
+        #    sampler = RandomGenerator
+        self.sampler = sampler(hp_ranges) # Initial sampling method for hyperparameters.
         
         # State of the algorithm.
         self.stage = 0
         self.population = []
         # Initialize population with hp combinations from generator that fit constraints.
         if len(constraints) == 0:
-            self.population = [(('1_%d'%i), self.hp_generator.next()) for i in range(samples)] # Only one run.
+            self.population = [(('1_%d'%i), self.sampler.next()) for i in range(samples)] # Only one run.
         else:
             count = 0
             while count < samples:
-                sample = self.hp_generator.next()
+                sample = self.sampler.next()
                 sat = True
                 for constraint in constraints:
                     sat = sat and constraint(sample)
@@ -78,7 +115,7 @@ class Hyperhack():
         '''
         Examine current results and produce next experiment.
         Valid return values:
-        1) run_id, hparams, epochs: Tells main loop to start this experiment.
+        1) run_id, hp, epochs: Tells main loop to start this experiment.
         2) 'wait': Signal to main loop that we are waiting.
         3) 'stop': Signal to main loop that we are finished.
 
@@ -91,9 +128,6 @@ class Hyperhack():
             print('\nStage %d/%d: %d samples, %d epochs per stage.' % (
                 self.stage, self.stages, len(self.population),
                 self.epochs_per_stage))
-
-        if len(pending) >= self.max_concurrent:
-            return 'wait'
 
         if len(self.population) == 0:
             if len(pending) > 0:
@@ -113,8 +147,8 @@ class Hyperhack():
                     best[k] = results_table.get(run_id=run_id, parameter=k)
                 print('Best loss:%0.4f epochs:%d id:%s hp:%s' % (best['Loss'], best['Epochs'], run_id, best['Hparams']))
 
-        run_id, hparams = self.population.pop(0)
-        return run_id, hparams, self.epochs_per_stage
+        run_id, hp = self.population.pop(0)
+        return run_id, hp, self.epochs_per_stage
 
 #
 # class Hyperband():
@@ -125,7 +159,7 @@ class Hyperhack():
 #         self.R = R
 #         self.eta = eta
 #         self.hp_ranges = hp_ranges
-#         self.hp_generator = RandomGenerator(hp_ranges)
+#         self.sampler = RandomGenerator(hp_ranges)
 #         self.max_concurrent = max_concurrent
 #
 #         # Visualize schedule.
@@ -143,7 +177,7 @@ class Hyperhack():
 #         '''
 #         Examine current results and produce next experiment.
 #         Valid return values:
-#         1) run_id, hparams, epochs: Tells main loop to start this experiment.
+#         1) run_id, hp, epochs: Tells main loop to start this experiment.
 #         2) 'wait': Signal to main loop that we are waiting.
 #         3) 'stop': Signal to main loop that we are finished.
 #         '''
@@ -169,7 +203,7 @@ class Hyperhack():
 #                         if s==s_max and i==0 and j==1:
 #                             self.estimate_time(self.scheduler.submit,
 #                                                {'run_id': '{}_{}'.format(run,j),
-#                                                 'hparams':
+#                                                 'hp':
 #                                                     self.hparam_gen.next(),
 #                                                 'epochs': r_i},
 #                                                total_epochs=total_epochs,
@@ -178,7 +212,7 @@ class Hyperhack():
 #                         else:
 #                             self.scheduler.submit(run_id='{}_{}'.format(run,
 #                                                                         j),
-#                                                   hparams=self.hparam_gen.next(),
+#                                                   hp=self.hparam_gen.next(),
 #                                                   epochs=r_i)
 #                 else:
 #                     for run_id in self.results_table.get_k_lowest_from_run(n_i,

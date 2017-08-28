@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 import os
 
-
 class ResultsTable(object):
     """
     Handles input/output of an underlying hard-disk stored .csv that stores the results
@@ -71,21 +70,21 @@ class ResultsTable(object):
             id_run.append(self._get_idx(row_id[0], row_id[1]))
         return id_run
 
-    def set(self, run_id, loss, epochs, hparams=None):
+    def set(self, run_id, loss, epochs, hp=None):
         """
         Sets a value for a model using (run, id) as identifier and saves the hyperparameter description of it. 
         
         # Args:
             run_id: Tuple, contains run and id numbers
             loss: float, e.g. validation loss value to set in table
-            hparams:
+            hp:
 
 
         """
         df = self.get_table()
         run, id = [int(num) for num in run_id.split('_')]
-        if hparams:
-            new_line = pd.DataFrame({key: [val] for key, val in zip(self.keys, (run, id, hparams, loss, epochs))},
+        if hp:
+            new_line = pd.DataFrame({key: [val] for key, val in zip(self.keys, (run, id, hp, loss, epochs))},
                                     index=[run_id])
             df = df.append(new_line)
         else:
@@ -160,7 +159,7 @@ class ResultsTable(object):
         """
         df.to_csv(self.csv_path)
 
-    def get_hparams_df(self, as_design_matrix=False):
+    def get_hp_df(self, as_design_matrix=False):
         df = self.get_table()
         hparam_df = pd.DataFrame([eval(item) for item in df['Hparams']])
         return hparam_df if not as_design_matrix or hparam_df.empty else \

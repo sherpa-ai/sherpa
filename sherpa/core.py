@@ -37,6 +37,11 @@ class Hyperparameter(object):
         self.distribution = distribution
         return
 
+    @classmethod
+    def fromlist(cls, name, choices):
+        '''Constructs hyperparameter from list of choices.'''
+        return cls(name, distribution='choice', distr_args=[choices])
+
 class GrowingHyperparameter(object):
     def __init__(self, name, choices, start_value=0.5):
         self.distribution = 'choice'
