@@ -3,7 +3,7 @@ from __future__ import absolute_import
 from sherpa.utils.testing_utils import load_dataset
 from sherpa.utils.testing_utils import create_model_two as my_model
 from sherpa.core import Hyperparameter
-import sherpa.hparam_generators
+import sherpa.samplers
 import sherpa.algorithms
 import sherpa.mainloop
 import os
@@ -51,7 +51,7 @@ def mnist_demo():
                                        distribution='uniform')]
 
 
-    hp_generator = sherpa.hparam_generators.LatinHypercube
+    hp_generator = sherpa.samplers.LatinHypercube
 
     # Algorithm used for optimization.
     alg = sherpa.algorithms.Hyperhack(samples=4, epochs_per_stage=2,

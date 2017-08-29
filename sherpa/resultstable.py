@@ -1,18 +1,29 @@
 import pandas as pd
 import numpy as np
 import os
+import pickle as pkl
 
 class ResultsTable(object):
     """
     Handles input/output of an underlying hard-disk stored .csv that stores the results
     """
-    def __init__(self, dir, recreate=False):
+    def __init__(self, dir='./', loss='loss', recreate=False):
+        self.loss = loss # Key 
         self.csv_path = os.path.join(dir, 'results.csv')
         self.keys = ('Run', 'ID', 'Hparams', 'Loss', 'Epochs')
         if not recreate:
             df = self._create_table()
             self._save(df)
         return
+
+    def update(self, run_id, historyfile, hp=None):
+        # Update ResultsTable from run_id and historyfile.
+        with open(historyfile, 'rb') as f:
+            history = pkl.load(f)
+        lowest_loss   = min(history[self.loss])
+        epochs_seen   = len(history[self.loss])
+        self.set(run_id=run_id, hp=hp, loss=lowest_loss, epochs=epochs_seen)
+        return 
 
     def get_k_lowest_from_run(self, k, run):
         """

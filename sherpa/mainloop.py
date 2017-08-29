@@ -18,17 +18,12 @@ class MainLoop():
     3) Write Results into the ResultsTable
     """
 
-    def __init__(self, filename, algorithm, dir='./', loss='loss',
-                 results_table=None, environment=None, submit_options=''):
+    def __init__(self, filename, algorithm, dir='./', results_table=None):
         assert isinstance(dir, str)
         self.filename = filename  # Module file with method main(run_id, hp) (e.g. nn.py).
         self.algorithm = algorithm  # Instantiated Sherpa Algorithm object.
-        self.loss = loss  # Key in Keras history to be minimized, e.g. 'loss' or 'val_loss'.
         self.dir = dir  # Directory in which all files are stored: models, history, and other output.
-        # Arguments for parallel jobs.
-        self.environment = environment  # Bash script that sets environment variables for parallel jobs.
-        self.submit_options = submit_options  # Command line options for submission to queueing systems for parallel jobs.
-        self.job_management = 'sge'  # Used for parallel jobs. Options: 'sge' or 'local'
+        
         # Make dir if neccessary.
         try:
             os.makedirs(self.dir)  # os.makedirs(os.path.dirname(self.dir))
@@ -37,17 +32,13 @@ class MainLoop():
                   'unintended use of old results!' % self.dir)
             pass
 
-        self.results_table = results_table if results_table is not None else ResultsTable(
-            self.dir, recreate=False)
+        # ResultsTable object, defaults to simple example.
+        self.results_table = results_table or ResultsTable(self.dir, loss='loss', recreate=False)
         return       
 
-    def run(self, max_concurrent=1):
-        # Run main loop.
-        if max_concurrent > 1:
-            self.run_parallel(max_concurrent=max_concurrent)
+    def run(self):
         # Sequential loop.
-        module = importlib.import_module(
-            self.filename.rsplit('.', 1)[0])  # Must remove '.py' from file path.
+        module = importlib.import_module(self.filename.rsplit('.', 1)[0]) # Remove .py.
         while True:
             # Query Algorithm
             rval = self.algorithm.next(self.results_table, pending=[])
@@ -61,27 +52,18 @@ class MainLoop():
                 modelfile, historyfile = self.id2filenames(run_id)
                 rval = module.main(modelfile=modelfile, historyfile=historyfile, hp=hp, epochs=epochs, verbose=1)
                 # Update ResultsTable.
-                with open(historyfile, 'rb') as f:
-                    history = pkl.load(f)
-                lowest_loss   = min(history[self.loss])
-                epochs_seen   = len(history[self.loss])
-                self.results_table.set(run_id=run_id, hp=hp, loss=lowest_loss, epochs=epochs_seen)
+                self.results_table.update(run_id=run_id, hp=hp, historyfile=historyfile)
 
     def run_parallel(self, max_concurrent=1, scheduler=None):
         # Use multiprocessing to run jobs in subprocesses.
         self.id2hp     = {}  # Maps run_id to hp.
-        self.scheduler = scheduler or \
-                         SGEScheduler(dir=self.dir, filename=self.filename,
-                                      environment=self.environment,
-                                      submit_options=self.submit_options)
+        self.scheduler = scheduler or LocalScheduler()
         while True:
             # Collect any results in the queue and write directly to ResultsTable.
             self._collect_results()
 
-            # Check pending processes.
-            pending = list(self.scheduler.active_processes.keys())
-            
             # Limit number of concurrent subprocesses.
+            pending = self.scheduler.get_active_processes()
             if len(pending) >= max_concurrent:
                 time.sleep(5)
                 continue
@@ -105,25 +87,20 @@ class MainLoop():
                 # Start new experiment specified by Algorithm.
                 run_id, hp, epochs = rval
                 modelfile, historyfile = self.id2filenames(run_id)
-                self.scheduler.start_subprocess(run_id, hp, epochs, modelfile, historyfile)
+                self.scheduler.start_subprocess(self.filename, run_id, hp, epochs, modelfile, historyfile)
                 self.id2hp[run_id] = hp
                 time.sleep(3)  # Delay might avoid errors in gpu locking.
-                assert len(self.scheduler.active_processes) <= max_concurrent
-        assert len(self.scheduler.active_processes) == 0, (self.scheduler.active_processes, list(self.scheduler.active_processes.keys()) )
+                assert len(self.scheduler.get_active_processes()) <= max_concurrent
         assert self.scheduler.queue_is_empty()
+        assert len(self.scheduler.get_active_processes()) == 0
 
     def _collect_results(self):
-        results = self.scheduler.read_queue() # Updates self.processes.
+        results = self.scheduler.get_all_from_queue() # Updates self.processes.
         for run_id in results:
             assert type(run_id) == str, run_id
             # Read historyfile to update results_table.
             modelfile, historyfile = self.id2filenames(run_id)
-            with open(historyfile, 'rb') as f:
-                history = pkl.load(f)
-            lowest_loss = min(history[self.loss])
-            epochs_seen = len(history[self.loss])
-            self.results_table.set(run_id=run_id, hp=self.id2hp[run_id],
-                                   loss=lowest_loss, epochs=epochs_seen)
+            self.results_table.update(run_id=run_id, hp=self.id2hp[run_id], historyfile=historyfile)
 
     def id2filenames(self, run_id):
         modelfile   = os.path.join(self.dir, '{}_model.h5'.format(run_id))

@@ -14,6 +14,7 @@ import sherpa.mainloop
 import sherpa.algorithms
 import sherpa.samplers
 from sherpa.core import Hyperparameter
+from sherpa.scheduler import LocalScheduler,SGEScheduler
 
 
 
@@ -164,18 +165,18 @@ def main(modelfile, historyfile, hp={}, epochs=1, verbose=2):
 def run_example():
     filename = os.path.basename(__file__) #'nn.py'
     dir = './debug' # All files written to here.
-    env = '/home/pjsadows/profiles/auto.profile' # Script specifying environment variables.
-    #opt = '-N myjob -P turbomole_geopt.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'' # SGE options.
-    opt = '-N myjob -P turbomole_geopt.p -q arcus.q -l hostname=\'(arcus-2)\'' # SGE options.
-
+    
     # Iterate algorithm accepts dictionary containing lists of possible values. 
     hp_space = {'lrinit':[0.1, 0.01],
                 'act':['tanh', 'relu']}
     alg = sherpa.algorithms.Iterate(epochs=2, hp_ranges=hp_space)
-    loop = sherpa.mainloop.MainLoop(filename=filename, algorithm=alg, dir=dir, environment=env, submit_options=opt)
-    #loop.run() # Runs locally.
-    loop.run_parallel(max_concurrent=2) # Uses SGE.
-    
+    loop = sherpa.mainloop.MainLoop(filename=filename, algorithm=alg, dir=dir)
+    #loop.run() # Serial run.
+
+    env = '/home/pjsadows/profiles/auto.profile' # Script specifying environment variables.
+    opt = '-N myjob -P claraproject.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'' # SGE options.
+    sched = SGEScheduler(dir=dir, environment=env, submit_options=opt)
+    loop.run_parallel(max_concurrent=4, scheduler=sched) # Uses SGE.
 
 def run_example_advanced():
     ''' 
@@ -198,24 +199,19 @@ def run_example_advanced():
     #sampler =  sherpa.samplers.RandomGenerator
     
     # Algorithm used for optimization.
-    alg  = sherpa.algorithms.Hyperhack(samples=4, epochs_per_stage=2, stages=4, survival=0.5, sampler=sampler, hp_ranges=hp_ranges, max_concurrent=10)
-    #alg  = sherpa.algorithms.Hyperhack(samples=4, epochs_per_stage=2, stages=4, survival=0.5, hp_ranges=hp_ranges, max_concurrent=10)
-    #alg  = sherpa.algorithms.Hyperband(R=3, eta=20, hpspace=hpspace)
+    alg  = sherpa.algorithms.Hyperhack(samples=4, epochs_per_stage=2, stages=4, survival=0.5, sampler=sampler, hp_ranges=hp_ranges)
     #alg  = sherpa.algorithms.RandomSearch(samples=100, epochs=1, hp_ranges=hp_ranges, max_concurrent=10)
 
     # Specify filename that contains main method. This file contains example. 
     filename = os.path.basename(__file__) #'nn.py'
+    dir      = './debug' # All files written to here.
+    loop = sherpa.mainloop.MainLoop(filename=filename, algorithm=alg, dir=dir)
     
-    # Parallel options. 
-    dir         = './debug' # All files written to here.
-    environment = '/home/pjsadows/profiles/auto.profile' # Specify environment variables.
-    submit_options = '-N myjob -P turbomole_geopt.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'' # SGE options.
+    env = '/home/pjsadows/profiles/auto.profile' # Script specifying environment variables.
+    opt = '-N myjob -P claraproject.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'' # SGE options.
+    sched = SGEScheduler(dir=dir, environment=env, submit_options=opt)
+    loop.run_parallel(max_concurrent=2, scheduler=sched) # Uses SGE.
     
-    loop = sherpa.mainloop.MainLoop(filename=filename, algorithm=alg, dir=dir, environment=environment, submit_options=submit_options)
-    #from sherpa.scheduler import LocalScheduler
-    #loop.run_parallel(max_concurrent=2, scheduler=LocalScheduler(filename=filename)) # Parallel version using SGE.
-    loop.run_parallel(max_concurrent=1)
-    #loop.run() # Sequential.
 
 if __name__=='__main__':
     #main() # Single run.
