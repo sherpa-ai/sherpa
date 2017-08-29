@@ -1,11 +1,11 @@
 from __future__ import absolute_import
+from .hyperparameters import GrowingHyperparameter
 import numpy as np
 import math
-from sklearn.gaussian_process import GaussianProcessRegressor
-from scipy.stats import norm
-from .core import GrowingHyperparameter
-import itertools
 import pandas as pd
+from scipy.stats import norm
+from sklearn.gaussian_process import GaussianProcessRegressor
+import itertools
 
 def sample_from(dist, distr_args):
     """
@@ -28,7 +28,7 @@ def sample_from(dist, distr_args):
             AttributeError("Please choose an existing distribution from numpy.random and valid input parameters")
 
 
-class HyperparameterGenerator(object):
+class AbstractSampler(object):
     def __init__(self, param_ranges):
         self.param_ranges = param_ranges
 
@@ -36,7 +36,7 @@ class HyperparameterGenerator(object):
         pass
 
 
-class RandomGenerator(HyperparameterGenerator):
+class RandomGenerator(AbstractSampler):
     """
     Generates random hyperparameters based on parameter ranges
     """
@@ -53,7 +53,7 @@ class RandomGenerator(HyperparameterGenerator):
                              amount=amount)
             print("{}: {}".format(param_range.name, param_range.weights))
 
-class LatinHypercube(HyperparameterGenerator):
+class LatinHypercube(AbstractSampler):
     """
     Generates random hyperparameters based on parameter ranges
     """
@@ -83,7 +83,7 @@ class LatinHypercube(HyperparameterGenerator):
             print("{}: {}".format(param_range.name, param_range.weights))
 
 
-class GaussianProcessEI(HyperparameterGenerator):
+class GaussianProcessEI(AbstractSampler):
     def __init__(self, param_ranges, num_grid_points=11):
         super(self.__class__, self).__init__(param_ranges=param_ranges)
         self.random_generator = RandomGenerator(param_ranges=param_ranges)
@@ -228,7 +228,7 @@ class GaussianProcessEI(HyperparameterGenerator):
         return hparam_df if not as_design_matrix or hparam_df.empty else \
             pd.get_dummies(hparam_df, drop_first=True)
 
-class GridSearch(HyperparameterGenerator):
+class GridSearch(AbstractSampler):
     """
     Generate reasonable grid of hyperparameters based on parameter ranges.
     

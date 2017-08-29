@@ -3,20 +3,16 @@
 # Edits: Lars Hertel, Julian Collado
 from __future__ import print_function
 import sys, os
-import pickle as pkl
-import glob
-from collections import defaultdict
 import numpy as np
+import glob
+import pickle as pkl
+from collections import defaultdict
 import gpu_lock
 
 import sherpa
-import sherpa.mainloop
-import sherpa.algorithms
-import sherpa.samplers
-from sherpa.core import Hyperparameter
+from sherpa.resultstable import ResultsTable
+from sherpa.hyperparameters import Hyperparameter
 from sherpa.scheduler import LocalScheduler,SGEScheduler
-
-
 
 # Before importing keras, decide which gpu to use. May find nothing acceptible and fail.
 #BACKEND = 'tensorflow'
@@ -76,21 +72,21 @@ def define_model(hp):
     from keras.optimizers import SGD
     nin    = 2
     nout   = 1
-    nhidu  = hp['nhid']
-    nhidl  = hp['nlayers'] - 1
+    units  = 10
+    nhlay  = 2
     act    = hp['act']
-    init   = hp['init'] 
+    init   = 'glorot_normal'
     input  = Input(shape=(nin,), dtype='float32', name='input')
     x      = input
-    for i in range(nhidl):
-        x  = Dense(nhidu, kernel_initializer=init, activation=act)(x)
+    for i in range(nhlay):
+        x  = Dense(units, kernel_initializer=init, activation=act)(x)
     output = Dense(nout, kernel_initializer=init, activation='sigmoid', name='output')(x)
     model  = Model(inputs=input, outputs=output)
 
     # Learning Algorithm
     lrinit    = hp['lrinit']
-    momentum  = hp['momentum'] # 0.#9
-    lrdecay   = hp['lrdecay'] #0.00001
+    momentum  = hp['momentum']
+    lrdecay   = hp['lrdecay'] 
     loss      = {'output':'binary_crossentropy'}
     metrics   = {'output':'accuracy'}
     loss_weights = {'output':1.0}
@@ -167,10 +163,15 @@ def run_example():
     dir = './debug' # All files written to here.
     
     # Iterate algorithm accepts dictionary containing lists of possible values. 
-    hp_space = {'lrinit':[0.1, 0.01],
-                'act':['tanh', 'relu']}
+    hp_space = {
+                'act':['tanh', 'relu'],
+                'lrinit':[0.1, 0.01],
+                'momentum':[0.0],
+                'lrdecay':[0.0],
+                }
     alg = sherpa.algorithms.Iterate(epochs=2, hp_ranges=hp_space)
-    loop = sherpa.mainloop.MainLoop(filename=filename, algorithm=alg, dir=dir)
+    res = ResultsTable(dir=dir, overwrite=True)
+    loop = sherpa.mainloop.MainLoop(filename=filename, algorithm=alg, dir=dir, results_table=res)
     #loop.run() # Serial run.
 
     env = '/home/pjsadows/profiles/auto.profile' # Script specifying environment variables.
@@ -188,9 +189,9 @@ def run_example_advanced():
                  Hyperparameter(name='lrinit', distribution='choice', distr_args=[(0.1, 0.01, 0.001)]),
                  Hyperparameter(name='lrdecay', distribution='choice', distr_args=[(0.0,)]),
                  Hyperparameter(name='momentum', distribution='choice', distr_args=[(0.0, 0.5, 0.9)]),
-                 Hyperparameter(name='init', distribution='choice', distr_args=[('glorot_normal', 'glorot_uniform')]),
-                 Hyperparameter(name='nhid', distribution='choice', distr_args=[(20, 50, 100)]),
-                 Hyperparameter(name='nlayers', distribution='choice', distr_args=[(2, 3, 4)]),
+                 #Hyperparameter(name='init', distribution='choice', distr_args=[('glorot_normal', 'glorot_uniform')]),
+                 #Hyperparameter(name='nhid', distribution='choice', distr_args=[(20, 50, 100)]),
+                 #Hyperparameter(name='nlayers', distribution='choice', distr_args=[(2, 3, 4)]),
                  Hyperparameter(name='act', distribution='choice', distr_args=[('tanh','relu')]),
                 ]
     
@@ -205,7 +206,7 @@ def run_example_advanced():
     # Specify filename that contains main method. This file contains example. 
     filename = os.path.basename(__file__) #'nn.py'
     dir      = './debug' # All files written to here.
-    loop = sherpa.mainloop.MainLoop(filename=filename, algorithm=alg, dir=dir)
+    loop = sherpa.mainloop.MainLoop(filename=filename, algorithm=alg, dir=dir, recreate=True)
     
     env = '/home/pjsadows/profiles/auto.profile' # Script specifying environment variables.
     opt = '-N myjob -P claraproject.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'' # SGE options.

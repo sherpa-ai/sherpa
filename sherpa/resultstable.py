@@ -2,28 +2,49 @@ import pandas as pd
 import numpy as np
 import os
 import pickle as pkl
+import abc
 
-class ResultsTable(object):
-    """
-    Handles input/output of an underlying hard-disk stored .csv that stores the results
-    """
-    def __init__(self, dir='./', loss='loss', recreate=False):
-        self.loss = loss # Key 
+class AbstractResultsTable(object):
+    ''' 
+    Required methods for MainLoop.
+    Additional functionality may be useful for different Algorithms.
+    '''
+    def __init__(self, dir='./', loss='loss'):
+        '''
+        dir  = csv file saved to dir/results.csv.
+        loss = string key. Minimize history[loss]. 
+        '''
         self.csv_path = os.path.join(dir, 'results.csv')
-        self.keys = ('Run', 'ID', 'Hparams', 'Loss', 'Epochs')
-        if not recreate:
-            df = self._create_table()
-            self._save(df)
-        return
+        self.loss = loss
 
+        try:
+            os.makedirs(dir)  # os.makedirs(os.path.dirname(self.dir))
+        except:
+            pass
+        return      
+   
     def update(self, run_id, historyfile, hp=None):
-        # Update ResultsTable from run_id and historyfile.
+        # Update results table from run_id and historyfile.
         with open(historyfile, 'rb') as f:
             history = pkl.load(f)
         lowest_loss   = min(history[self.loss])
         epochs_seen   = len(history[self.loss])
         self.set(run_id=run_id, hp=hp, loss=lowest_loss, epochs=epochs_seen)
-        return 
+        return
+
+       
+
+class ResultsTable(AbstractResultsTable):
+    """
+    Handles input/output of an underlying hard-disk stored .csv that stores the results
+    """
+    def __init__(self, dir='./', loss='loss', overwrite=False):
+        super(ResultsTable, self).__init__(dir=dir, loss=loss)
+        self.keys = ('Run', 'ID', 'Hparams', 'Loss', 'Epochs')
+        if overwrite:
+            df = self._create_table()
+            self._save(df)
+        return
 
     def get_k_lowest_from_run(self, k, run):
         """

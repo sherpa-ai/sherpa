@@ -22,7 +22,7 @@ class MainLoop():
         assert isinstance(dir, str)
         self.filename = filename  # Module file with method main(run_id, hp) (e.g. nn.py).
         self.algorithm = algorithm  # Instantiated Sherpa Algorithm object.
-        self.dir = dir  # Directory in which all files are stored: models, history, and other output.
+        self.dir = dir  # Directory in which all model, history files are stored.
         
         # Make dir if neccessary.
         try:
@@ -33,7 +33,7 @@ class MainLoop():
             pass
 
         # ResultsTable object, defaults to simple example.
-        self.results_table = results_table or ResultsTable(self.dir, loss='loss', recreate=False)
+        self.results_table = results_table or ResultsTable(self.dir, loss='loss', overwrite=False)
         return       
 
     def run(self):

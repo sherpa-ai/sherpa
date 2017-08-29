@@ -1,6 +1,6 @@
 from __future__ import print_function
-from sherpa.core import GrowingHyperparameter
-from sherpa.hparam_generators import RandomGenerator
+from sherpa.hyperparameter import GrowingHyperparameter
+from sherpa.samplers import RandomGenerator
 
 def test_growing_hyperparameter():
     hparam = GrowingHyperparameter(name='num_units', choices=[5, 10, 20],

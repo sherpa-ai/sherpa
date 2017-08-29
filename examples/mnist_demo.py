@@ -2,7 +2,7 @@ from __future__ import print_function
 from __future__ import absolute_import
 from sherpa.utils.testing_utils import load_dataset
 from sherpa.utils.testing_utils import create_model_two as my_model
-from sherpa.core import Hyperparameter
+from sherpa.hyperparameter import Hyperparameter
 import sherpa.samplers
 import sherpa.algorithms
 import sherpa.mainloop

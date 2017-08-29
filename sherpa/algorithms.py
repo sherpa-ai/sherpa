@@ -1,13 +1,37 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from .core import Hyperparameter
+from .hyperparameters import Hyperparameter
 from .resultstable import ResultsTable
 from .samplers import RandomGenerator,GridSearch
 import math
 import numpy as np
+import abc
 
-class Iterate():
+class AbstractAlgorithm(object):
+    @abc.abstractmethod
+    def next(self, results_table, pending):
+        ''' 
+        Abstract method implemented by Algorithms. Algorithm can assume
+        that a hp combo that is emitted will be run by the mainloop --- 
+        I.E. the mainloop/scheduler are responsible for scheduling 
+        and error handling. 
+        
+        Input:
+            results_table = Object of type ResultsTable.
+            pending = List of run_id's which are currently running. 
+        Output:
+            'wait'
+            OR
+            'stop'
+            OR
+            run_id = Key for identifying model instance (row of results_table).
+            hp     = Hyperparameter combination.
+            epochs = Number of epochs to train for.
+        '''
+        return
+
+class Iterate(AbstractAlgorithm):
     '''
     Simply iterate over all combinations in discrete hp space, then stop.
     '''
@@ -42,7 +66,7 @@ class Iterate():
             return 'stop'
         
 
-class RandomSearch():
+class RandomSearch(AbstractAlgorithm):
     """
     Random Search over hyperparameter space.
     """
@@ -79,7 +103,7 @@ class RandomSearch():
         else:
             return run_id, self.sampler.next(), self.epochs
 
-class Hyperhack():
+class Hyperhack(AbstractAlgorithm):
     '''
     Successive halving variant. 
     Peter 2017
