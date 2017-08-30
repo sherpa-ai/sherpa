@@ -15,30 +15,28 @@ class AbstractScheduler(object):
         self.queue = mp.Queue() # Subprocess results returned here.
         self.active_processes = {}
         
-    def start_subprocess(self, filename, run_id, hp, epochs, modelfile, historyfile):
+    def start_subprocess(self, filename, index, hp, epochs, modelfile, historyfile):
         # Start subprocess to perform filename.main() with hyperparameters hp.
         # Overwrites modelfile and historyfile.
-        assert type(run_id) == str
         assert type(epochs) == int
-        p = mp.Process(target=self._subprocess, args=(filename, run_id, hp, epochs, modelfile, historyfile))
+        p = mp.Process(target=self._subprocess, args=(filename, index, hp, epochs, modelfile, historyfile))
         p.start()
-        self.active_processes[run_id] = p
+        self.active_processes[index] = p
         return
     
     def get_all_from_queue(self):
         # Collect any results in the queue.
         # Each result consists of the following:
-        # run_id  = '%d_%d' unique to each experiment.
+        # index   = Unique identifying int for each experiment.
         # hp      = If None or empty, existing hp not overwritten in ResultsTable.
         # rval    = Return value of experiment. Not used.
         rvals = {}
         while not self.queue.empty():
-            run_id, rval = self.queue.get() 
-            assert type(run_id) == str, run_id
-            assert run_id in self.active_processes, (run_id, self.get_active_processes())
-            p = self.active_processes.pop(run_id)
+            index, rval = self.queue.get() 
+            assert index in self.active_processes, (index, self.get_active_processes())
+            p = self.active_processes.pop(index)
             p.join()  # Process should be finished.
-            rvals[run_id] = rval
+            rvals[index] = rval
         return rvals
     
     def queue_is_empty(self):
@@ -48,11 +46,11 @@ class AbstractScheduler(object):
         return list(self.active_processes.keys())    
 
     @abc.abstractmethod
-    def _subprocess(self, filename, run_id, hp, epochs, modelfile, historyfile):
+    def _subprocess(self, filename, index, hp, epochs, modelfile, historyfile):
         '''
         Run experiment in subprocess,
         updates modelfile and historyfile,
-        and puts (run_id, rval) pair in the queue when done.
+        and puts (index, rval) pair in the queue when done.
         '''
         return
     
@@ -62,12 +60,12 @@ class LocalScheduler(AbstractScheduler):
     def __init__(self, **kwargs):
         super(LocalScheduler, self).__init__(**kwargs)
     
-    def _subprocess(self, filename, run_id, hp, epochs, modelfile, historyfile):
+    def _subprocess(self, filename, index, hp, epochs, modelfile, historyfile):
         # Run experiment in subprocess on this machine.
         module = importlib.import_module(filename.rsplit('.', 1)[0])  # Must remove '.py' from file path.
         rval = module.main(hp=hp, epochs=epochs, modelfile=modelfile, historyfile=historyfile, verbose=2)
         #rval = None
-        self.queue.put((run_id, rval))
+        self.queue.put((index, rval))
         
 class SGEScheduler(AbstractScheduler):
     ''' Submits jobs to SGE.'''
@@ -77,7 +75,7 @@ class SGEScheduler(AbstractScheduler):
         self.submit_options = submit_options
         super(SGEScheduler, self).__init__(**kwargs)
         
-    def _subprocess(self, filename, run_id, hp, epochs, modelfile, historyfile):
+    def _subprocess(self, filename, index, hp, epochs, modelfile, historyfile):
         # Submit experiment to SGE and return when finished.
         # Process waits for SGE job to complete, then puts to queue.
         # However, it doesn't capture the return value.
@@ -91,12 +89,12 @@ class SGEScheduler(AbstractScheduler):
         python_script = 'import %s as mymodule\n' % filename.rsplit('.', 1)[0]  # Module.
         python_script += 'rval=mymodule.main(modelfile=\'%s\', historyfile=\'%s\', hp=%s, epochs=%d, verbose=2)' % (
                             modelfile, historyfile, hp, epochs)
-        python_script_file = os.path.join(outdir, run_id + '.py')
+        python_script_file = os.path.join(outdir, '{}.py'.format(index))
         with open(python_script_file, 'w') as fid:
             fid.write(python_script)
 
         # Create bash script that runs python script.
-        sgeoutfile = os.path.join(outdir, run_id + '.out')
+        sgeoutfile = os.path.join(outdir, '{}.out'.format(index))
         try:
             os.remove(sgeoutfile)
         except:
@@ -117,7 +115,7 @@ class SGEScheduler(AbstractScheduler):
         assert ' -cwd' not in submit_command
         process_id = self._submit_job(submit_command, job_script)  # Submit using subprocess so we can get SGE process ID.
 
-        print('\t{}: job submitted for run_id {}'.format(process_id, run_id))
+        print('\t{}: job submitted for model id {}'.format(process_id, index))
 
         # Wait until SGE job finishes (either finishes or fails).
         # These status messages will help solve problems where job hangs in SGE queue.
@@ -153,14 +151,14 @@ class SGEScheduler(AbstractScheduler):
             pass
         # Check that history file now exists.
         if not os.path.isfile(historyfile):
-            raise Exception('Job {}, run_id {} failed. (No historyfile {}.) \
+            raise Exception('Job {}, model id {} failed. (No historyfile {}.) \
                              See SGE output in {}.'.format(
-                process_id, run_id, historyfile, sgeoutfile))
+                process_id, index, historyfile, sgeoutfile))
         # TODO: Find a way to confirm that this subprocess succeeded.
 
         # Let parent process know that this job is done.
         rval = None # TODO: Figure out how to get this rval.
-        self.queue.put((run_id, rval))  # See _read_queue for details.
+        self.queue.put((index, rval))  # See _read_queue for details.
         return
 
     def _submit_job(self, submit_command, run_command):

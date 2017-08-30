@@ -169,12 +169,13 @@ def run_example():
     alg = sherpa.algorithms.Iterate(epochs=2, hp_ranges=hp_space)
 
     f   = os.path.basename(__file__) #'nn.py'
-    dir = './debug' # All files written to here.
+    dir = './output' # All files written to here.
     env = '/home/pjsadows/profiles/auto.profile' # Script specifying environment variables.
     opt = '-N myjob -P claraproject.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'' # SGE options.
     sched = SGEScheduler(dir=dir, environment=env, submit_options=opt)
  
-    rval = sherpa.optimize(filename=f, algorithm=alg, dir=dir, overwrite=True)
+    #rval = sherpa.optimize(filename=f, algorithm=alg, dir=dir, overwrite=True)
+    rval = sherpa.optimize(filename=f, algorithm=alg, dir=dir, overwrite=True, scheduler=sched, max_concurrent=4)
     print()
     print('Best results:')
     print(rval)
@@ -202,7 +203,7 @@ def run_example_advanced():
     #alg  = sherpa.algorithms.RandomSearch(samples=100, epochs=1, hp_ranges=hp_ranges, max_concurrent=10)
 
     f   = os.path.basename(__file__) #'nn.py'
-    dir = './debug' # All files written to here.
+    dir = './output' # All files written to here.
     env = '/home/pjsadows/profiles/auto.profile' # Script specifying environment variables.
     opt = '-N myjob -P claraproject.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'' # SGE options.
     sched = SGEScheduler(dir=dir, environment=env, submit_options=opt)
