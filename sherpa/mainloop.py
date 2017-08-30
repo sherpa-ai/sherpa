@@ -18,12 +18,13 @@ class MainLoop():
     3) Write Results into the ResultsTable
     """
 
-    def __init__(self, filename, algorithm, dir='./', results_table=None):
+    def __init__(self, filename, algorithm, dir='./out/', results_table=None):
         assert isinstance(dir, str)
         self.filename = filename  # Module file with method main(run_id, hp) (e.g. nn.py).
         self.algorithm = algorithm  # Instantiated Sherpa Algorithm object.
         self.dir = dir  # Directory in which all model, history files are stored.
-        
+        self.results_table = results_table or ResultsTable(self.dir, loss='loss', overwrite=False)
+       
         # Make dir if neccessary.
         try:
             os.makedirs(self.dir)  # os.makedirs(os.path.dirname(self.dir))
@@ -32,8 +33,6 @@ class MainLoop():
                   'unintended use of old results!' % self.dir)
             pass
 
-        # ResultsTable object, defaults to simple example.
-        self.results_table = results_table or ResultsTable(self.dir, loss='loss', overwrite=False)
         return       
 
     def run(self):

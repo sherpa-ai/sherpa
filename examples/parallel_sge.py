@@ -170,8 +170,9 @@ def run_example():
                 'lrdecay':[0.0],
                 }
     alg = sherpa.algorithms.Iterate(epochs=2, hp_ranges=hp_space)
-    res = ResultsTable(dir=dir, overwrite=True)
-    loop = sherpa.mainloop.MainLoop(filename=filename, algorithm=alg, dir=dir, results_table=res)
+    loop = sherpa.mainloop.MainLoop(filename=filename, algorithm=alg, dir=dir)
+    #res = ResultsTable(dir=dir, overwrite=True)
+    #loop = sherpa.mainloop.MainLoop(filename=filename, algorithm=alg, dir=dir, results_table=res)
     #loop.run() # Serial run.
 
     env = '/home/pjsadows/profiles/auto.profile' # Script specifying environment variables.

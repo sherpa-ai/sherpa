@@ -45,7 +45,8 @@ class Iterate(AbstractAlgorithm):
         else:
             self.hp_ranges      = hp_ranges
         self.sampler = GridSearch(self.hp_ranges) # Iterate over all combinations of hp.
-    
+        self.count = 0    
+
     def next(self, results_table, pending):
         '''
         Examine current results and produce next experiment.
@@ -56,11 +57,10 @@ class Iterate(AbstractAlgorithm):
         '''
         assert isinstance(results_table, ResultsTable)
         assert isinstance(pending, list)
-        df     = results_table.get_table() # Pandas df
-        assert isinstance(df.shape[0], int)
         assert isinstance(len(pending), int)
-        run_id = '1_%d' % (len(pending)+df.shape[0]) # Results table requires run_ids in this form.
         try:
+            self.count += 1
+            run_id = '1_{}'.format(self.count)
             return run_id, self.sampler.next(), self.epochs
         except StopIteration:
             return 'stop'

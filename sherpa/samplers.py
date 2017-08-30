@@ -246,12 +246,12 @@ class GridSearch(AbstractSampler):
         def griditer(param_ranges):
             # Iterate through discrete choices in order, but sample from distributions.
             # TODO: Compute grid choices for continuous distributions.
-            choices  = {p.name:p.distr_args[0] for p in param_ranges if p.distribution=='choice'}            
+            choices  = {p.name:p.distr_args[0] for p in param_ranges if p.distribution=='choice'}
             for ctuple in itertools.product(*choices.values()):
                 # Sequential sample from choices.
                 temp = dict(zip(choices.keys(), ctuple)) 
                 # Independent sample.
-                sample = {p.name: sample_from(p.distribution, p.distr_args) for p in param_ranges}
+                sample = {p.name: sample_from(p.distribution, p.distr_args) for p in param_ranges if p.distribution!='choice'}
                 sample.update(temp)
                 yield sample
             raise StopIteration
