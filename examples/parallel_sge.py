@@ -159,26 +159,26 @@ def main(modelfile, historyfile, hp={}, epochs=1, verbose=2):
     return
 
 def run_example():
-    filename = os.path.basename(__file__) #'nn.py'
-    dir = './debug' # All files written to here.
-    
     # Iterate algorithm accepts dictionary containing lists of possible values. 
     hp_space = {
-                'act':['tanh', 'relu'],
-                'lrinit':[0.1, 0.01],
+                'act':['tanh'],#, 'relu'],
+                'lrinit':[0.1],#[0.1, 0.01],
                 'momentum':[0.0],
                 'lrdecay':[0.0],
                 }
     alg = sherpa.algorithms.Iterate(epochs=2, hp_ranges=hp_space)
-    loop = sherpa.mainloop.MainLoop(filename=filename, algorithm=alg, dir=dir)
-    #res = ResultsTable(dir=dir, overwrite=True)
-    #loop = sherpa.mainloop.MainLoop(filename=filename, algorithm=alg, dir=dir, results_table=res)
-    #loop.run() # Serial run.
 
+    f   = os.path.basename(__file__) #'nn.py'
+    dir = './debug' # All files written to here.
     env = '/home/pjsadows/profiles/auto.profile' # Script specifying environment variables.
     opt = '-N myjob -P claraproject.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'' # SGE options.
     sched = SGEScheduler(dir=dir, environment=env, submit_options=opt)
-    loop.run_parallel(max_concurrent=4, scheduler=sched) # Uses SGE.
+ 
+    rval = sherpa.optimize(filename=f, algorithm=alg, dir=dir, overwrite=True)
+    print()
+    print('Best results:')
+    print(rval)
+    #idx, loss, hp, historyfile = sherpa.optimize(filename=f, algorithm=alg, dir=dir, scheduler=sched, max_concurrent=4)
 
 def run_example_advanced():
     ''' 
@@ -190,9 +190,6 @@ def run_example_advanced():
                  Hyperparameter(name='lrinit', distribution='choice', distr_args=[(0.1, 0.01, 0.001)]),
                  Hyperparameter(name='lrdecay', distribution='choice', distr_args=[(0.0,)]),
                  Hyperparameter(name='momentum', distribution='choice', distr_args=[(0.0, 0.5, 0.9)]),
-                 #Hyperparameter(name='init', distribution='choice', distr_args=[('glorot_normal', 'glorot_uniform')]),
-                 #Hyperparameter(name='nhid', distribution='choice', distr_args=[(20, 50, 100)]),
-                 #Hyperparameter(name='nlayers', distribution='choice', distr_args=[(2, 3, 4)]),
                  Hyperparameter(name='act', distribution='choice', distr_args=[('tanh','relu')]),
                 ]
     
@@ -204,15 +201,15 @@ def run_example_advanced():
     alg  = sherpa.algorithms.Hyperhack(samples=4, epochs_per_stage=2, stages=4, survival=0.5, sampler=sampler, hp_ranges=hp_ranges)
     #alg  = sherpa.algorithms.RandomSearch(samples=100, epochs=1, hp_ranges=hp_ranges, max_concurrent=10)
 
-    # Specify filename that contains main method. This file contains example. 
-    filename = os.path.basename(__file__) #'nn.py'
-    dir      = './debug' # All files written to here.
-    loop = sherpa.mainloop.MainLoop(filename=filename, algorithm=alg, dir=dir, recreate=True)
-    
+    f   = os.path.basename(__file__) #'nn.py'
+    dir = './debug' # All files written to here.
     env = '/home/pjsadows/profiles/auto.profile' # Script specifying environment variables.
     opt = '-N myjob -P claraproject.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'' # SGE options.
     sched = SGEScheduler(dir=dir, environment=env, submit_options=opt)
-    loop.run_parallel(max_concurrent=2, scheduler=sched) # Uses SGE.
+ 
+    idx, loss, hp, historyfile = sherpa.optimize(filename=f, algorithm=alg, dir=dir)
+    #idx, loss, hp, historyfile = sherpa.optimize(filename=f, algorithm=alg, dir=dir, scheduler=sched, max_concurrent=4)
+ 
     
 
 if __name__=='__main__':

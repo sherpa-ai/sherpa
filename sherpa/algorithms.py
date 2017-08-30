@@ -10,7 +10,7 @@ import abc
 
 class AbstractAlgorithm(object):
     @abc.abstractmethod
-    def next(self, results_table, pending):
+    def next(self, results_table, pending=[]):
         ''' 
         Abstract method implemented by Algorithms. Algorithm can assume
         that a hp combo that is emitted will be run by the mainloop --- 
@@ -19,13 +19,13 @@ class AbstractAlgorithm(object):
         
         Input:
             results_table = Object of type ResultsTable.
-            pending = List of run_id's which are currently running. 
+            pending = List of indices which are currently running. 
         Output:
             'wait'
             OR
             'stop'
             OR
-            run_id = Key for identifying model instance (row of results_table).
+            index  = Key for identifying model instance (row of results_table).
             hp     = Hyperparameter combination.
             epochs = Number of epochs to train for.
         '''
@@ -47,11 +47,11 @@ class Iterate(AbstractAlgorithm):
         self.sampler = GridSearch(self.hp_ranges) # Iterate over all combinations of hp.
         self.count = 0    
 
-    def next(self, results_table, pending):
+    def next(self, results_table, pending=[]):
         '''
         Examine current results and produce next experiment.
         Valid return values:
-        1) run_id, hp, epochs: Tells main loop to start this experiment.
+        1) index, hp, epochs: Tells main loop to start this experiment.
         2) 'wait': Signal to main loop that we are waiting.
         3) 'stop': Signal to main loop that we are finished.
         '''
@@ -59,9 +59,9 @@ class Iterate(AbstractAlgorithm):
         assert isinstance(pending, list)
         assert isinstance(len(pending), int)
         try:
+            index = self.count
             self.count += 1
-            run_id = '1_{}'.format(self.count)
-            return run_id, self.sampler.next(), self.epochs
+            return index, self.sampler.next(), self.epochs
         except StopIteration:
             return 'stop'
         
@@ -71,22 +71,23 @@ class RandomSearch(AbstractAlgorithm):
     Random Search over hyperparameter space.
     """
     def __init__(self, samples, epochs, hp_ranges):
-        self.samples        = samples
-        self.epochs         = epochs
+        self.samples = samples
+        self.epochs  = epochs
+        self.count   = 0
         if isinstance(hp_ranges, dict):
             self.hp_ranges = [Hyperparameter.fromlist(name, choices) in name,choices in hp_ranges.items()]
         else:
-            self.hp_ranges      = hp_ranges
+            self.hp_ranges   = hp_ranges
         self.sampler   = RandomGenerator(hp_ranges)
 
         print('Sampling %d random hp combinations from %d dimensions.' % (
             samples, len(hp_ranges)))
 
-    def next(self, results_table, pending):
+    def next(self, results_table, pending=[]):
         '''
         Examine current results and produce next experiment.
         Valid return values:
-        1) run_id, hp, epochs: Tells main loop to start this experiment.
+        1) index, hp, epochs: Tells main loop to start this experiment.
         2) 'wait': Signal to main loop that we are waiting.
         3) 'stop': Signal to main loop that we are finished.
         '''
@@ -95,13 +96,14 @@ class RandomSearch(AbstractAlgorithm):
         df     = results_table.get_table() # Pandas df
         assert isinstance(df.shape[0], int)
         assert isinstance(len(pending), int)
-        run_id = '1_%d' % (len(pending)+df.shape[0]) # Results table requires run_ids in this form.
         if df.shape[0] == self.samples and len(pending) == 0:
             return 'stop'
         elif len(pending)+df.shape[0] >= self.samples:
             return 'wait'
         else:
-            return run_id, self.sampler.next(), self.epochs
+            index = self.count
+            self.count += 1
+            return index, self.sampler.next(), self.epochs
 
 class Hyperhack(AbstractAlgorithm):
     '''
@@ -132,14 +134,14 @@ class Hyperhack(AbstractAlgorithm):
                 for constraint in constraints:
                     sat = sat and constraint(sample)
                 if sat:
-                    self.population.append(('1_%d'%count, sample))
+                    self.population.append((count, sample))
                     count += 1
 
-    def next(self, results_table, pending):
+    def next(self, results_table, pending=[]):
         '''
         Examine current results and produce next experiment.
         Valid return values:
-        1) run_id, hp, epochs: Tells main loop to start this experiment.
+        1) index, hp, epochs: Tells main loop to start this experiment.
         2) 'wait': Signal to main loop that we are waiting.
         3) 'stop': Signal to main loop that we are finished.
 
@@ -161,18 +163,15 @@ class Hyperhack(AbstractAlgorithm):
                 return 'stop'
             else:
                 k   = int(math.ceil(self.samples * self.survival**self.stage)) # Survivor number.
-                run_ids = results_table.get_k_lowest_from_run(k, run=1) # Only 1 run.
-                self.population = [(run_id, None) for run_id in run_ids] # Use empty hp to indicate restart training.
+                indices = results_table.get_k_lowest(k) # Only 1 run.
+                self.population = [(index, None) for index in indices] # Use empty hp to indicate restart training.
                 print('\nStage %d/%d: %d survivors, %d epochs per stage.' % (self.stage, self.stages, k, self.epochs_per_stage))
                 # Display best so far.
-                run_id = results_table.get_k_lowest_from_run(k=1, run=1)[0]
-                best   = {'ID':run_id}
-                for k in ['Loss', 'Epochs', 'Hparams']:
-                    best[k] = results_table.get(run_id=run_id, parameter=k)
-                print('Best loss:%0.4f epochs:%d id:%s hp:%s' % (best['Loss'], best['Epochs'], run_id, best['Hparams']))
+                best = results_table.get_best()
+                print('Best loss:%0.4f epochs:%d index:%s hp:%s' % (best['Loss'], best['Epochs'], best['ID'], best['HP']))
 
-        run_id, hp = self.population.pop(0)
-        return run_id, hp, self.epochs_per_stage
+        index, hp = self.population.pop(0)
+        return index, hp, self.epochs_per_stage
 
 #
 # class Hyperband():

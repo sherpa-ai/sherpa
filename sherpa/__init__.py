@@ -5,3 +5,6 @@ from . import algorithms
 from . import resultstable
 from . import scheduler
 from . import mainloop
+from .mainloop import optimize
+
+

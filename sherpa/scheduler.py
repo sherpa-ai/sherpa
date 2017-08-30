@@ -83,7 +83,7 @@ class SGEScheduler(AbstractScheduler):
         # However, it doesn't capture the return value.
 
         # Create temp directory.
-        outdir = os.path.join(self.dir, 'output')
+        outdir = os.path.join(self.dir, 'sge')
         if not os.path.isdir(outdir):
             os.mkdir(outdir)
 
@@ -153,7 +153,7 @@ class SGEScheduler(AbstractScheduler):
             pass
         # Check that history file now exists.
         if not os.path.isfile(historyfile):
-            raise Exception('Job {}, run_id {} failed. (No historyfile {}.) \\
+            raise Exception('Job {}, run_id {} failed. (No historyfile {}.) \
                              See SGE output in {}.'.format(
                 process_id, run_id, historyfile, sgeoutfile))
         # TODO: Find a way to confirm that this subprocess succeeded.

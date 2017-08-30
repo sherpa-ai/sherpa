@@ -6,9 +6,31 @@ import pickle as pkl
 import os
 import sys
 import re
+import glob
 from collections import defaultdict
 from .resultstable import ResultsTable
 from .scheduler import SGEScheduler,LocalScheduler
+
+def optimize(filename, algorithm, 
+             dir='./output',
+             results_table=None, 
+             loss='loss',
+             overwrite=False,
+             scheduler=None, 
+             max_concurrent=1): 
+    ''' 
+    Run Sherpa optimization. 
+    '''
+    
+    loop = MainLoop(filename, algorithm, dir=dir, results_table=results_table, overwrite=overwrite) 
+    if scheduler is None:
+        assert max_concurrent == 1, 'Define a scheduler for parallelization.'
+        loop.run_serial() 
+    else: 
+        loop.run_parallel(scheduler=scheduler, max_concurrent=max_concurrent) 
+    # Return best result. 
+    rval = loop.results_table.get_best()
+    return rval 
 
 class MainLoop():
     """
@@ -18,24 +40,31 @@ class MainLoop():
     3) Write Results into the ResultsTable
     """
 
-    def __init__(self, filename, algorithm, dir='./out/', results_table=None):
+    def __init__(self, filename, algorithm, dir='./output/', results_table=None, overwrite=False, loss='loss'):
         assert isinstance(dir, str)
-        self.filename = filename  # Module file with method main(run_id, hp) (e.g. nn.py).
+        self.filename = filename  # Module file with method main(index, hp) (e.g. nn.py).
         self.algorithm = algorithm  # Instantiated Sherpa Algorithm object.
-        self.dir = dir  # Directory in which all model, history files are stored.
-        self.results_table = results_table or ResultsTable(self.dir, loss='loss', overwrite=False)
-       
-        # Make dir if neccessary.
-        try:
-            os.makedirs(self.dir)  # os.makedirs(os.path.dirname(self.dir))
-        except:
-            print('\nWARNING: Found existing directory %s, algorithm may make '
-                  'unintended use of old results!' % self.dir)
-            pass
-
+        self.dir = dir 
+        self.dir_models = os.path.join(self.dir, 'sherpa_models') # Directory in which all model, history files are stored.
+        if not os.path.isdir(self.dir_models):
+            os.makedirs(self.dir_models)
+        else:
+            if not overwrite:
+                print('\nWARNING: Found existing directory {}, algorithm may make '
+                      'unintended use of old results!'.format(self.dir))
+            else:
+                print('\nWARNING: Overwriting all files in {} of the form '
+                      '*_model.h5 and *_history.pkl!'.format(self.dir_models))
+                for f in glob.glob(os.path.join(self.dir_models, '*_model.h5')):
+                    os.remove(f)
+                for f in glob.glob(os.path.join(self.dir_models, '*_history.pkl')):
+                    os.remove(f)
+        
+        self.results_table = results_table or ResultsTable(self.dir, loss=loss, overwrite=overwrite)
+  
         return       
 
-    def run(self):
+    def run_serial(self):
         # Sequential loop.
         module = importlib.import_module(self.filename.rsplit('.', 1)[0]) # Remove .py.
         while True:
@@ -47,15 +76,15 @@ class MainLoop():
                 raise Exception('Should not have to wait in sequential mode.')
             else:
                 assert type(rval) == tuple and len(rval) == 3
-                run_id, hp, epochs = rval
-                modelfile, historyfile = self.id2filenames(run_id)
+                index, hp, epochs = rval
+                modelfile, historyfile = self.id2filenames(index)
                 rval = module.main(modelfile=modelfile, historyfile=historyfile, hp=hp, epochs=epochs, verbose=1)
                 # Update ResultsTable.
-                self.results_table.update(run_id=run_id, hp=hp, historyfile=historyfile)
+                self.results_table.update(index=index, hp=hp, historyfile=historyfile)
 
-    def run_parallel(self, max_concurrent=1, scheduler=None):
+    def run_parallel(self, scheduler=None, max_concurrent=1):
         # Use multiprocessing to run jobs in subprocesses.
-        self.id2hp     = {}  # Maps run_id to hp.
+        self.id2hp     = {}  # Maps index to hp.
         self.scheduler = scheduler or LocalScheduler()
         while True:
             # Collect any results in the queue and write directly to ResultsTable.
@@ -84,10 +113,10 @@ class MainLoop():
                 raise Exception('Algorithm shouldnt wait if there are no pending jobs.')
             else:
                 # Start new experiment specified by Algorithm.
-                run_id, hp, epochs = rval
-                modelfile, historyfile = self.id2filenames(run_id)
-                self.scheduler.start_subprocess(self.filename, run_id, hp, epochs, modelfile, historyfile)
-                self.id2hp[run_id] = hp
+                index, hp, epochs = rval
+                modelfile, historyfile = self.id2filenames(index)
+                self.scheduler.start_subprocess(self.filename, index, hp, epochs, modelfile, historyfile)
+                self.id2hp[index] = hp
                 time.sleep(3)  # Delay might avoid errors in gpu locking.
                 assert len(self.scheduler.get_active_processes()) <= max_concurrent
         assert self.scheduler.queue_is_empty()
@@ -95,36 +124,14 @@ class MainLoop():
 
     def _collect_results(self):
         results = self.scheduler.get_all_from_queue() # Updates self.processes.
-        for run_id in results:
-            assert type(run_id) == str, run_id
+        for index in results:
             # Read historyfile to update results_table.
-            modelfile, historyfile = self.id2filenames(run_id)
-            self.results_table.update(run_id=run_id, hp=self.id2hp[run_id], historyfile=historyfile)
+            modelfile, historyfile = self.id2filenames(index)
+            self.results_table.update(index=index, hp=self.id2hp[index], historyfile=historyfile)
 
-    def id2filenames(self, run_id):
-        modelfile   = os.path.join(self.dir, '{}_model.h5'.format(run_id))
-        historyfile = os.path.join(self.dir, '{}_history.pkl'.format(run_id))
+    def id2filenames(self, index):
+        modelfile   = os.path.join(self.dir_models, '{}_model.h5'.format(index))
+        historyfile = os.path.join(self.dir_models, '{}_history.pkl'.format(index))
         return modelfile, historyfile 
 
 
-# def get_hist(hp, historyfile):
-#     if hp is None or len(hp) == 0:
-#         # Restart from modelfile and historyfile.
-#         with open(historyfile, 'rb') as f:
-#             history = pkl.load(f)
-#         initial_epoch = len(history['loss'])
-#     else:
-#         # Create new model.
-#         history = defaultdict(list)
-#         initial_epoch = 0
-#     return history, initial_epoch
-#
-#
-# def store_hist(partialh, history, historyfile):
-#     # partialh = partialh.history
-#     for k in partialh:
-#         history[k].extend(partialh[k])
-#     assert 'loss' in history, 'Sherpa requires a loss to be defined in history.'
-#
-#     with open(historyfile, 'wb') as fid:
-#         pkl.dump(history, fid)

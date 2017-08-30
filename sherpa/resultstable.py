@@ -12,9 +12,10 @@ class AbstractResultsTable(object):
     def __init__(self, dir='./', loss='loss'):
         '''
         dir  = csv file saved to dir/results.csv.
-        loss = string key. Minimize history[loss]. 
+        loss = Key for channel to minimize (history[loss]). 
         '''
-        self.csv_path = os.path.join(dir, 'results.csv')
+        self.dir = dir
+        self.csv_path= os.path.join(dir, 'results.csv')
         self.loss = loss
 
         try:
@@ -23,19 +24,115 @@ class AbstractResultsTable(object):
             pass
         return      
    
-    def update(self, run_id, historyfile, hp=None):
-        # Update results table from run_id and historyfile.
+    def update(self, index, historyfile, hp=None):
+        ''' Update results table. Called by MainLoop. '''
         with open(historyfile, 'rb') as f:
             history = pkl.load(f)
         lowest_loss   = min(history[self.loss])
         epochs_seen   = len(history[self.loss])
-        self.set(run_id=run_id, hp=hp, loss=lowest_loss, epochs=epochs_seen)
+        self._set(index=index, loss=lowest_loss, epochs=epochs_seen, hp=hp, historyfile=historyfile)
         return
-
-       
-
+    
+    @abc.abstractmethod
+    def get_best(self):
+        ''' Return best id, loss value, hp, historyfile. '''
+        pass
+    
+    @abc.abstractmethod
+    def _set(self, index, loss, epochs_seen, hp, historyfile):
+        ''' Set values in results table. Not called '''
+        pass
+    
 class ResultsTable(AbstractResultsTable):
     """
+    Handles input/output of an underlying hard-disk stored .csv that stores the results.
+    ID     = Unique ID for each model instantiation.
+    Loss   = Current loss value.
+    Epochs = Number of training epochs.
+    Repeat = Is this model a repeat of another model. 
+    HP     = Dictionary of hyperparameters.
+    """
+    def __init__(self, dir='./', loss='loss', overwrite=False):
+        super(ResultsTable, self).__init__(dir=dir, loss=loss)
+        #self.dtype= collections.OrderedDict({'ID':np.int32, 'Loss':np.float64, 'Epochs':np.int32, 'HP':np.dtype('U'), 'History':np.dtype('U')})
+        self.keys = ('ID', 'Loss', 'Epochs', 'HP', 'History')
+        #self.keys = list(self.dtype.keys())
+        if overwrite or not os.path.isfile(self.csv_path):
+            self._create_table()
+        else:
+            self._load_table()
+        return
+    
+    def _create_table(self):
+        ''' Creates new table and saves it to disk.'''
+        self.df = pd.DataFrame(columns=self.keys, )
+        self._save()
+        
+    def _load_table(self):
+        '''
+        Loads table from disk and returns it.
+        # Returns: pandas df
+        '''
+        try:
+            self.df = pd.read_csv(self.csv_path)
+        except:
+            print('Unable to read existing csv file at {} using pandas'.format(self.csv_path))
+            raise
+ 
+    def _save(self):
+        """
+        Updates stored csv
+        """
+        self.df.to_csv(self.csv_path)
+       
+    def _set(self, index, loss, epochs, hp=None, historyfile=None):
+        """
+        Sets a value for a model using index as identifier and saves the hyperparameter description of it. 
+        index = Unique identifier for each model instantiation. Used to identify models that are paused/restarted.
+        loss  = loss value.
+        epochs = Total number of epochs that the model has been trained.
+        historyfile = File path.    
+        """
+        import collections
+        if index in self.df.index:
+            # Update previous result.
+            self.df.set_value(index=index, col='Loss', value=loss)
+            self.df.set_value(index=index, col='Epochs', value=epochs)
+        else:
+            # New line.
+            #new_line = pd.DataFrame(collections.OrderedDict(zip(self.keys, (int(index), loss, int(epochs), hp, historyfile))),
+            #                        index=[index])
+            new_line = pd.DataFrame([[index, loss, epochs, hp, historyfile]], index=[index], columns=self.keys)
+            self.df = self.df.append(new_line)
+        self._save()
+    
+    def get_k_lowest(self, k):
+        """
+        Gets the k models with lowest global loss.
+
+        # Args:
+             k: Integer, number of id's to return
+
+        # Returns:
+             list with model ids
+
+        TODO: add more options, e.g. ignore repeats.
+        """
+        df_sorted = self.df.sort_values(by='Loss', ascending=True)
+        data = df_sorted.iloc[0:k]
+        return data 
+
+    def get_best(self):
+        ''' Return values for best model so far.'''    
+        data = self.get_k_lowest(k=1)
+        bestdict = dict(zip(self.keys, [data[k].iloc[0] for k in self.keys]))
+        return bestdict
+    
+
+class ResultsTableOld(AbstractResultsTable):
+    """
+    DEPRECATED
+    
     Handles input/output of an underlying hard-disk stored .csv that stores the results
     """
     def __init__(self, dir='./', loss='loss', overwrite=False):
