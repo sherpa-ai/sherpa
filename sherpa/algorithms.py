@@ -41,6 +41,7 @@ class Iterate(AbstractAlgorithm):
         '''
         self.epochs  = epochs
         if isinstance(hp_ranges, dict):
+            assert all([type(v) == list for v in hp_ranges.values()]), 'All dict values should be lists: {}'.format(hp_ranges)
             self.hp_ranges = [Hyperparameter.fromlist(name, choices) for (name,choices) in hp_ranges.items()]
         else:
             self.hp_ranges      = hp_ranges

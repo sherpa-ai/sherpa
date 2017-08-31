@@ -22,7 +22,7 @@ def optimize(filename, algorithm,
     Run Sherpa optimization. 
     '''
     
-    loop = MainLoop(filename, algorithm, dir=dir, results_table=results_table, overwrite=overwrite) 
+    loop = MainLoop(filename, algorithm, dir=dir, results_table=results_table, loss=loss, overwrite=overwrite) 
     if scheduler is None:
         assert max_concurrent == 1, 'Define a scheduler for parallelization.'
         loop.run_serial() 

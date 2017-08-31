@@ -28,6 +28,7 @@ class AbstractResultsTable(object):
         ''' Update results table. Called by MainLoop. '''
         with open(historyfile, 'rb') as f:
             history = pkl.load(f)
+        assert self.loss in history, 'No key \'{}\' in {}'.format(self.loss, list(history.keys()))
         lowest_loss   = min(history[self.loss])
         epochs_seen   = len(history[self.loss])
         self._set(index=index, loss=lowest_loss, epochs=epochs_seen, hp=hp, historyfile=historyfile)
@@ -54,13 +55,15 @@ class ResultsTable(AbstractResultsTable):
     """
     def __init__(self, dir='./', loss='loss', overwrite=False):
         super(ResultsTable, self).__init__(dir=dir, loss=loss)
-        #self.dtype= collections.OrderedDict({'ID':np.int32, 'Loss':np.float64, 'Epochs':np.int32, 'HP':np.dtype('U'), 'History':np.dtype('U')})
         self.keys = ('ID', 'Loss', 'Epochs', 'HP', 'History')
-        #self.keys = list(self.dtype.keys())
-        if overwrite or not os.path.isfile(self.csv_path):
+        if not os.path.isfile(self.csv_path):
             self._create_table()
         else:
-            self._load_table()
+            if overwrite:
+                print('WARNING: Overwriting results file at {}'.format(self.csv_path))
+                self._create_table()
+            else:
+                self._load_table()
         return
     
     def _create_table(self):

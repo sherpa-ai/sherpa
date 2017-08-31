@@ -78,7 +78,7 @@ def define_model(hp):
     init   = 'glorot_normal'
     input  = Input(shape=(nin,), dtype='float32', name='input')
     x      = input
-    for i in range(nhlay):
+    for units in hp['arch']:
         x  = Dense(units, kernel_initializer=init, activation=act)(x)
     output = Dense(nout, kernel_initializer=init, activation='sigmoid', name='output')(x)
     model  = Model(inputs=input, outputs=output)
@@ -165,6 +165,7 @@ def run_example():
                 'lrinit':[0.1],#[0.1, 0.01],
                 'momentum':[0.0],
                 'lrdecay':[0.0],
+                'arch': [[20]],
                 }
     alg = sherpa.algorithms.Iterate(epochs=2, hp_ranges=hp_space)
 
