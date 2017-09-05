@@ -2,68 +2,82 @@ import pandas as pd
 import numpy as np
 import os
 import pickle as pkl
+import glob
 import abc
 
 class AbstractResultsTable(object):
     ''' 
-    Required methods for MainLoop.
-    Additional functionality may be useful for different Algorithms.
+    Required methods for MainLoop. Additional functionality may be required
+    for certain Algorithms. Implementation details may vary.
     '''
-    def __init__(self, dir='./', loss='loss'):
+    def __init__(self, dir='./', loss='loss', loss_summary=None):
         '''
-        dir  = csv file saved to dir/results.csv.
-        loss = Key for channel to minimize (history[loss]). 
+        dir  = Path where files can be saved.
+        loss = Key in history to be minimized, E.G. 'loss', 'kl', or 'mse'.
+        loss_summary = Function for summarizing loss from list, E.G. np.min.
         '''
         self.dir = dir
-        self.csv_path= os.path.join(dir, 'results.csv')
-        self.loss = loss
+        self.csv_path  = os.path.join(dir, 'results.csv') # Human-readable results.
+        self.loss      = loss
+        self.loss_summary = loss_summary or (lambda loss_list: loss_list[-1])
 
         try:
-            os.makedirs(dir)  # os.makedirs(os.path.dirname(self.dir))
+            os.makedirs(dir)
         except:
             pass
         return      
    
     def update(self, index, historyfile, hp=None):
-        ''' Update results table. Called by MainLoop. '''
+        '''
+        Update results table. Called by MainLoop.
+        index       = Unique index for a model instantiation. If index is
+                      already in results table, then entry is updated.
+        historyfile = Pickle file containing history dictionary.
+        hp          = (Optional) Dictionary of hyperparameters.
+        '''
         with open(historyfile, 'rb') as f:
             history = pkl.load(f)
-        assert self.loss in history, 'No key \'{}\' in {}'.format(self.loss, list(history.keys()))
-        lowest_loss   = min(history[self.loss])
+        assert self.loss in history, 'key {} not in {}'.format(self.loss, history.keys())
+        lowest_loss   = self.loss_summary(history[self.loss])
         epochs_seen   = len(history[self.loss])
         self._set(index=index, loss=lowest_loss, epochs=epochs_seen, hp=hp, historyfile=historyfile)
         return
     
     @abc.abstractmethod
     def get_best(self):
-        ''' Return best id, loss value, hp, historyfile. '''
+        ''' Return (index, loss value, hp, historyfile) of best result. '''
         pass
     
     @abc.abstractmethod
     def _set(self, index, loss, epochs_seen, hp, historyfile):
-        ''' Set values in results table. Not called '''
+        ''' Set values in results table. '''
         pass
     
 class ResultsTable(AbstractResultsTable):
     """
-    Handles input/output of an underlying hard-disk stored .csv that stores the results.
+    Simple implementation of AbstractResultsTable.
+    Uses pandas data frame to store results, and updates results.csv after every change.
+    
     ID     = Unique ID for each model instantiation.
     Loss   = Current loss value.
     Epochs = Number of training epochs.
     Repeat = Is this model a repeat of another model. 
     HP     = Dictionary of hyperparameters.
     """
-    def __init__(self, dir='./', loss='loss', overwrite=False):
-        super(ResultsTable, self).__init__(dir=dir, loss=loss)
+    def __init__(self, dir='./', loss=None, loss_summary=None, histdir=None):
+        super(ResultsTable, self).__init__(dir=dir, loss=loss, loss_summary=loss_summary)
+        
         self.keys = ('ID', 'Loss', 'Epochs', 'HP', 'History')
-        if not os.path.isfile(self.csv_path):
-            self._create_table()
-        else:
-            if overwrite:
-                print('WARNING: Overwriting results file at {}'.format(self.csv_path))
-                self._create_table()
-            else:
-                self._load_table()
+        
+        if os.path.isfile(self.csv_path):
+            print('WARNING: Overwriting results file at {}'.format(self.csv_path))
+        # Create new table even if one already exists, as loss_summary function might have changed.
+        # TODO: Have _create_table load existing historyfile data from specified dir.
+        self._create_table()
+        if histdir is not None:
+            for f in glob.glob('{}/*_history.pkl'.format(histdir)):
+                index = int(os.path.basename(f).split('_')[0])
+                self.update(index=index, historyfile=f)
         return
     
     def _create_table(self):
@@ -96,15 +110,12 @@ class ResultsTable(AbstractResultsTable):
         epochs = Total number of epochs that the model has been trained.
         historyfile = File path.    
         """
-        import collections
         if index in self.df.index:
             # Update previous result.
             self.df.set_value(index=index, col='Loss', value=loss)
             self.df.set_value(index=index, col='Epochs', value=epochs)
         else:
             # New line.
-            #new_line = pd.DataFrame(collections.OrderedDict(zip(self.keys, (int(index), loss, int(epochs), hp, historyfile))),
-            #                        index=[index])
             new_line = pd.DataFrame([[index, loss, epochs, hp, historyfile]], index=[index], columns=self.keys)
             self.df = self.df.append(new_line)
         self._save()
@@ -130,7 +141,17 @@ class ResultsTable(AbstractResultsTable):
         data = self.get_k_lowest(k=1)
         bestdict = dict(zip(self.keys, [data[k].iloc[0] for k in self.keys]))
         return bestdict
-    
+   
+    def update_hist2loss(self, hist2loss):
+        ''' 
+        Change hist2loss function, then update csv from historyfiles.
+        '''
+        self.hist2loss = hist2loss
+        for index in self.df.index:
+            historyfile = self.df.iloc[index]['History']
+            self.update(index, historyfile)
+        
+                    
 
 class ResultsTableOld(AbstractResultsTable):
     """

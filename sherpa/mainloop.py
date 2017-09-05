@@ -19,7 +19,7 @@ def optimize(filename, algorithm,
              scheduler=None, 
              max_concurrent=1): 
     ''' 
-    Run Sherpa optimization. 
+    Convenience function for running Sherpa optimization.
     '''
     
     loop = MainLoop(filename, algorithm, dir=dir, results_table=results_table, loss=loss, overwrite=overwrite) 
@@ -36,11 +36,19 @@ class MainLoop():
     """
     Main Loop:
     1) Query Algorithm
-    2) Start Experiment (possibly asynchronously)
-    3) Write Results into the ResultsTable
+    2) Start experiment (possibly asynchronously)
+    3) Write results to the 
+    
+    The MainLoop is responsible for coordination between the Algorithm,
+    the Scheduler, and the ResultsTable. A copy of the ResultsTable is
+    given to the Algorithm so that it can recommend a set of hyperparameters,
+    which the MainLoop passes to the Scheduler. The Scheduler is responsible
+    for training with a set of hp, writing the results to the modelfile and
+    historyfile, and letting the MainLoop know that the calculation is done.
+    The MainLoop then tells the ResultsFile to update itself with the results.
     """
 
-    def __init__(self, filename, algorithm, dir='./output/', results_table=None, overwrite=False, loss='loss'):
+    def __init__(self, filename, algorithm, dir='./output/', results_table=None, overwrite=False, loss='loss', loss_summary=None):
         assert isinstance(dir, str)
         self.filename = filename  # Module file with method main(index, hp) (e.g. nn.py).
         self.algorithm = algorithm  # Instantiated Sherpa Algorithm object.
@@ -60,7 +68,7 @@ class MainLoop():
                 for f in glob.glob(os.path.join(self.dir_models, '*_history.pkl')):
                     os.remove(f)
         
-        self.results_table = results_table or ResultsTable(self.dir, loss=loss, overwrite=overwrite)
+        self.results_table = results_table or ResultsTable(self.dir, loss=loss, loss_summary=loss_summary)
   
         return       
 

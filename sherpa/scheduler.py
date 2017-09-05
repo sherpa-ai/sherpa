@@ -152,8 +152,8 @@ class SGEScheduler(AbstractScheduler):
         # Check that history file now exists.
         if not os.path.isfile(historyfile):
             raise Exception('Job {}, model id {} failed. (No historyfile {}.) \
-                             See SGE output in {}.'.format(
-                process_id, index, historyfile, sgeoutfile))
+                             \nSee SGE output in {}'.format(
+                             process_id, index, historyfile, sgeoutfile))
         # TODO: Find a way to confirm that this subprocess succeeded.
 
         # Let parent process know that this job is done.
