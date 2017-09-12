@@ -3,41 +3,40 @@
 # Edits: Lars Hertel, Julian Collado
 from __future__ import print_function
 import sys, os
+import socket
 import numpy as np
 import glob
 import pickle as pkl
 from collections import defaultdict
-import gpu_lock
 
 import sherpa
 from sherpa.resultstable import ResultsTable
 from sherpa.hyperparameters import Hyperparameter
 from sherpa.scheduler import LocalScheduler,SGEScheduler
 
-# Before importing keras, decide which gpu to use. May find nothing acceptible and fail.
-#BACKEND = 'tensorflow'
-BACKEND = 'theano'
+os.environ['KERAS_BACKEND'] = 'theano' # Or 'tensorflow'
+
 if __name__=='__main__':
-    # Don't use gpu if we are just starting Sherpa.
-    if BACKEND == 'theano':
-        os.environ['KERAS_BACKEND'] = "theano"
+    # Don't use gpu if we are just starting Sherpa. 
+    if os.environ['KERAS_BACKEND'] == 'theano':
         os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=cpu,floatX=float32,force_device=True,base_compiledir=~/.theano/cpu"
-    elif BACKEND == 'tensorflow':
-        os.environ['KERAS_BACKEND'] = "tensorflow"
+    else:
         os.environ['CUDA_VISIBLE_DEVICES'] = ""
 else:
-    # Lock gpu.
-    import socket
-    import gpu_lock
-    GPUIDX = gpu_lock.obtain_lock_id() # Return gpuid, or -1 if there was a problem.
-    #GPUIDX = 1
+    # Before importing keras, decide which gpu to use.
+    try:
+        # gpu_lock module located at /home/pjsadows/libs
+        import gpu_lock
+        GPUIDX = gpu_lock.obtain_lock_id() # Return gpuid, or -1 if there was a problem.
+    except:
+        print('Could not import gpu_lock. Prepend /extra/pjsadows0/libs/shared/gpu_lock/ to PYTHONPATH.')
+        GPUIDX = 0
     assert GPUIDX >= 0, '\nNo gpu available.'
     print('\nRunning from GPU %s' % str(GPUIDX))
-    if BACKEND == 'theano':
-        os.environ['KERAS_BACKEND'] = "theano"
+    # Carefully import backend.
+    if os.environ['KERAS_BACKEND'] == 'theano':
         os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=gpu%d,floatX=float32,force_device=True,base_compiledir=~/.theano/%s_gpu%d" % (GPUIDX, socket.gethostname(), GPUIDX)
-    elif BACKEND == 'tensorflow':
-        os.environ['KERAS_BACKEND'] = "tensorflow"
+    else:
         os.environ['CUDA_VISIBLE_DEVICES'] = str(GPUIDX)
         os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
         import tensorflow as tf
@@ -66,7 +65,6 @@ def dataset_bianchini(batchsize, nin=2, nt=1):
 
 def define_model(hp):
     # Return compiled model with specified hyperparameters.
-    # Model Architecture
     from keras.models import Model
     from keras.layers import Dense, Input
     from keras.optimizers import SGD
@@ -94,7 +92,6 @@ def define_model(hp):
     model.compile(optimizer=optimizer, loss=loss, metrics=metrics, loss_weights=loss_weights)
     return model
 
-
 def main(modelfile, historyfile, hp={}, epochs=1, verbose=2):
     """
     ---------------------------------------------------------------------------
@@ -108,9 +105,6 @@ def main(modelfile, historyfile, hp={}, epochs=1, verbose=2):
         hp         = Dictionary of hyperparameters.
         epochs     = Number of epochs to train this round.
         verbose    = Passed to keras.fit_generator.
-    Output:
-        A list of losses or a dictionary of lists that describe history data
-        to be stored
     """
     print('Running with {}'.format(str(hp)))
     import keras
@@ -130,15 +124,6 @@ def main(modelfile, historyfile, hp={}, epochs=1, verbose=2):
     gtrain = dataset_bianchini(batchsize=100, nin=2, nt=3)
     gvalid = dataset_bianchini(batchsize=100, nin=2, nt=3)
 
-    # DEBUG
-    if False:
-        print('Training model.')
-        history['loss'] = [0.1]
-        history['kl']   = [0.2]
-        pkl.dump(history, open(historyfile, 'wb'))
-        model.save(modelfile)
-        return 
-    
     model.fit_generator(gtrain, steps_per_epoch=100,
                                           validation_data=gvalid, validation_steps=10,
                                           epochs=epochs + initial_epoch,
@@ -159,28 +144,28 @@ def main(modelfile, historyfile, hp={}, epochs=1, verbose=2):
     return
 
 def run_example():
+    '''
+    Run parallel Sherpa optimization over a set of discrete hp combinations.
+    '''
     # Iterate algorithm accepts dictionary containing lists of possible values. 
-    hp_space = {
-                'act':['tanh'],#, 'relu'],
+    hp_space = {'act':['tanh'],#, 'relu'],
                 'lrinit':[0.1],#[0.1, 0.01],
                 'momentum':[0.0],
                 'lrdecay':[0.0],
                 'arch': [[20]],
                 }
     alg = sherpa.algorithms.Iterate(epochs=2, hp_ranges=hp_space)
-
-    f   = os.path.basename(__file__) #'nn.py'
+    f   = os.path.basename(__file__) # The 'main' function of this file is called.
     dir = './output' # All files written to here.
     env = '/home/pjsadows/profiles/auto.profile' # Script specifying environment variables.
-    opt = '-N myjob -P claraproject.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'' # SGE options.
+    opt = '-N myexample -P arcus.p -q arcus-ubuntu.q -q arcus.q -l hostname=\'(arcus-1|arcus-2)\'' # SGE options.
+    #sched = None # Serial mode.
+    #sched = LocalScheduler(dir=dir) # Run on local machine without SGE.
     sched = SGEScheduler(dir=dir, environment=env, submit_options=opt)
- 
-    #rval = sherpa.optimize(filename=f, algorithm=alg, dir=dir, overwrite=True)
     rval = sherpa.optimize(filename=f, algorithm=alg, dir=dir, overwrite=True, scheduler=sched, max_concurrent=4)
     print()
     print('Best results:')
     print(rval)
-    #idx, loss, hp, historyfile = sherpa.optimize(filename=f, algorithm=alg, dir=dir, scheduler=sched, max_concurrent=4)
 
 def run_example_advanced():
     ''' 
@@ -188,7 +173,7 @@ def run_example_advanced():
     User may want to run this as a separate file.
     '''
     # Hyperparameter space. 
-    hp_ranges = [
+    hp_space = [
                  Hyperparameter(name='lrinit', distribution='choice', distr_args=[(0.1, 0.01, 0.001)]),
                  Hyperparameter(name='lrdecay', distribution='choice', distr_args=[(0.0,)]),
                  Hyperparameter(name='momentum', distribution='choice', distr_args=[(0.0, 0.5, 0.9)]),
@@ -196,26 +181,23 @@ def run_example_advanced():
                 ]
     
     # Specify how initial hp combinations are sampled.
-    sampler =  sherpa.samplers.LatinHypercube
-    #sampler =  sherpa.samplers.RandomGenerator
+    sampler =  sherpa.samplers.LatinHypercube # Or sherpa.samplers.RandomGenerator
     
     # Algorithm used for optimization.
-    alg  = sherpa.algorithms.Hyperhack(samples=4, epochs_per_stage=2, stages=4, survival=0.5, sampler=sampler, hp_ranges=hp_ranges)
+    alg  = sherpa.algorithms.Hyperhack(samples=4, epochs_per_stage=2, stages=4, survival=0.5, sampler=sampler, hp_ranges=hp_space)
     #alg  = sherpa.algorithms.RandomSearch(samples=100, epochs=1, hp_ranges=hp_ranges, max_concurrent=10)
-
-    f   = os.path.basename(__file__) #'nn.py'
+    
+    f   = os.path.basename(__file__) # The 'main' function of this file is called.
     dir = './output' # All files written to here.
     env = '/home/pjsadows/profiles/auto.profile' # Script specifying environment variables.
-    opt = '-N myjob -P claraproject.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'' # SGE options.
+    opt = '-N myexample -P arcus.p -q arcus-ubuntu.q -q arcus.q -l hostname=\'(arcus-1|arcus-2)\'' # SGE options.
     sched = SGEScheduler(dir=dir, environment=env, submit_options=opt)
- 
-    idx, loss, hp, historyfile = sherpa.optimize(filename=f, algorithm=alg, dir=dir)
-    #idx, loss, hp, historyfile = sherpa.optimize(filename=f, algorithm=alg, dir=dir, scheduler=sched, max_concurrent=4)
- 
-    
+    rval = sherpa.optimize(filename=f, algorithm=alg, dir=dir, overwrite=True, scheduler=sched, max_concurrent=4)
+    print()
+    print('Best results:')
+    print(rval)
 
 if __name__=='__main__':
-    #main() # Single run.
     run_example() # Sherpa optimization.
     #run_example_advanced() # Sherpa optimization.
 
