@@ -1,55 +1,84 @@
-import pandas as pd
-import numpy as np
 import os
-import pickle as pkl
 import glob
+import pickle as pkl
+import numpy as np
+import pandas as pd
 import abc
 
 class AbstractResultsTable(object):
     ''' 
-    Required methods for MainLoop. Additional functionality may be required
-    for certain Algorithms. Implementation details may vary.
+    Required methods for MainLoop and Algorithms. Additional functionality 
+    may be required for certain Algorithms. Implementation details may vary.
     '''
-    def __init__(self, dir='./', loss='loss', loss_summary=None):
+    def __init__(self, loss='loss', loss_summary=None):
         '''
-        dir  = Path where files can be saved.
         loss = Key in history to be minimized, E.G. 'loss', 'kl', or 'mse'.
         loss_summary = Function for summarizing loss from list, E.G. np.min.
         '''
-        self.dir = dir
-        self.csv_path  = os.path.join(dir, 'results.csv') # Human-readable results.
-        self.loss      = loss
+        self.loss         = loss
         self.loss_summary = loss_summary or (lambda loss_list: loss_list[-1])
-
-        try:
-            os.makedirs(dir)
-        except:
-            pass
         return      
    
-    def update(self, index, historyfile, hp=None):
+    def on_start(self, index=None, hp=None):
+        '''
+        Called before model training begins. If index is None, then this is
+        a new model instance with hyperparameters hp, and a new index is 
+        returned. Otherwise, index should be the index of a model to keep 
+        training.
+        '''
+        if index is not None:
+            # Resume training.
+            assert hp is None
+            assert index in self.get_indices()
+            self._set(index=index, pending=True)
+            return
+        else:
+            # Create new row, return unique index.
+            indices = self.get_indices()
+            if len(indices) == 0:
+                index = 0
+            else:
+                index = max(indices) + 1
+            self._set(index=index, hp=hp, pending=True)
+            return index
+
+    def on_finish(self, index, historyfile):
         '''
         Update results table. Called by MainLoop.
-        index       = Unique index for a model instantiation. If index is
-                      already in results table, then entry is updated.
+        index       = Unique index for a model instantiation.
         historyfile = Pickle file containing history dictionary.
-        hp          = (Optional) Dictionary of hyperparameters.
         '''
+        assert index in self.get_indices(), 'Index {} not in {}'.format(index, self.get_indices)
         with open(historyfile, 'rb') as f:
             history = pkl.load(f)
-        assert self.loss in history, 'key {} not in {}'.format(self.loss, history.keys())
+        assert self.loss in history, 'Key {} not in {}'.format(self.loss, history.keys())
         lowest_loss   = self.loss_summary(history[self.loss])
         epochs_seen   = len(history[self.loss])
-        self._set(index=index, loss=lowest_loss, epochs=epochs_seen, hp=hp, historyfile=historyfile)
+        self._set(index=index, loss=lowest_loss, epochs=epochs_seen, historyfile=historyfile, pending=False)
         return
-    
+ 
+    @abc.abstractmethod
+    def get_indices(self):
+        ''' 
+        Return list of unique indices in the ResultsTable.
+        Called by Algorithm.     
+        '''
+        pass
+ 
+    @abc.abstractmethod
+    def get_pending(self):
+        '''
+        Return list of unique indices in the ResultsTable that are pending.
+        '''
+        pass
+   
     @abc.abstractmethod
     def get_best(self):
-        ''' Return (index, loss value, hp, historyfile) of best result. '''
+        ''' Return dictionary of info about the best result. '''
         pass
-    
+
     @abc.abstractmethod
-    def _set(self, index, loss, epochs_seen, hp, historyfile):
+    def _set(self, index, loss=None, epochs=None, hp=None, historyfile=None, pending=False):
         ''' Set values in results table. '''
         pass
     
@@ -64,28 +93,46 @@ class ResultsTable(AbstractResultsTable):
     Repeat = Is this model a repeat of another model. 
     HP     = Dictionary of hyperparameters.
     """
-    def __init__(self, dir='./', loss=None, loss_summary=None, histdir=None):
-        super(ResultsTable, self).__init__(dir=dir, loss=loss, loss_summary=loss_summary)
+    def __init__(self, dir='./', loss='loss', loss_summary=None, load_results=None):
+        '''
+        dir  = Path where files can be saved.
+        loss = Key in history to be minimized, E.G. 'loss', 'kl', or 'mse'.
+        loss_summary = Function for summarizing loss from list, E.G. np.min.
+        '''
+        super(ResultsTable, self).__init__(loss=loss, loss_summary=loss_summary)
+ 
+        self.dir = dir
+        self.csv_path  = os.path.join(dir, 'results.csv') # Human-readable results.
+        self.keys = ('ID', 'Loss', 'Epochs', 'HP', 'History', 'Pending')
+        try:
+            os.makedirs(dir)
+        except:
+            pass
         
-        self.keys = ('ID', 'Loss', 'Epochs', 'HP', 'History')
-        
-        if os.path.isfile(self.csv_path):
-            print('WARNING: Overwriting results file at {}'.format(self.csv_path))
+        #if os.path.isfile(self.csv_path):
+        #    print('WARNING: Overwriting results file at {}'.format(self.csv_path))
         # Create new table even if one already exists, as loss_summary function might have changed.
         # TODO: Have _create_table load existing historyfile data from specified dir.
         self._create_table()
-        if histdir is not None:
-            for f in glob.glob('{}/*_history.pkl'.format(histdir)):
+
+        # Optional: load existing results into table.
+        # Note that this is better than loading results.csv because this 
+        # ensures that the loss and loss_summary are calculated properly.
+        if load_results is not None:
+            assert os.path.isdir(load_results), 'Could not find path {}'.format(load_results)
+            hfiles = glob.glob('{}/*_history.pkl'.format(load_results))
+            print('Loading {} history files into results table'.format(len(hfiles)))
+            for f in hfiles:
                 index = int(os.path.basename(f).split('_')[0])
                 self.update(index=index, historyfile=f)
         return
     
     def _create_table(self):
-        ''' Creates new table and saves it to disk.'''
+        ''' Creates new, empty, table and saves it to disk.'''
         self.df = pd.DataFrame(columns=self.keys, )
         self._save()
         
-    def _load_table(self):
+    def _load_csv(self):
         '''
         Loads table from disk and returns it.
         # Returns: pandas df
@@ -102,24 +149,28 @@ class ResultsTable(AbstractResultsTable):
         """
         self.df.to_csv(self.csv_path)
        
-    def _set(self, index, loss, epochs, hp=None, historyfile=None):
+    def _set(self, index, loss=np.inf, epochs=0, hp=None, historyfile=None, pending=False):
         """
         Sets a value for a model using index as identifier and saves the hyperparameter description of it. 
         index = Unique identifier for each model instantiation. Used to identify models that are paused/restarted.
         loss  = loss value.
         epochs = Total number of epochs that the model has been trained.
         historyfile = File path.    
-        """
+        """ 
         if index in self.df.index:
             # Update previous result.
             self.df.set_value(index=index, col='Loss', value=loss)
             self.df.set_value(index=index, col='Epochs', value=epochs)
+            self.df.set_value(index=index, col='Pending', value=pending)
         else:
             # New line.
-            new_line = pd.DataFrame([[index, loss, epochs, hp, historyfile]], index=[index], columns=self.keys)
+            new_line = pd.DataFrame([[index, loss, epochs, hp, historyfile, pending]], index=[index], columns=self.keys)
             self.df = self.df.append(new_line)
         self._save()
     
+    def get_indices(self):
+        return [i for i in self.df.index]
+
     def get_k_lowest(self, k):
         """
         Gets the k models with lowest global loss.
@@ -132,6 +183,7 @@ class ResultsTable(AbstractResultsTable):
 
         TODO: add more options, e.g. ignore repeats.
         """
+        assert len(self.df.index) >= k, len(self.df.index)
         df_sorted = self.df.sort_values(by='Loss', ascending=True)
         data = df_sorted.iloc[0:k]
         return data 

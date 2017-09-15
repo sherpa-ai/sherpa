@@ -15,11 +15,10 @@ from sherpa.hyperparameters import Hyperparameter
 from sherpa.scheduler import LocalScheduler,SGEScheduler
 
 os.environ['KERAS_BACKEND'] = 'theano' # Or 'tensorflow'
-
 if __name__=='__main__':
     # Don't use gpu if we are just starting Sherpa. 
     if os.environ['KERAS_BACKEND'] == 'theano':
-        os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=cpu,floatX=float32,force_device=True,base_compiledir=~/.theano/cpu"
+        os.environ['THEANO_FLAGS'] = "floatX=float32,device=cpu,base_compiledir=~/.theano/cpu"
     else:
         os.environ['CUDA_VISIBLE_DEVICES'] = ""
 else:
@@ -35,7 +34,8 @@ else:
     print('\nRunning from GPU %s' % str(GPUIDX))
     # Carefully import backend.
     if os.environ['KERAS_BACKEND'] == 'theano':
-        os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=gpu%d,floatX=float32,force_device=True,base_compiledir=~/.theano/%s_gpu%d" % (GPUIDX, socket.gethostname(), GPUIDX)
+        #os.environ['THEANO_FLAGS'] = "mode=FAST_RUN,device=gpu{},floatX=float32,force_device=True,base_compiledir=~/.theano/{}_gpu{}".format(GPUIDX, socket.gethostname(), GPUIDX)
+        os.environ['THEANO_FLAGS'] = "floatX=float32,device=cuda{},base_compiledir=~/.theano/{}_gpu{}".format(GPUIDX, socket.gethostname(), GPUIDX)
     else:
         os.environ['CUDA_VISIBLE_DEVICES'] = str(GPUIDX)
         os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -45,26 +45,29 @@ else:
         sess = tf.Session(config=CONFIG)
         from keras import backend as K
         K.set_session(sess)
+    import keras
 
-def dataset_bianchini(batchsize, nin=2, nt=1):
-    # Dataset where we can control betti numbers.
-    # Synthetic dataset where we can control Betti numbers with parameter nt.
-    # Input: 2D real values, Output: binary {0,1}
-    # x in [0,1]^nin, f = g(t_nt(x)) where g=1-||x||^2, t=[1-2*x_1^2,..., 1-2*x_i^2], t_nt = t(t(t(...)))
-    assert nin==2
+def dataset_bianchini(batchsize, k=1):
+    '''
+    Synthetic data set where we can control Betti numbers from Bianchini et al. 2014.
+    Input: 2D real values, Output: binary {0,1}.
+    f = g(t_k(x)), where g=1-||x||^2, t_1(x)=[1-2*x_1^2, 1-2*x_2^2], t_k = t * t_{k-1}
+    '''
     g = lambda x: 1. - np.linalg.norm(x, ord=2)**2
     t = lambda x: 1. - 2.*(x**2)
     def f(x):
-        for i in range(nt):
+        for i in range(k):
             x = t(x)
         return g(x)
     while True:
-        X = np.random.uniform(low=-1.,high=1.0 , size=(batchsize, nin))
+        X = np.random.uniform(low=-1.,high=1.0 , size=(batchsize, 2))
         Y = (np.apply_along_axis(f, axis=1, arr=X) > 0.0).astype('float32')
         yield {'input':X}, {'output':Y}
 
 def define_model(hp):
-    # Return compiled model with specified hyperparameters.
+    '''
+    Return compiled model using hyperparameters specified in dict hp.
+    ''' 
     from keras.models import Model
     from keras.layers import Dense, Input
     from keras.optimizers import SGD
@@ -97,49 +100,52 @@ def main(modelfile, historyfile, hp={}, epochs=1, verbose=2):
     ---------------------------------------------------------------------------
     EDIT THIS METHOD
     ---------------------------------------------------------------------------
-    This main function is called by Sherpa. No return value is given,
-    but it updates model_file and history_file.
+    This main function is called by Sherpa. 
     Input:
         modelfile  = File containing model.
         historyfile= File containing dictionary of per-epoch results.
         hp         = Dictionary of hyperparameters.
         epochs     = Number of epochs to train this round.
         verbose    = Passed to keras.fit_generator.
+    Output:
+        No return value is given, but updates modelfile and historyfile.
     """
-    print('Running with {}'.format(str(hp)))
-    import keras
-    if hp is None or len(hp) == 0:
-        # Restart from modelfile and historyfile.
+    if os.path.isfile(historyfile):
+        # Resume training.
+        assert os.path.isfile(modelfile)
+        assert hp is None or len(hp) == 0
         model = keras.models.load_model(modelfile)
         with open(historyfile, 'rb') as f:
             history = pkl.load(f)
-        initial_epoch = len(history['loss'])
+        initial_epoch = len(history['loss']) # Assumes loss is list of length epochs.
     else:
         # Create new model.
-        model = define_model(hp=hp)
+        model   = define_model(hp=hp)
         history = defaultdict(list)
         initial_epoch = 0
 
+    print('Running with {}'.format(str(hp)))
+    
     # Define dataset.
-    gtrain = dataset_bianchini(batchsize=100, nin=2, nt=3)
-    gvalid = dataset_bianchini(batchsize=100, nin=2, nt=3)
+    gtrain = dataset_bianchini(batchsize=100, k=3)
+    gvalid = dataset_bianchini(batchsize=100, k=3)
 
-    model.fit_generator(gtrain, steps_per_epoch=100,
-                                          validation_data=gvalid, validation_steps=10,
-                                          epochs=epochs + initial_epoch,
-                                          initial_epoch=initial_epoch,
-                                          verbose=verbose)
+    model.fit_generator(gtrain, 
+                        steps_per_epoch=100,
+                        validation_data = gvalid, 
+                        validation_steps = 10,
+                        epochs = epochs + initial_epoch,
+                        initial_epoch = initial_epoch,
+                        verbose = verbose)
 
-    # Update history
+    # Update history and save to file.
     partialh = model.history.history
     for k in partialh:
         history[k].extend(partialh[k])
-    assert 'loss' in history, 'Sherpa requires a loss to be defined in history.'
-
-    # Save model and history files.
-    model.save(modelfile)
     with open(historyfile, 'wb') as fid:
         pkl.dump(history, fid)
+    # Save model file if we want to restart.
+    model.save(modelfile)
 
     return
 
@@ -160,9 +166,9 @@ def run_example():
     env = '/home/pjsadows/profiles/auto.profile' # Script specifying environment variables.
     opt = '-N myexample -P arcus.p -q arcus-ubuntu.q -q arcus.q -l hostname=\'(arcus-1|arcus-2)\'' # SGE options.
     #sched = None # Serial mode.
-    #sched = LocalScheduler(dir=dir) # Run on local machine without SGE.
-    sched = SGEScheduler(dir=dir, environment=env, submit_options=opt)
-    rval = sherpa.optimize(filename=f, algorithm=alg, dir=dir, overwrite=True, scheduler=sched, max_concurrent=4)
+    sched = LocalScheduler() # Run on local machine without SGE.
+    #sched = SGEScheduler(dir=dir, environment=env, submit_options=opt)
+    rval = sherpa.optimize(filename=f, algorithm=alg, dir=dir, overwrite=True, scheduler=sched, max_concurrent=2)
     print()
     print('Best results:')
     print(rval)

@@ -10,7 +10,7 @@ import abc
 
 class AbstractAlgorithm(object):
     @abc.abstractmethod
-    def next(self, results_table, pending=[]):
+    def next(self, results_table):
         ''' 
         Abstract method implemented by Algorithms. Algorithm can assume
         that a hp combo that is emitted will be run by the mainloop --- 
@@ -19,15 +19,20 @@ class AbstractAlgorithm(object):
         
         Input:
             results_table = Object of type ResultsTable.
-            pending = List of indices which are currently running. 
         Output:
-            'wait'
+            'wait' = Tells MainLoop to wait for some time, so that pending 
+                     results can finish.
             OR
-            'stop'
+            'stop' = Tells MainLoop that algorithm is done.
             OR
-            index  = Key for identifying model instance (row of results_table).
-            hp     = Hyperparameter combination.
-            epochs = Number of epochs to train for.
+            hp, epochs = Tuple, with 'hp' a dict of hyperparameters to train, 
+                         and for 'epochs' epochs.
+            OR 
+            index, epochs = Tuple, with index a int key for identifying model 
+                            instance in results_table to continue training.
+
+        Ideas:
+        - Should we let Algorithm change hyperparameters of existing models?
         '''
         return
 
@@ -44,25 +49,21 @@ class Iterate(AbstractAlgorithm):
             assert all([type(v) == list for v in hp_ranges.values()]), 'All dict values should be lists: {}'.format(hp_ranges)
             self.hp_ranges = [Hyperparameter.fromlist(name, choices) for (name,choices) in hp_ranges.items()]
         else:
-            self.hp_ranges      = hp_ranges
+            self.hp_ranges = hp_ranges
         self.sampler = GridSearch(self.hp_ranges) # Iterate over all combinations of hp.
-        self.count = 0    
 
-    def next(self, results_table, pending=[]):
+    def next(self, results_table):
         '''
         Examine current results and produce next experiment.
         Valid return values:
-        1) index, hp, epochs: Tells main loop to start this experiment.
-        2) 'wait': Signal to main loop that we are waiting.
-        3) 'stop': Signal to main loop that we are finished.
+        1) 'wait': Signal to main loop that we are waiting.
+        2) 'stop': Signal to main loop that we are finished.
+        3) hp, epochs: Tells main loop to start this experiment.
+        4) index, epochs: Tells main loop to resume this experiment.
         '''
         assert isinstance(results_table, ResultsTable)
-        assert isinstance(pending, list)
-        assert isinstance(len(pending), int)
         try:
-            index = self.count
-            self.count += 1
-            return index, self.sampler.next(), self.epochs
+            return self.sampler.next(), self.epochs
         except StopIteration:
             return 'stop'
         
@@ -84,23 +85,20 @@ class RandomSearch(AbstractAlgorithm):
         print('Sampling %d random hp combinations from %d dimensions.' % (
             samples, len(hp_ranges)))
 
-    def next(self, results_table, pending=[]):
+    def next(self, results_table):
         '''
         Examine current results and produce next experiment.
         Valid return values:
-        1) index, hp, epochs: Tells main loop to start this experiment.
+        1) hp, epochs: Tells main loop to start this experiment.
+        1) index, epochs: Tells main loop to start this experiment.
         2) 'wait': Signal to main loop that we are waiting.
         3) 'stop': Signal to main loop that we are finished.
         '''
         assert isinstance(results_table, ResultsTable)
-        assert isinstance(pending, list)
         df     = results_table.get_table() # Pandas df
         assert isinstance(df.shape[0], int)
-        assert isinstance(len(pending), int)
-        if df.shape[0] == self.samples and len(pending) == 0:
+        if df.shape[0] == self.samples:
             return 'stop'
-        elif len(pending)+df.shape[0] >= self.samples:
-            return 'wait'
         else:
             index = self.count
             self.count += 1
@@ -138,7 +136,7 @@ class Hyperhack(AbstractAlgorithm):
                     self.population.append((count, sample))
                     count += 1
 
-    def next(self, results_table, pending=[]):
+    def next(self, results_table):
         '''
         Examine current results and produce next experiment.
         Valid return values:
@@ -157,6 +155,7 @@ class Hyperhack(AbstractAlgorithm):
                 self.epochs_per_stage))
 
         if len(self.population) == 0:
+            pending = results_table.get_pending()
             if len(pending) > 0:
                 return 'wait' # Don't start next stage until everyone finishes previous stage.
             self.stage += 1
@@ -197,7 +196,7 @@ class Hyperhack(AbstractAlgorithm):
 #         self.i = 0
 #         self.j = 1 # range()
 #
-#     def next(self, results_table, pending):
+#     def next(self, results_table):
 #         '''
 #         Examine current results and produce next experiment.
 #         Valid return values:
