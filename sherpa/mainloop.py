@@ -48,13 +48,23 @@ class MainLoop():
     2) Start experiment (possibly asynchronously)
     3) Write results to the 
     
+    Organization Summary:
     The MainLoop is responsible for coordination between the Algorithm,
-    the Scheduler, and the ResultsTable. A copy of the ResultsTable is
+    the Scheduler, and the ResultsTable. A reference to the ResultsTable is
     given to the Algorithm so that it can recommend a set of hyperparameters,
     which the MainLoop passes to the Scheduler. The Scheduler is responsible
     for training with a set of hp, writing the results to the modelfile and
     historyfile, and letting the MainLoop know that the calculation is done.
     The MainLoop then tells the ResultsFile to update itself with the results.
+
+    Details:
+    ResultsTable: Should only be modified at initialization and by 'update' 
+                  method called from the MainLoop. 
+
+    Algorithm: Should not modify ResultsTable. 
+
+
+
     """
 
     def __init__(self, filename, algorithm, dir='./output/', results_table=None, overwrite=False, loss='loss', loss_summary=None):
@@ -86,18 +96,29 @@ class MainLoop():
         module = importlib.import_module(self.filename.rsplit('.', 1)[0]) # Remove .py.
         while True:
             # Query Algorithm
-            rval = self.algorithm.next(self.results_table, pending=[])
+            rval = self.algorithm.next(self.results_table)
             if rval == 'stop':
                 break  # Done
             elif rval == 'wait':
                 raise Exception('Should not have to wait in sequential mode.')
             else:
-                assert type(rval) == tuple and len(rval) == 3
-                index, hp, epochs = rval
+                if type(rval) is not tuple:
+                    raise ValueError('Algorithm.next() should return "stop", "wait", or tuple. Returned {}'.format(rval))
+                if type(rval[0]) == int:
+                    # Resume training of this model.
+                    index, epochs = rval
+                    self.results_table.on_start(index=index)
+                elif type(rval[0]) == dict:
+                    hp, epochs = rval
+                    index = self.result_table.on_start(hp=hp) # ResultsTable returns unique index.
+                    assert index not in self.id2hp
+                    self.id2hp[index] = hp
+                else:
+                    raise ValueError('Algorithm.next()[0] should be int or dict. Returned {}'.format(rval))
                 modelfile, historyfile = self.id2filenames(index)
                 rval = module.main(modelfile=modelfile, historyfile=historyfile, hp=hp, epochs=epochs, verbose=1)
                 # Update ResultsTable.
-                self.results_table.update(index=index, hp=hp, historyfile=historyfile)
+                self.results_table.on_finish(index=index, hp=hp, historyfile=historyfile)
 
     def run_parallel(self, scheduler=None, max_concurrent=1):
         # Use multiprocessing to run jobs in subprocesses.
@@ -108,13 +129,13 @@ class MainLoop():
             self._collect_results()
 
             # Limit number of concurrent subprocesses.
-            pending = self.scheduler.get_active_processes()
+            pending = self.scheduler.get_active_processes() # This should match results_table.get_pending()
             if len(pending) >= max_concurrent:
                 time.sleep(5)
                 continue
 
             # Query Algorithm about next experiment.
-            rval = self.algorithm.next(self.results_table,pending=pending)
+            rval = self.algorithm.next(self.results_table)
             if rval == 'stop' and len(pending) == 0: 
                 # Finished.
                 break
@@ -130,21 +151,34 @@ class MainLoop():
                 raise Exception('Algorithm shouldnt wait if there are no pending jobs.')
             else:
                 # Start new experiment specified by Algorithm.
-                index, hp, epochs = rval
+                if type(rval) is not tuple:
+                    raise ValueError('Algorithm.next() should return "stop", "wait", or tuple. Returned {}'.format(rval))
+                if type(rval[0]) == int:
+                    # Resume training of this model.
+                    index, epochs = rval
+                    self.results_table.on_start(index=index)
+                elif type(rval[0]) == dict:
+                    hp, epochs = rval
+                    index = self.result_table.on_start(hp=hp) # ResultsTable returns unique index.
+                    assert index not in self.id2hp
+                    self.id2hp[index] = hp
+                else:
+                    raise ValueError('Algorithm.next()[0] should be int or dict. Returned {}'.format(rval))
+                #index, hp, epochs = rval
                 modelfile, historyfile = self.id2filenames(index)
                 self.scheduler.start_subprocess(self.filename, index, hp, epochs, modelfile, historyfile)
-                self.id2hp[index] = hp
                 time.sleep(3)  # Delay might avoid errors in gpu locking.
                 assert len(self.scheduler.get_active_processes()) <= max_concurrent
         assert self.scheduler.queue_is_empty()
-        assert len(self.scheduler.get_active_processes()) == 0
+        
+assert len(self.scheduler.get_active_processes()) == 0
 
     def _collect_results(self):
         results = self.scheduler.get_all_from_queue() # Updates self.processes.
         for index in results:
             # Read historyfile to update results_table.
             modelfile, historyfile = self.id2filenames(index)
-            self.results_table.update(index=index, hp=self.id2hp[index], historyfile=historyfile)
+            self.results_table.on_finish(index=index, hp=self.id2hp[index], historyfile=historyfile)
 
     def id2filenames(self, index):
         modelfile   = os.path.join(self.dir_models, '{}_model.h5'.format(index))
