@@ -1,60 +1,75 @@
 from __future__ import absolute_import
-from .hyperparameters import GrowingHyperparameter
+import sherpa.hyperparameters as hyperparameters
 import numpy as np
 import math
 import pandas as pd
 from scipy.stats import norm
 from sklearn.gaussian_process import GaussianProcessRegressor
 import itertools
-
-def sample_from(dist, distr_args):
-    """
-    Draws one sample from given distribution with given args
-
-    dist: Distribution to select values. This must be numpy.random compatible or 'log-uniform'
-    distr_args: List containing the arguments for the distribution.
-    
-    
-    """
-    if dist == 'log-uniform':
-        return 10 ** np.random.uniform(math.log10(distr_args[0]), math.log10(distr_args[1]))
-    else:
-        try:
-            if isinstance(distr_args, dict):
-                return eval('np.random.{}'.format(dist))(**distr_args)
-            else:
-                return eval('np.random.{}'.format(dist))(*distr_args)
-        except AttributeError:
-            AttributeError("Please choose an existing distribution from numpy.random and valid input parameters")
-
+import abc
 
 class AbstractSampler(object):
-    def __init__(self, param_ranges):
-        self.param_ranges = param_ranges
+    def __init__(self, hplist=[]):
+        self.hplist = hplist
 
+    @abc.abstractmethod
     def next(self):
+        ''' Returns a dictionary where d[hp_name] = hp_sample '''
         pass
 
+class RandomSampler(AbstractSampler):
+    """
+    Samples each hyperparameter independently.
+    """
+    def __init__(self, hplist=[]):
+        for param in hplist:
+            assert isinstance(param, hyperparameters.AbstractSampleableHyperparameter)
+        super(RandomSampler, self).__init__(hplist=hplist)
 
-class RandomGenerator(AbstractSampler):
-    """
-    Generates random hyperparameters based on parameter ranges
-    """
     def next(self):
-        """
-        Returns a dictionary of d[hp_name] = hp_sample
-        """
-        return {param.name: sample_from(param.distribution, param.distr_args) for param in self.param_ranges}
+        ''' Returns a dictionary of d[hp_name] = hp_sample '''
+        return {param.name: param.get_sample() for param in self.hplist}
 
-    def grow(self, hp, amount):
-        for param_range in self.param_ranges:
-            assert isinstance(param_range, GrowingHyperparameter)
-            param_range.grow(value=hp[param_range.name],
-                             amount=amount)
-            print("{}: {}".format(param_range.name, param_range.weights))
+class GridSearch(AbstractSampler):
+    """
+    Generate reasonable grid of hyperparameters based on bounded .
+    
+    INCOMPLETE:
+    This is a partial solution that simply iterates over the different 
+    combinations of the choice hyperparameters. The other parameters 
+    are sampled as usual. This is because to build a grid, one must
+    know the total number of models in advance.
+    """
+    def __init__(self, hplist=[]):
+        for param in hplist:
+            #assert isinstance(param, hyperparameters.BoundedDistributionHyperparameter)
+            assert isinstance(param, hyperparameters.AbstractSampleableHyperparameter)
+        super(GridSearch, self).__init__(hplist=hplist)
+
+        # Define a stateful iterator.
+        def griditer(hplist):
+            # Iterate through discrete choices in order, but sample from distributions.
+            # TODO: Compute grid choices for continuous distributions.
+            choices  = {p.name: p.get_grid(k=None) for p in hplist if hplist.is_choice()}
+            for ctuple in itertools.product(*choices.values()):
+                # Sequential sample from choices.
+                temp = dict(zip(choices.keys(), ctuple)) 
+                # Independent sample.
+                sample = {p.name: p.get_sample() for p in hplist if not hplist.is_choice()}
+                sample.update(temp)
+                yield sample
+            raise StopIteration
+        
+        self.griditer = griditer(self.hplist)
+    
+    def next(self):
+        ''' Returns a dictionary of d[hp_name] = hp_sample '''
+        sample = next(self.griditer) # May throw StopIteration
+        return sample
 
 class LatinHypercube(AbstractSampler):
     """
+    NEEDS ATTENTION
     Generates random hyperparameters based on parameter ranges
     """
     def __init__(self, param_ranges):
@@ -66,10 +81,10 @@ class LatinHypercube(AbstractSampler):
         Returns a dictionary of d[hp_name] = hp_sample
         """
         hp = {param.name: sample_from(param.distribution,
-                                           param.distr_args) for param in self.param_ranges}
+                                           param.dist_args) for param in self.param_ranges}
         while hp in self.previous_hp:
             hp = {param.name: sample_from(param.distribution,
-                                               param.distr_args) for param in
+                                               param.dist_args) for param in
                        self.param_ranges}
 
         self.previous_hp.append(hp)
@@ -84,6 +99,9 @@ class LatinHypercube(AbstractSampler):
 
 
 class GaussianProcessEI(AbstractSampler):
+    '''
+    NEEDS ATTENTION
+    '''
     def __init__(self, param_ranges, num_grid_points=11):
         super(self.__class__, self).__init__(param_ranges=param_ranges)
         self.random_generator = RandomGenerator(param_ranges=param_ranges)
@@ -189,10 +207,10 @@ class GaussianProcessEI(AbstractSampler):
                 hparam = self.hparam_dict[column]
                 assert hparam.distribution == 'uniform' or \
                        hparam.distribution == 'log-uniform', "Must be uniform!"
-                if isinstance(hparam.distr_args, dict):
-                    low, high = hparam.distr_args['low'], hparam.distr_args['high']
+                if isinstance(hparam.dist_args, dict):
+                    low, high = hparam.dist_args['low'], hparam.dist_args['high']
                 else:
-                    low, high = hparam.distr_args
+                    low, high = hparam.dist_args
                 ranges.append(np.linspace(low, high, num=num_grid_points))
             else:
                 # for dummy columns i.e. discrete variables
@@ -228,38 +246,4 @@ class GaussianProcessEI(AbstractSampler):
         return hparam_df if not as_design_matrix or hparam_df.empty else \
             pd.get_dummies(hparam_df, drop_first=True)
 
-class GridSearch(AbstractSampler):
-    """
-    Generate reasonable grid of hyperparameters based on parameter ranges.
-    
-    INCOMPLETE:
-    This is a partial solution that simply iterates over the different 
-    combinations of the choice hyperparameters. The other parameters 
-    are sampled as usual. This is because to build a grid, one must
-    know the total number of models in advance.
-    """
-    def __init__(self, param_ranges):
-        # Hyperparameter grid is decided on initialization.
-        self.param_ranges = param_ranges
-        
-        # Define a stateful iterator.
-        def griditer(param_ranges):
-            # Iterate through discrete choices in order, but sample from distributions.
-            # TODO: Compute grid choices for continuous distributions.
-            choices  = {p.name:p.distr_args[0] for p in param_ranges if p.distribution=='choice'}
-            for ctuple in itertools.product(*choices.values()):
-                # Sequential sample from choices.
-                temp = dict(zip(choices.keys(), ctuple)) 
-                # Independent sample.
-                sample = {p.name: sample_from(p.distribution, p.distr_args) for p in param_ranges if p.distribution!='choice'}
-                sample.update(temp)
-                yield sample
-            raise StopIteration
-        
-        self.griditer = griditer(self.param_ranges)
-    
-    def next(self):
-        """
-        Returns a dictionary of d[hp_name] = hp_sample
-        """
-        return next(self.griditer)
+

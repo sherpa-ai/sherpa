@@ -170,8 +170,7 @@ class MainLoop():
                 time.sleep(3)  # Delay might avoid errors in gpu locking.
                 assert len(self.scheduler.get_active_processes()) <= max_concurrent
         assert self.scheduler.queue_is_empty()
-        
-assert len(self.scheduler.get_active_processes()) == 0
+        assert len(self.scheduler.get_active_processes()) == 0
 
     def _collect_results(self):
         results = self.scheduler.get_all_from_queue() # Updates self.processes.

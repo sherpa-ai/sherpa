@@ -63,24 +63,24 @@ class AbstractResultsTable(object):
         Return list of unique indices in the ResultsTable.
         Called by Algorithm.     
         '''
-        pass
+        raise NotImplementedError()
  
     @abc.abstractmethod
     def get_pending(self):
         '''
         Return list of unique indices in the ResultsTable that are pending.
         '''
-        pass
+        raise NotImplementedError()
    
     @abc.abstractmethod
     def get_best(self):
         ''' Return dictionary of info about the best result. '''
-        pass
+        raise NotImplementedError()
 
     @abc.abstractmethod
     def _set(self, index, loss=None, epochs=None, hp=None, historyfile=None, pending=False):
         ''' Set values in results table. '''
-        pass
+        raise NotImplementedError()
     
 class ResultsTable(AbstractResultsTable):
     """
