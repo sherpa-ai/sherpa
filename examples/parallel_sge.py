@@ -180,10 +180,10 @@ def run_example_advanced():
     '''
     # Hyperparameter space. 
     hp_space = [
-                 Hyperparameter(name='lrinit', distribution='choice', distr_args=[(0.1, 0.01, 0.001)]),
-                 Hyperparameter(name='lrdecay', distribution='choice', distr_args=[(0.0,)]),
-                 Hyperparameter(name='momentum', distribution='choice', distr_args=[(0.0, 0.5, 0.9)]),
-                 Hyperparameter(name='act', distribution='choice', distr_args=[('tanh','relu')]),
+                 Hyperparameter(name='lrinit', distribution='choice', dist_args=[(0.1, 0.01, 0.001)]),
+                 Hyperparameter(name='lrdecay', distribution='choice', dist_args=[(0.0,)]),
+                 Hyperparameter(name='momentum', distribution='choice', dist_args=[(0.0, 0.5, 0.9)]),
+                 Hyperparameter(name='act', distribution='choice', dist_args=[('tanh','relu')]),
                 ]
     
     # Specify how initial hp combinations are sampled.

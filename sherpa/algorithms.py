@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from .hyperparameters import Hyperparameter
 from .resultstable import ResultsTable
-from .samplers import RandomGenerator,GridSearch
+from .samplers import RandomSampler,GridSearch
 import math
 import numpy as np
 import abc
@@ -34,7 +34,7 @@ class AbstractAlgorithm(object):
         Ideas:
         - Should we let Algorithm change hyperparameters of existing models?
         '''
-        return
+        raise NotImplementedError()
 
 class Iterate(AbstractAlgorithm):
     '''
@@ -80,7 +80,7 @@ class RandomSearch(AbstractAlgorithm):
             self.hp_ranges = [Hyperparameter.fromlist(name, choices) in name,choices in hp_ranges.items()]
         else:
             self.hp_ranges   = hp_ranges
-        self.sampler   = RandomGenerator(hp_ranges)
+        self.sampler   = RandomSampler(hp_ranges)
 
         print('Sampling %d random hp combinations from %d dimensions.' % (
             samples, len(hp_ranges)))
@@ -109,14 +109,14 @@ class Hyperhack(AbstractAlgorithm):
     Successive halving variant. 
     Peter 2017
     '''
-    def __init__(self, samples, epochs_per_stage, stages, sampler=RandomGenerator, survival=0.5, hp_ranges={},  constraints=[]):
+    def __init__(self, samples, epochs_per_stage, stages, sampler=RandomSampler, survival=0.5, hp_ranges={},  constraints=[]):
         self.samples     = samples # Initial number of samples.
         self.survival    = survival # Value in [0,1], population is reduced to this amount at each stage.
         self.epochs_per_stage = epochs_per_stage
         self.stages      = stages
         self.hp_ranges   = hp_ranges
         #if sampler is None:
-        #    sampler = RandomGenerator
+        #    sampler = RandomSampler
         self.sampler = sampler(hp_ranges) # Initial sampling method for hyperparameters.
         
         # State of the algorithm.
@@ -182,7 +182,7 @@ class Hyperhack(AbstractAlgorithm):
 #         self.R = R
 #         self.eta = eta
 #         self.hp_ranges = hp_ranges
-#         self.sampler = RandomGenerator(hp_ranges)
+#         self.sampler = RandomSampler(hp_ranges)
 #         self.max_concurrent = max_concurrent
 #
 #         # Visualize schedule.
