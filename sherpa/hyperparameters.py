@@ -142,7 +142,7 @@ class BoundedDistributionHyperparameter(DistributionHyperparameter):
         else:
             raise NotImplementedError('Unknown bounds for distribution: {}'.format(self.distribution))
 
-class Hyperparameter(object):
+class Hyperparameter_old(object):
     """
     A Hyperparameter instance captures the information about each of the hyperparameters to be optimized.
     

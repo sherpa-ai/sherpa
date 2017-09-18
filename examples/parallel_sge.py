@@ -11,7 +11,7 @@ from collections import defaultdict
 
 import sherpa
 from sherpa.resultstable import ResultsTable
-from sherpa.hyperparameters import Hyperparameter
+from sherpa.hyperparameters import DistributionHyperparameter as Hyperparameter
 from sherpa.scheduler import LocalScheduler,SGEScheduler
 
 os.environ['KERAS_BACKEND'] = 'theano' # Or 'tensorflow'
@@ -180,10 +180,10 @@ def run_example_advanced():
     '''
     # Hyperparameter space. 
     hp_space = [
-                 Hyperparameter(name='lrinit', distribution='choice', dist_args=[(0.1, 0.01, 0.001)]),
-                 Hyperparameter(name='lrdecay', distribution='choice', dist_args=[(0.0,)]),
-                 Hyperparameter(name='momentum', distribution='choice', dist_args=[(0.0, 0.5, 0.9)]),
-                 Hyperparameter(name='act', distribution='choice', dist_args=[('tanh','relu')]),
+                 Hyperparameter(name='lrinit', distribution='choice', dist_args=[0.1, 0.01, 0.001]),
+                 Hyperparameter(name='lrdecay', distribution='choice', dist_args=[0.0]),
+                 Hyperparameter(name='momentum', distribution='choice', dist_args=[0.0, 0.5, 0.9]),
+                 Hyperparameter(name='act', distribution='choice', dist_args=['tanh','relu']),
                 ]
     
     # Specify how initial hp combinations are sampled.

@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from .hyperparameters import Hyperparameter
+from .hyperparameters import DistributionHyperparameter
 from .resultstable import ResultsTable
 from .samplers import RandomSampler,GridSearch
 import math
@@ -47,7 +47,7 @@ class Iterate(AbstractAlgorithm):
         self.epochs  = epochs
         if isinstance(hp_ranges, dict):
             assert all([type(v) == list for v in hp_ranges.values()]), 'All dict values should be lists: {}'.format(hp_ranges)
-            self.hp_ranges = [Hyperparameter.fromlist(name, choices) for (name,choices) in hp_ranges.items()]
+            self.hp_ranges = [DistributionHyperparameter.fromlist(name, choices) for (name,choices) in hp_ranges.items()]
         else:
             self.hp_ranges = hp_ranges
         self.sampler = GridSearch(self.hp_ranges) # Iterate over all combinations of hp.

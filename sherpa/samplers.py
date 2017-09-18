@@ -50,12 +50,12 @@ class GridSearch(AbstractSampler):
         def griditer(hplist):
             # Iterate through discrete choices in order, but sample from distributions.
             # TODO: Compute grid choices for continuous distributions.
-            choices  = {p.name: p.get_grid(k=None) for p in hplist if hplist.is_choice()}
+            choices  = {p.name: p.get_grid(k=None) for p in hplist if p.is_choice()}
             for ctuple in itertools.product(*choices.values()):
                 # Sequential sample from choices.
                 temp = dict(zip(choices.keys(), ctuple)) 
                 # Independent sample.
-                sample = {p.name: p.get_sample() for p in hplist if not hplist.is_choice()}
+                sample = {p.name: p.get_sample() for p in hplist if not p.is_choice()}
                 sample.update(temp)
                 yield sample
             raise StopIteration
