@@ -14,7 +14,11 @@ class AbstractSampler(object):
 
     @abc.abstractmethod
     def next(self):
-        ''' Returns a dictionary where d[hp_name] = hp_sample '''
+        ''' 
+        Returns a dictionary where d[hp_name] = hp_sample.
+        OR
+        StopIterat
+        '''
         pass
 
 class RandomSampler(AbstractSampler):
@@ -29,6 +33,22 @@ class RandomSampler(AbstractSampler):
     def next(self):
         ''' Returns a dictionary of d[hp_name] = hp_sample '''
         return {param.name: param.get_sample() for param in self.hplist}
+
+class IterateSampler(AbstractSampler):
+    def __init__(self, hp_combos):
+        ''' hp_combos is a list of hp dictionaries.'''
+        if not isinstance(hp_combos, list):
+            raise ValueError()
+        self.hp_combos = hp_combos
+        self.counter = 0
+
+    def next(self):
+        if self.counter == len(self.hp_combos):
+            raise StopIteration
+        rval = self.hp_combos[self.counter]
+        self.counter += 1
+        return rval
+             
 
 class GridSearch(AbstractSampler):
     """
@@ -50,12 +70,12 @@ class GridSearch(AbstractSampler):
         def griditer(hplist):
             # Iterate through discrete choices in order, but sample from distributions.
             # TODO: Compute grid choices for continuous distributions.
-            choices  = {p.name: p.get_grid(k=None) for p in hplist if hplist.is_choice()}
+            choices  = {p.name: p.get_grid(k=None) for p in hplist if p.is_choice()}
             for ctuple in itertools.product(*choices.values()):
                 # Sequential sample from choices.
                 temp = dict(zip(choices.keys(), ctuple)) 
                 # Independent sample.
-                sample = {p.name: p.get_sample() for p in hplist if not hplist.is_choice()}
+                sample = {p.name: p.get_sample() for p in hplist if not p.is_choice()}
                 sample.update(temp)
                 yield sample
             raise StopIteration

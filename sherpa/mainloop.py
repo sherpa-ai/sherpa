@@ -110,7 +110,7 @@ class MainLoop():
                     self.results_table.on_start(index=index)
                 elif type(rval[0]) == dict:
                     hp, epochs = rval
-                    index = self.result_table.on_start(hp=hp) # ResultsTable returns unique index.
+                    index = self.results_table.on_start(hp=hp) # ResultsTable returns unique index.
                     assert index not in self.id2hp
                     self.id2hp[index] = hp
                 else:
@@ -159,7 +159,7 @@ class MainLoop():
                     self.results_table.on_start(index=index)
                 elif type(rval[0]) == dict:
                     hp, epochs = rval
-                    index = self.result_table.on_start(hp=hp) # ResultsTable returns unique index.
+                    index = self.results_table.on_start(hp=hp) # ResultsTable returns unique index.
                     assert index not in self.id2hp
                     self.id2hp[index] = hp
                 else:
@@ -177,7 +177,7 @@ class MainLoop():
         for index in results:
             # Read historyfile to update results_table.
             modelfile, historyfile = self.id2filenames(index)
-            self.results_table.on_finish(index=index, hp=self.id2hp[index], historyfile=historyfile)
+            self.results_table.on_finish(index=index, historyfile=historyfile)
 
     def id2filenames(self, index):
         modelfile   = os.path.join(self.dir_models, '{}_model.h5'.format(index))

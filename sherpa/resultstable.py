@@ -55,8 +55,8 @@ class AbstractResultsTable(object):
         lowest_loss   = self.loss_summary(history[self.loss])
         epochs_seen   = len(history[self.loss])
         self._set(index=index, loss=lowest_loss, epochs=epochs_seen, historyfile=historyfile, pending=False)
-        return
- 
+        return 
+
     @abc.abstractmethod
     def get_indices(self):
         ''' 
@@ -121,12 +121,20 @@ class ResultsTable(AbstractResultsTable):
         if load_results is not None:
             assert os.path.isdir(load_results), 'Could not find path {}'.format(load_results)
             hfiles = glob.glob('{}/*_history.pkl'.format(load_results))
-            print('Loading {} history files into results table'.format(len(hfiles)))
+            print('Loading {} history files into results table from {}/'.format(len(hfiles), load_results))
             for f in hfiles:
-                index = int(os.path.basename(f).split('_')[0])
-                self.update(index=index, historyfile=f)
+                #index = int(os.path.basename(f).split('_')[0])
+                self.load(historyfile=f)
         return
     
+    def load(self, historyfile):
+        ''' Load result from historyfile.'''
+        with open(historyfile, 'rb') as f:
+            history = pkl.load(f) 
+        hp = history['hp']
+        index = self.on_start(hp=hp)
+        self.on_finish(index=index, historyfile=historyfile)
+
     def _create_table(self):
         ''' Creates new, empty, table and saves it to disk.'''
         self.df = pd.DataFrame(columns=self.keys, )
@@ -161,6 +169,7 @@ class ResultsTable(AbstractResultsTable):
             # Update previous result.
             self.df.set_value(index=index, col='Loss', value=loss)
             self.df.set_value(index=index, col='Epochs', value=epochs)
+            self.df.set_value(index=index, col='History', value=historyfile)
             self.df.set_value(index=index, col='Pending', value=pending)
         else:
             # New line.

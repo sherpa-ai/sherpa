@@ -1,9 +1,9 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-from .hyperparameters import Hyperparameter
+from .hyperparameters import DistributionHyperparameter as Hyperparameter
 from .resultstable import ResultsTable
-from .samplers import RandomSampler,GridSearch
+from .samplers import RandomSampler, IterateSampler, GridSearch
 import math
 import numpy as np
 import abc
@@ -40,17 +40,31 @@ class Iterate(AbstractAlgorithm):
     '''
     Simply iterate over all combinations in discrete hp space, then stop.
     '''
-    def __init__(self, epochs=1, hp_ranges=[]):
+    def __init__(self, epochs=1, hp_ranges=None, hp_iter=None):
         '''
-        Accepts hp_ranges as dictionary mapping hp names to lists.
+        Inputs:
+          hp_ranges = Dictionary mapping hp names to lists of values.
+          hp_iter   = List of dictionaries mapping hp names to values, 
+                      which allows us to iterate over combinations.
         '''
         self.epochs  = epochs
-        if isinstance(hp_ranges, dict):
-            assert all([type(v) == list for v in hp_ranges.values()]), 'All dict values should be lists: {}'.format(hp_ranges)
-            self.hp_ranges = [Hyperparameter.fromlist(name, choices) for (name,choices) in hp_ranges.items()]
+        if hp_ranges is not None:
+            if hp_iter is not None:
+                raise NotImplementedError('TODO: combine hp_ranges with hp_iter in Iterate algorithm.')
+            if isinstance(hp_ranges, dict):
+                assert all([type(v) == list for v in hp_ranges.values()]), 'All dict values should be lists: {}'.format(hp_ranges)
+                self.hp_ranges = [Hyperparameter.fromlist(name, choices) for (name,choices) in hp_ranges.items()]
+            else:
+                self.hp_ranges = hp_ranges
+            # TODO: do we need to keep hp_ranges as a instance object?
+            self.sampler = GridSearch(self.hp_ranges) # Iterate over all combinations of hp.
+        elif hp_iter is not None:
+            assert isinstance(hp_iter, list)
+            #temp = [Hyperparameter.fromlist(name, [choice]) for (name, choice) in hp_iter.items()]
+            #self.sampler = GridSearch(temp)
+            self.sampler = IterateSampler(hp_iter)    
         else:
-            self.hp_ranges = hp_ranges
-        self.sampler = GridSearch(self.hp_ranges) # Iterate over all combinations of hp.
+            raise ValueError('Iterate algorithm expects either hp_ranges or hp_iter.')
 
     def next(self, results_table):
         '''
