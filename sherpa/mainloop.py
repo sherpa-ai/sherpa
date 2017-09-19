@@ -110,7 +110,7 @@ class MainLoop():
                     self.results_table.on_start(index=index)
                 elif type(rval[0]) == dict:
                     hp, epochs = rval
-                    index = self.result_table.on_start(hp=hp) # ResultsTable returns unique index.
+                    index = self.results_table.on_start(hp=hp) # ResultsTable returns unique index.
                     assert index not in self.id2hp
                     self.id2hp[index] = hp
                 else:
