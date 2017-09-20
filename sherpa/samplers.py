@@ -14,7 +14,11 @@ class AbstractSampler(object):
 
     @abc.abstractmethod
     def next(self):
-        ''' Returns a dictionary where d[hp_name] = hp_sample '''
+        ''' 
+        Returns a dictionary where d[hp_name] = hp_sample.
+        OR
+        StopIterat
+        '''
         pass
 
 class RandomSampler(AbstractSampler):
@@ -29,6 +33,22 @@ class RandomSampler(AbstractSampler):
     def next(self):
         ''' Returns a dictionary of d[hp_name] = hp_sample '''
         return {param.name: param.get_sample() for param in self.hplist}
+
+class IterateSampler(AbstractSampler):
+    def __init__(self, hp_combos):
+        ''' hp_combos is a list of hp dictionaries.'''
+        if not isinstance(hp_combos, list):
+            raise ValueError()
+        self.hp_combos = hp_combos
+        self.counter = 0
+
+    def next(self):
+        if self.counter == len(self.hp_combos):
+            raise StopIteration
+        rval = self.hp_combos[self.counter]
+        self.counter += 1
+        return rval
+             
 
 class GridSearch(AbstractSampler):
     """
