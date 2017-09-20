@@ -14,7 +14,7 @@ from sherpa.resultstable import ResultsTable
 from sherpa.hyperparameters import DistributionHyperparameter as Hyperparameter
 from sherpa.scheduler import LocalScheduler,SGEScheduler
 
-os.environ['KERAS_BACKEND'] = 'theano' # Or 'tensorflow'
+os.environ['KERAS_BACKEND'] = 'tensorflow'
 if __name__=='__main__':
     # Don't use gpu if we are just starting Sherpa. 
     if os.environ['KERAS_BACKEND'] == 'theano':
@@ -95,59 +95,11 @@ def define_model(hp):
     model.compile(optimizer=optimizer, loss=loss, metrics=metrics, loss_weights=loss_weights)
     return model
 
-def main(modelfile, historyfile, hp={}, epochs=1, verbose=2):
-    """
-    ---------------------------------------------------------------------------
-    EDIT THIS METHOD
-    ---------------------------------------------------------------------------
-    This main function is called by Sherpa. 
-    Input:
-        modelfile  = File containing model.
-        historyfile= File containing dictionary of per-epoch results.
-        hp         = Dictionary of hyperparameters.
-        epochs     = Number of epochs to train this round.
-        verbose    = Passed to keras.fit_generator.
-    Output:
-        No return value is given, but updates modelfile and historyfile.
-    """
-    if os.path.isfile(historyfile):
-        # Resume training.
-        assert os.path.isfile(modelfile)
-        assert hp is None or len(hp) == 0
-        model = keras.models.load_model(modelfile)
-        with open(historyfile, 'rb') as f:
-            history = pkl.load(f)
-        initial_epoch = len(history['loss']) # Assumes loss is list of length epochs.
-    else:
-        # Create new model.
-        model   = define_model(hp=hp)
-        history = defaultdict(list)
-        initial_epoch = 0
 
-    print('Running with {}'.format(str(hp)))
-    
-    # Define dataset.
-    gtrain = dataset_bianchini(batchsize=100, k=3)
-    gvalid = dataset_bianchini(batchsize=100, k=3)
-
-    model.fit_generator(gtrain, 
-                        steps_per_epoch=100,
-                        validation_data = gvalid, 
-                        validation_steps = 10,
-                        epochs = epochs + initial_epoch,
-                        initial_epoch = initial_epoch,
-                        verbose = verbose)
-
-    # Update history and save to file.
-    partialh = model.history.history
-    for k in partialh:
-        history[k].extend(partialh[k])
-    with open(historyfile, 'wb') as fid:
-        pkl.dump(history, fid)
-    # Save model file if we want to restart.
-    model.save(modelfile)
-
-    return
+def main(modelfile, historyfile, **kwargs):
+    from sherpa.task import KerasTask
+    ktask = KerasTask(dataset_bianchini(batchsize=100, k=3),dataset_bianchini(batchsize=100, k=3),define_model)
+    ktask(modelfile,historyfile, **kwargs)
 
 def run_example():
     '''
