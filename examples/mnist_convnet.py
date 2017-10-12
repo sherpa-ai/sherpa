@@ -31,7 +31,7 @@ else:
     sess = tf.Session(config=CONFIG)
     from keras import backend as K
     K.set_session(sess)
-    
+
 import keras
 from keras.datasets import mnist
 from keras.models import Sequential
@@ -141,11 +141,6 @@ def main(modelfile, historyfile, hp={}, epochs=1, verbose=2):
               verbose=verbose,
               validation_data=(x_test, y_test),
               initial_epoch=initial_epoch)
-
-    score = model.evaluate(x_test, y_test, verbose=0)
-
-    print('Test loss:', score[0])
-    print('Test accuracy:', score[1])
 
     # Update history and save to file.
     partialh = model.history.history
