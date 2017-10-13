@@ -30,7 +30,7 @@ def run_sherpa():
 
     dir = './output'  # All files written to here.
     sched = LocalScheduler()  # Run on local machine without SGE.
-    rval = sherpa.optimize(filename='mnist_convnet.py', algorithm=alg, dir=dir, overwrite=True, scheduler=sched, max_concurrent=4)
+    rval = sherpa.optimize(filename='mnist_convnet.py', algorithm=alg, dir=dir, overwrite=True, scheduler=sched, max_concurrent=3)
     print()
     print('Best results:')
     print(rval)
