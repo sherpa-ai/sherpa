@@ -135,7 +135,7 @@ def main(modelfile, historyfile, hp={}, epochs=1, verbose=2):
     # Define dataset.
     x_train, y_train, x_test, y_test = get_mnist()
 
-    model.fit(x_train, y_train,
+    partialh = model.fit(x_train, y_train,
               batch_size=batch_size,
               epochs=epochs,
               verbose=verbose,
@@ -143,7 +143,7 @@ def main(modelfile, historyfile, hp={}, epochs=1, verbose=2):
               initial_epoch=initial_epoch)
 
     # Update history and save to file.
-    partialh = model.history.history
+    partialh = partialh.history
     for k in partialh:
         history[k].extend(partialh[k])
     with open(historyfile, 'wb') as fid:
