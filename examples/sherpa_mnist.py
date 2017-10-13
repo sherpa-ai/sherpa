@@ -28,10 +28,9 @@ def run_sherpa():
     alg = sherpa.algorithms.RandomSearch(samples=10, epochs=10, hp_ranges=hp_space)
     # alg  = sherpa.algorithms.RandomSearch(samples=100, epochs=1, hp_ranges=hp_ranges, max_concurrent=10)
 
-    f = os.path.basename(__file__)  # The 'main' function of this file is called.
     dir = './output'  # All files written to here.
     sched = LocalScheduler()  # Run on local machine without SGE.
-    rval = sherpa.optimize(filename=f, algorithm=alg, dir=dir, overwrite=True, scheduler=sched, max_concurrent=4)
+    rval = sherpa.optimize(filename='mnist_convnet.py', algorithm=alg, dir=dir, overwrite=True, scheduler=sched, max_concurrent=4)
     print()
     print('Best results:')
     print(rval)
