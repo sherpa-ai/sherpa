@@ -91,7 +91,7 @@ class RandomSearch(AbstractAlgorithm):
         self.epochs  = epochs
         self.count   = 0
         if isinstance(hp_ranges, dict):
-            self.hp_ranges = [Hyperparameter.fromlist(name, choices) in name,choices in hp_ranges.items()]
+            self.hp_ranges = [Hyperparameter.fromlist(name, choices) in name, choices in hp_ranges.items()]
         else:
             self.hp_ranges   = hp_ranges
         self.sampler   = RandomSampler(hp_ranges)
@@ -109,9 +109,8 @@ class RandomSearch(AbstractAlgorithm):
         3) 'stop': Signal to main loop that we are finished.
         '''
         assert isinstance(results_table, ResultsTable)
-        df     = results_table.get_table() # Pandas df
-        assert isinstance(df.shape[0], int)
-        if df.shape[0] == self.samples:
+        idxs = results_table.get_indices() # Pandas df
+        if len(idxs) == self.samples:
             return 'stop'
         else:
             index = self.count
