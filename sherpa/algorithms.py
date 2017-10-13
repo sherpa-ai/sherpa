@@ -113,9 +113,8 @@ class RandomSearch(AbstractAlgorithm):
         if len(idxs) == self.samples:
             return 'stop'
         else:
-            index = self.count
             self.count += 1
-            return index, self.sampler.next(), self.epochs
+            return self.sampler.next(), self.epochs
 
 class Hyperhack(AbstractAlgorithm):
     '''
