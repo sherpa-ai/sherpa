@@ -52,8 +52,8 @@ class AbstractResultsTable(object):
         with open(historyfile, 'rb') as f:
             history = pkl.load(f)
         assert self.loss in history, 'Key {} not in {}'.format(self.loss, history.keys())
-        lowest_loss   = self.loss_summary(history[self.loss])
         epochs_seen   = len(history[self.loss])
+        lowest_loss   = self.loss_summary(history[self.loss]) if epochs_seen>0 else np.inf
         self._set(index=index, loss=lowest_loss, epochs=epochs_seen, historyfile=historyfile, pending=False)
         return 
 
