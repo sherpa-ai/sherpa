@@ -4,6 +4,12 @@ import pickle as pkl
 import numpy as np
 import pandas as pd
 import abc
+import logging
+
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 
 class AbstractResultsTable(object):
     ''' 
@@ -15,7 +21,7 @@ class AbstractResultsTable(object):
         loss = Key in history to be minimized, E.G. 'loss', 'kl', or 'mse'.
         loss_summary = Function for summarizing loss from list, E.G. np.min.
         '''
-        self.loss         = loss
+        self.loss = loss
         self.loss_summary = loss_summary or (lambda loss_list: loss_list[-1])
         return      
    
@@ -135,7 +141,7 @@ class ResultsTable(AbstractResultsTable):
 
     def _create_table(self):
         ''' Creates new, empty, table and saves it to disk.'''
-        self.df = pd.DataFrame(columns=self.keys)
+        self.df = pd.DataFrame()
         self._save()
         
     def _load_csv(self):
