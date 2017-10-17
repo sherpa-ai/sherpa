@@ -39,6 +39,9 @@ class AbstractAlgorithm(object):
 class Iterate(AbstractAlgorithm):
     '''
     Simply iterate over all combinations in discrete hp space, then stop.
+
+    TODO: Implement option to iterate over specific hp combinations, 
+          rather than all. But maybe easier to do this in terms of constraints?
     '''
     def __init__(self, epochs=1, hp_ranges=None, hp_iter=None):
         '''
@@ -117,6 +120,48 @@ class RandomSearch(AbstractAlgorithm):
             index = self.count
             self.count += 1
             return index, self.sampler.next(), self.epochs
+
+class LocalSearch(AbstractAlgorithm):
+    '''
+    Greedily try to improve best result by changing one hyperparameter at a time. 
+
+    TODO: Generalize this to real-valued parameters.
+    '''
+    def __init__(self, epochs, hp_ranges, hp_init=None):
+        '''
+        Inputs:
+          epochs    = Number of epochs to train each model.
+          hp_ranges = Dictionary mapping hp names to lists of values.
+          hp_init   = Run this first if not in results table. Otherwise randomly select. 
+        '''
+        self.epochs  = epochs
+        if isinstance(hp_ranges, dict):
+            assert all([type(v) == list for v in hp_ranges.values()]), 'All dict values should be lists of possible values: {}'.format(hp_ranges)
+            self.hp_ranges = [Hyperparameter.fromlist(name, choices) for (name,choices) in hp_ranges.items()]
+        else:
+            self.hp_ranges = hp_ranges
+        self.hp_best = hp_init # None if hp_init not specified.
+
+    def next(self, results_table):
+        '''
+        Examine current results and produce next experiment.
+        Valid return values:
+        1) 'wait': Signal to main loop that we are waiting.
+        2) 'stop': Signal to main loop that we are finished.
+        3) hp, epochs: Tells main loop to start this experiment.
+        4) index, epochs: Tells main loop to resume this experiment.
+        '''
+        assert isinstance(results_table, ResultsTable)
+        hp_best = results_table.get_best()['HP'] # Check that not pending?
+        
+        for hp in hp_best.keys():
+            vals = hp_ranges[hp]
+            for val in vals:
+                hp_next = hp_best.copy()
+                hp_next[hp] = val
+                if not results_table.in_table(hp=hp_point):
+                    return hp_next, self.epochs
+        return 'stop'  
 
 class Hyperhack(AbstractAlgorithm):
     '''
