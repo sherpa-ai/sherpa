@@ -104,6 +104,8 @@ class ResultsTable(AbstractResultsTable):
         self.dir = dir
         self.csv_path = os.path.join(dir, 'results.csv') # Human-readable results.
         self.keys = ('ID', 'Loss', 'Epochs', 'History', 'Pending')
+        self.dtypes = {'ID': np.int, 'Loss': np.float64, 'Epochs': np.int,
+                       'History': np.str, 'Pending': np.bool}
         try:
             os.makedirs(dir)
         except:
@@ -142,7 +144,7 @@ class ResultsTable(AbstractResultsTable):
         # Returns: pandas df
         '''
         try:
-            self.df = pd.read_csv(self.csv_path)
+            self.df = pd.read_csv(self.csv_path, dtype=self.dtypes)
         except:
             print('Unable to read existing csv file at {} using pandas'.format(self.csv_path))
             raise
@@ -168,6 +170,10 @@ class ResultsTable(AbstractResultsTable):
             self.df.set_value(index=index, col='History', value=historyfile)
             self.df.set_value(index=index, col='Pending', value=pending)
         else:
+            assert hp, "Trying to add row but no Hyperparameters provided."
+            for key in hp:
+                if key not in self.dtypes:
+                    self.dtypes[key] = type(hp[key])
             # New line.
             new_dict = {'ID': index,
                         'Loss': loss,
