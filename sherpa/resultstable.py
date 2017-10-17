@@ -102,16 +102,13 @@ class ResultsTable(AbstractResultsTable):
         super(ResultsTable, self).__init__(loss=loss, loss_summary=loss_summary)
  
         self.dir = dir
-        self.csv_path  = os.path.join(dir, 'results.csv') # Human-readable results.
-        self.keys = ('ID', 'Loss', 'Epochs', 'HP', 'History', 'Pending')
+        self.csv_path = os.path.join(dir, 'results.csv') # Human-readable results.
+        self.keys = ('ID', 'Loss', 'Epochs', 'History', 'Pending')
         try:
             os.makedirs(dir)
         except:
             pass
-        
-        #if os.path.isfile(self.csv_path):
-        #    print('WARNING: Overwriting results file at {}'.format(self.csv_path))
-        # Create new table even if one already exists, as loss_summary function might have changed.
+
         # TODO: Have _create_table load existing historyfile data from specified dir.
         self._create_table()
 
@@ -123,7 +120,6 @@ class ResultsTable(AbstractResultsTable):
             hfiles = glob.glob('{}/*_history.pkl'.format(load_results))
             print('Loading {} history files into results table from {}/'.format(len(hfiles), load_results))
             for f in hfiles:
-                #index = int(os.path.basename(f).split('_')[0])
                 self.load(historyfile=f)
         return
     
@@ -137,7 +133,7 @@ class ResultsTable(AbstractResultsTable):
 
     def _create_table(self):
         ''' Creates new, empty, table and saves it to disk.'''
-        self.df = pd.DataFrame(columns=self.keys, )
+        self.df = pd.DataFrame(columns=self.keys)
         self._save()
         
     def _load_csv(self):
@@ -173,7 +169,13 @@ class ResultsTable(AbstractResultsTable):
             self.df.set_value(index=index, col='Pending', value=pending)
         else:
             # New line.
-            new_line = pd.DataFrame([[index, loss, epochs, hp, historyfile, pending]], index=[index], columns=self.keys)
+            new_dict = {'ID': index,
+                        'Loss': loss,
+                        'Epochs': epochs,
+                        'History': historyfile,
+                        'Pending': pending}
+            new_dict.update(hp)
+            new_line = pd.DataFrame(new_dict, index=[index])
             self.df = self.df.append(new_line)
         self._save()
     
