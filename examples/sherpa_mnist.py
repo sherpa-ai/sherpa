@@ -5,7 +5,7 @@ from sherpa.hyperparameters import DistributionHyperparameter as Hyperparameter
 from sherpa.scheduler import LocalScheduler,SGEScheduler
 
 # Don't use gpu if we are just starting Sherpa.
-if os.environ['KERAS_BACKEND'] == 'theano':
+if os.environ.get('KERAS_BACKEND') == 'theano':
     os.environ['THEANO_FLAGS'] = "floatX=float32,device=cpu,base_compiledir=~/.theano/cpu"
 else:
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
@@ -25,7 +25,7 @@ def run_sherpa():
     ]
 
     # Algorithm used for optimization.
-    alg = sherpa.algorithms.RandomSearch(samples=10, epochs=10, hp_ranges=hp_space)
+    alg = sherpa.algorithms.RandomSearch(samples=4, epochs=1, hp_ranges=hp_space)
     # alg  = sherpa.algorithms.RandomSearch(samples=100, epochs=1, hp_ranges=hp_ranges, max_concurrent=10)
 
     dir = './output'  # All files written to here.
