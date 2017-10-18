@@ -116,7 +116,7 @@ class DistributionHyperparameter(AbstractSampleableHyperparameter, AbstractGridH
             l = len(self.dist_args)
             if l == 0:
                 raise ValueError('No choices given!')
-            i = self.rng.randint(0, l-1)
+            i = self.rng.randint(0, l)
             return self.dist_args[i]
             
         else:
