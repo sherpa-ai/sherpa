@@ -135,12 +135,12 @@ class LocalSearch(AbstractAlgorithm):
           hp_init   = Run this first if not in results table. Otherwise randomly select. 
         '''
         self.epochs  = epochs
-        if isinstance(hp_ranges, dict):
-            assert all([type(v) == list for v in hp_ranges.values()]), 'All dict values should be lists of possible values: {}'.format(hp_ranges)
-            self.hp_ranges = [Hyperparameter.fromlist(name, choices) for (name,choices) in hp_ranges.items()]
-        else:
-            self.hp_ranges = hp_ranges
-        self.hp_best = hp_init # None if hp_init not specified.
+        assert all([type(v) == list for v in hp_ranges.values()]), 'All dict values should be lists of possible values: {}'.format(hp_ranges)
+        self.hp_ranges = hp_ranges
+        self.hp_init = hp_init # None if hp_init not specified.
+        # Specify a RandomSampler for beginning. 
+        temp = [Hyperparameter.fromlist(name, choices) for (name,choices) in hp_ranges.items()]
+        self.randomsampler = RandomSampler(temp)
 
     def next(self, results_table):
         '''
@@ -152,14 +152,25 @@ class LocalSearch(AbstractAlgorithm):
         4) index, epochs: Tells main loop to resume this experiment.
         '''
         assert isinstance(results_table, ResultsTable)
-        hp_best = results_table.get_best()['HP'] # Check that not pending?
+        if self.hp_init is not None and len(results_table.get_indices(hp=self.hp_init)) == 0:
+            # Start this point first.
+            return self.hp_init, self.epochs
         
+        # Try to find best result so far.
+        try:
+            hp_best = results_table.get_best(ignore_pending=True)['HP'] # Check that not pending?
+        except ValueError:
+            # No results yet. Select random point.
+            return self.randomsampler.next(), self.epochs
+ 
+        # Try to improve best result.
         for hp in hp_best.keys():
-            vals = hp_ranges[hp]
+            vals = self.hp_ranges[hp]
             for val in vals:
                 hp_next = hp_best.copy()
                 hp_next[hp] = val
-                if not results_table.in_table(hp=hp_point):
+                if len(results_table.get_indices(hp=hp_next)) == 0:
+                    # Haven't tried this hp combination yet.
                     return hp_next, self.epochs
         return 'stop'  
 

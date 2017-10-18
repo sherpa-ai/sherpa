@@ -14,7 +14,7 @@ from sherpa.resultstable import ResultsTable
 from sherpa.hyperparameters import DistributionHyperparameter as Hyperparameter
 from sherpa.scheduler import LocalScheduler,SGEScheduler
 
-os.environ['KERAS_BACKEND'] = 'theano' # Or 'tensorflow'
+os.environ['KERAS_BACKEND'] = 'tensorflow' #'theano' # Or 'tensorflow'
 if __name__=='__main__':
     # Don't use gpu if we are just starting Sherpa. 
     if os.environ['KERAS_BACKEND'] == 'theano':
@@ -155,12 +155,13 @@ def run_example():
     '''
     # Iterate algorithm accepts dictionary containing lists of possible values. 
     hp_space = {'act':['tanh'],#, 'relu'],
-                'lrinit':[0.1],#[0.1, 0.01],
+                'lrinit': [0.1, 0.01],
                 'momentum':[0.0],
                 'lrdecay':[0.0],
-                'arch': [[20]],
+                'arch': [[20], [20, 10]],
                 }
-    alg = sherpa.algorithms.Iterate(epochs=2, hp_ranges=hp_space)
+    #alg = sherpa.algorithms.Iterate(epochs=2, hp_ranges=hp_space)
+    alg = sherpa.algorithms.LocalSearch(epochs=1, hp_ranges=hp_space, hp_init=None)
     f   = os.path.basename(__file__) # The 'main' function of this file is called.
     dir = './output' # All files written to here.
     env = '/home/pjsadows/profiles/auto.profile' # Script specifying environment variables.

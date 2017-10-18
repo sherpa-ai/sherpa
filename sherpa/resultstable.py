@@ -117,7 +117,7 @@ class ResultsTable(AbstractResultsTable):
 
         # Optional: load existing results into table.
         # Note that this is better than loading results.csv because this 
-        # ensures that the loss and loss_summary are calculated properly.
+        # Ensures that the loss and loss_summary are calculated properly.
         if load_results is not None:
             assert os.path.isdir(load_results), 'Could not find path {}'.format(load_results)
             hfiles = glob.glob('{}/*_history.pkl'.format(load_results))
@@ -177,10 +177,13 @@ class ResultsTable(AbstractResultsTable):
             self.df = self.df.append(new_line)
         self._save()
     
-    def get_indices(self):
-        return [i for i in self.df.index]
+    def get_indices(self, hp=None):
+        if hp is None:
+            return [i for i in self.df.index]
+        else:
+            return [i for i in self.df[self.df['HP'] == hp].index]
 
-    def get_k_lowest(self, k):
+    def get_k_lowest(self, k, ignore_pending=True):
         """
         Gets the k models with lowest global loss.
 
@@ -192,17 +195,21 @@ class ResultsTable(AbstractResultsTable):
 
         TODO: add more options, e.g. ignore repeats.
         """
-        assert len(self.df.index) >= k, len(self.df.index)
-        df_sorted = self.df.sort_values(by='Loss', ascending=True)
-        data = df_sorted.iloc[0:k]
+        data = self.df.sort_values(by='Loss', ascending=True)
+        if ignore_pending:
+            data = data[data['Pending'] == False]
+        if len(data) < k:
+            raise ValueError('Tried to get top {} results but only found {} results.'.format(k, len(data)))
+        assert len(data.index) >= k, len(data.index)
+        data = data.iloc[0:k]
         return data 
 
-    def get_best(self):
+    def get_best(self, ignore_pending=True):
         ''' Return values for best model so far.'''    
-        data = self.get_k_lowest(k=1)
+        data = self.get_k_lowest(k=1, ignore_pending=ignore_pending)
         bestdict = dict(zip(self.keys, [data[k].iloc[0] for k in self.keys]))
         return bestdict
-   
+ 
     def update_hist2loss(self, hist2loss):
         ''' 
         Change hist2loss function, then update csv from historyfiles.
