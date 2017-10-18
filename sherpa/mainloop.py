@@ -169,6 +169,8 @@ class MainLoop():
                 self.scheduler.start_subprocess(self.filename, index, hp, epochs, modelfile, historyfile)
                 time.sleep(3)  # Delay might avoid errors in gpu locking.
                 assert len(self.scheduler.get_active_processes()) <= max_concurrent
+                self._collect_results() # update the results table
+
         assert self.scheduler.queue_is_empty()
         assert len(self.scheduler.get_active_processes()) == 0
 

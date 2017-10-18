@@ -187,7 +187,52 @@ class Hyperhack(AbstractAlgorithm):
         index, hp = self.population.pop(0)
         return index, hp, self.epochs_per_stage
 
-#
+
+class GaussianEI(AbstractAlgorithm):
+    """
+    Provide the next best possible value of hyperparameters
+    More parameters to be added
+    """
+    def __init__(self, num_eval , hp_ranges, epochs =2): #  epoch per set of hyparam default to 2
+        self.epochs  = epochs
+        self.hp_ranges = hp_ranges
+        self.num_eval = num_eval # total number of evaluation points
+        self.sampler = GaussianProcessEI( num_eval )
+        # print( 'Updating in total of %d times using Gaussian Process' % num_eval )
+    def next(self, results_table):
+        '''
+        Examine current results and produce next experiment.
+        Valid return values:
+        1) 'wait': Signal to main loop that we are waiting.
+        2) 'stop': Signal to main loop that we are finished.
+        3) hp, epochs: Tells main loop to start this experiment.
+        4) index, epochs: Tells main loop to resume this experiment.
+        '''
+        assert isinstance(results_table, ResultsTable)
+        
+        if len(results_table.get_indices()) < 2:
+            X = random.uniform(0,0.001)
+            index = len(results_table.get_indices())
+            # self.count += 1
+            return index,self.epochs, X
+        else:
+            #with open(historyfile, 'rb') as f:
+             #   df = pkl.load(f) 
+            #df     = results_table._load_csv() #load( historyfile) #results_table.get_table()
+            #print(df)
+            X = results_table.df['HP'].values
+            y = results_table.df['Loss'].values
+            assert len(X) == len(y)
+            # print('loss value is', y)
+            # assert type(X) == dict
+            # X = [ X[i] for i in X ]
+            # index = len(results_table.get_indices())
+            # self.count += 1
+            if results_table.df.shape[0] == self.num_eval:
+                return "stop"
+            else:
+                return self.sampler.next(X,y), self.epochs
+                
 # class Hyperband():
 #     '''
 #     Hyperband
