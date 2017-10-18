@@ -159,7 +159,7 @@ class ResultsTable(AbstractResultsTable):
         """
         Updates stored csv
         """
-        self.df.to_csv(self.csv_path)
+        self.df.to_csv(self.csv_path, index=False)
        
     def _set(self, index, loss=np.inf, epochs=0, hp=None, historyfile=None, pending=False):
         """

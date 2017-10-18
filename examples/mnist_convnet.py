@@ -19,7 +19,7 @@ except:
 assert GPUIDX >= 0, '\nNo gpu available.'
 print('\nRunning from GPU %s' % str(GPUIDX))
 # Carefully import backend.
-if os.environ['KERAS_BACKEND'] == 'theano':
+if os.environ.get('KERAS_BACKEND') == 'theano':
     os.environ['THEANO_FLAGS'] = "floatX=float32,device=cuda{},base_compiledir=~/.theano/{}_gpu{}".format(GPUIDX, socket.gethostname(), GPUIDX)
 else:
     os.environ['CUDA_VISIBLE_DEVICES'] = str(GPUIDX)

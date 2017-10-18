@@ -1,26 +1,26 @@
 import tempfile
 import shutil
 import os
+import pytest
 from sherpa.resultstable import ResultsTable
 
-
-def test_resultstable():
+@pytest.fixture
+def test_dir():
     dirpath = tempfile.mkdtemp()
-    results_table = ResultsTable(dir=dirpath)
+    yield dirpath
+    print("deleting tempdir")
+    shutil.rmtree(dirpath)
+
+
+def test_resultstable(test_dir):
+    results_table = ResultsTable(dir=test_dir)
     results_table._set(index=0, loss=0.1, hp={'Int': 1, 'Float': 0.1,
                                               'Str': 'abc'})
-    try:
-        with open(os.path.join(dirpath, 'results.csv'), 'r') as csv:
-            next(csv)
-            line_idx, Epochs, Float, History, ID, Int, Loss, Pending, Str = next(csv).split(',')
-            assert Epochs == '0'
-            assert Float == '0.1'
-            assert ID == '0'
-            assert Int == '1'
-            assert Str == 'abc\n'
-    finally:
-        shutil.rmtree(dirpath)
-
-
-if __name__ == '__main__':
-    test_resultstable()
+    with open(os.path.join(test_dir, 'results.csv'), 'r') as csv:
+        next(csv)
+        Epochs, Float, History, ID, Int, Loss, Pending, Str = next(csv).split(',')
+        assert Epochs == '0'
+        assert Float == '0.1'
+        assert ID == '0'
+        assert Int == '1'
+        assert Str == 'abc\n'

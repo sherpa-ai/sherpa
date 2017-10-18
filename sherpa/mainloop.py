@@ -7,9 +7,18 @@ import os
 import sys
 import re
 import glob
+import tarfile
 from collections import defaultdict
 from .resultstable import ResultsTable
 from .scheduler import SGEScheduler,LocalScheduler
+import multiprocessing
+
+try:
+    from http.server import HTTPServer, SimpleHTTPRequestHandler # Python 3
+except ImportError:
+    from SimpleHTTPServer import BaseHTTPServer
+    HTTPServer = BaseHTTPServer.HTTPServer
+    from SimpleHTTPServer import SimpleHTTPRequestHandler # Python 2
 
 def optimize(filename, algorithm, 
              dir='./output',
@@ -31,7 +40,8 @@ def optimize(filename, algorithm,
     max_concurrent = Limits the number of jobs Sherpa submits to scheduler. 
     '''
     
-    loop = MainLoop(filename, algorithm, dir=dir, results_table=results_table, loss=loss, overwrite=overwrite) 
+    loop = MainLoop(filename, algorithm, dir=dir, results_table=results_table, loss=loss, overwrite=overwrite)
+    run_plotting_process(output_dir=dir, port=16006)
     if scheduler is None:
         assert max_concurrent == 1, 'Define a scheduler for parallelization.'
         loop.run_serial() 
@@ -39,7 +49,54 @@ def optimize(filename, algorithm,
         loop.run_parallel(scheduler=scheduler, max_concurrent=max_concurrent) 
     # Return best result. 
     rval = loop.results_table.get_best()
-    return rval 
+    return rval
+
+
+def run_plotting_process(output_dir, port=0):
+    """
+    Runs the plotting server as part of a SHERPA optimization.
+
+    Untars files into output directory, starts a process, changes into the
+    output dir and starts a simple server.
+    """
+    def run_server_in_dir(target_dir, port=0):
+        """
+        Changes into target_dir and runs server on port. To be run in a separate
+        process.
+
+        Arguments:
+            target_dir (str): dir to run server in
+            port (int): port to run server on
+        """
+        sys.stdout = open(os.devnull, 'w')
+        os.chdir(target_dir)
+        server = HTTPServer(('localhost', port), SimpleHTTPRequestHandler)
+        server.serve_forever()
+        while True:
+            try:
+                time.sleep(10)
+            finally:
+                server.shutdown()
+
+    def untar(target_dir):
+        """
+        Extract tar with plotting files to output dir
+
+        Arguments:
+            target_dir (str): directory where to tar to (output dir)
+        """
+        sherpa_dir = os.path.dirname(os.path.abspath(__file__))
+        tar_path = os.path.join(sherpa_dir, 'plot_files.tar.gz')
+        with tarfile.open(tar_path) as tar:
+            tar.extractall(target_dir)
+
+    untar(output_dir)
+    process =multiprocessing.Process(target=run_server_in_dir,
+                                     args=(output_dir, port))
+    process.daemon = True
+    process.start()
+    print("Running Dashboard on 0.0.0.0:{}".format(port))
+
 
 class MainLoop():
     """

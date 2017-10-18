@@ -6,7 +6,7 @@ from sherpa.hyperparameters import DistributionHyperparameter as Hyperparameter
 from sherpa.scheduler import LocalScheduler,SGEScheduler
 
 # Don't use gpu if we are just starting Sherpa.
-if os.environ['KERAS_BACKEND'] == 'theano':
+if os.environ.get('KERAS_BACKEND') == 'theano':
     os.environ['THEANO_FLAGS'] = "floatX=float32,device=cpu,base_compiledir=~/.theano/cpu"
 else:
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
@@ -26,13 +26,13 @@ def run_sherpa():
     ]
 
     # Algorithm used for optimization.
-    alg = sherpa.algorithms.RandomSearch(samples=3, epochs=2, hp_ranges=hp_space)
+    alg = sherpa.algorithms.RandomSearch(samples=50, epochs=10, hp_ranges=hp_space)
     # alg  = sherpa.algorithms.RandomSearch(samples=100, epochs=1, hp_ranges=hp_ranges, max_concurrent=10)
 
     datetime_now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     dir = './output_{}'.format(datetime_now)  # All files written to here.
     sched = LocalScheduler()  # Run on local machine without SGE.
-    rval = sherpa.optimize(filename='mnist_convnet.py', algorithm=alg, dir=dir, overwrite=True, scheduler=sched, max_concurrent=2)
+    rval = sherpa.optimize(filename='mnist_convnet.py', algorithm=alg, dir=dir, overwrite=True, scheduler=sched, max_concurrent=4)
     print()
     print('Best results:')
     print(rval)
