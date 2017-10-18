@@ -41,7 +41,7 @@ def optimize(filename, algorithm,
     '''
     
     loop = MainLoop(filename, algorithm, dir=dir, results_table=results_table, loss=loss, overwrite=overwrite)
-    run_plotting_process(output_dir=dir, port=16006)
+    run_plotting_process(output_dir=dir, port=6006)
     if scheduler is None:
         assert max_concurrent == 1, 'Define a scheduler for parallelization.'
         loop.run_serial() 
