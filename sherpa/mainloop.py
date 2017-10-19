@@ -13,13 +13,13 @@ from .resultstable import ResultsTable
 from .scheduler import SGEScheduler,LocalScheduler
 import multiprocessing
 import threading
-
 try:
     from http.server import HTTPServer, SimpleHTTPRequestHandler # Python 3
 except ImportError:
     from SimpleHTTPServer import BaseHTTPServer
     HTTPServer = BaseHTTPServer.HTTPServer
     from SimpleHTTPServer import SimpleHTTPRequestHandler # Python 2
+
 
 def optimize(filename, algorithm, 
              dir='./output',
@@ -63,6 +63,14 @@ def run_plotting_process(output_dir, port=0):
     Untars files into output directory, starts a process, changes into the
     output dir and starts a simple server.
     """
+
+    class PlotHandler(SimpleHTTPRequestHandler):
+        def log_message(self, format, *args):
+            """
+            Overwrite to suppress output from http server.
+            """
+            pass
+
     def run_server_in_dir(target_dir, queue, port=0):
         """
         Changes into target_dir and runs server on port. To be run in a separate
@@ -74,7 +82,7 @@ def run_plotting_process(output_dir, port=0):
         """
         sys.stdout = open(os.devnull, 'w')
         os.chdir(target_dir)
-        server = HTTPServer(('localhost', port), SimpleHTTPRequestHandler)
+        server = HTTPServer(('localhost', port), PlotHandler)
         thread = threading.Thread(target=server.serve_forever)
         thread.daemon = True
         thread.start()
