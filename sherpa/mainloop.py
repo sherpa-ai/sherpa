@@ -181,7 +181,7 @@ class MainLoop():
 
     def run_parallel(self, scheduler=None, max_concurrent=1):
         # Use multiprocessing to run jobs in subprocesses.
-        self.id2hp     = {}  # Maps index to hp.
+        self.id2hp = {}  # Maps index to hp.
         self.scheduler = scheduler or LocalScheduler()
         while True:
             # Collect any results in the queue and write directly to ResultsTable.
