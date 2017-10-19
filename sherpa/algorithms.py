@@ -47,7 +47,7 @@ class Iterate(AbstractAlgorithm):
           hp_iter   = List of dictionaries mapping hp names to values, 
                       which allows us to iterate over combinations.
         '''
-        self.epochs  = epochs
+        self.epochs = epochs
         if hp_ranges is not None:
             if hp_iter is not None:
                 raise NotImplementedError('TODO: combine hp_ranges with hp_iter in Iterate algorithm.')
@@ -60,8 +60,6 @@ class Iterate(AbstractAlgorithm):
             self.sampler = GridSearch(self.hp_ranges) # Iterate over all combinations of hp.
         elif hp_iter is not None:
             assert isinstance(hp_iter, list)
-            #temp = [Hyperparameter.fromlist(name, [choice]) for (name, choice) in hp_iter.items()]
-            #self.sampler = GridSearch(temp)
             self.sampler = IterateSampler(hp_iter)    
         else:
             raise ValueError('Iterate algorithm expects either hp_ranges or hp_iter.')
