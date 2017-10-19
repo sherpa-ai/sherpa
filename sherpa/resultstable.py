@@ -55,8 +55,14 @@ class AbstractResultsTable(object):
         historyfile = Pickle file containing history dictionary.
         '''
         assert index in self.get_indices(), 'Index {} not in {}'.format(index, self.get_indices)
-        with open(historyfile, 'rb') as f:
-            history = pkl.load(f)
+        try:
+            with open(historyfile, 'rb') as f:
+                history = pkl.load(f)
+        except OSError:
+            raise ValueError("History file not found at {}. SHERPA requires"
+                             "every experiment to store a"
+                             "history file.".format(historyfile))
+
         assert self.loss in history, 'Key {} not in {}'.format(self.loss, history.keys())
         lowest_loss   = self.loss_summary(history[self.loss])
         epochs_seen   = len(history[self.loss])
