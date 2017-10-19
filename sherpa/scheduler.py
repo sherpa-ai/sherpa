@@ -93,10 +93,13 @@ class LocalScheduler(AbstractScheduler):
         Run experiment in subprocess on this machine.
         """
         # Must remove '.py' from file path.
-        module = importlib.import_module(filename.rsplit('.', 1)[0])
-        rval = module.main(hp=hp, epochs=epochs, modelfile=modelfile,
-                           historyfile=historyfile, verbose=2)
-        self.queue.put((index, rval))
+        rval = -1
+        try:
+            module = importlib.import_module(filename.rsplit('.', 1)[0])
+            rval = module.main(hp=hp, epochs=epochs, modelfile=modelfile,
+                               historyfile=historyfile, verbose=2)
+        finally:
+            self.queue.put((index, rval))
 
 
 class SGEScheduler(AbstractScheduler):
