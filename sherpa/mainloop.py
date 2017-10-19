@@ -41,7 +41,7 @@ def optimize(filename, algorithm,
     '''
     
     loop = MainLoop(filename, algorithm, dir=dir, results_table=results_table, loss=loss, overwrite=overwrite)
-    run_plotting_process(output_dir=dir, port=6006)
+    server_process = run_plotting_process(output_dir=dir, port=6006)
     if scheduler is None:
         assert max_concurrent == 1, 'Define a scheduler for parallelization.'
         loop.run_serial() 
@@ -49,6 +49,7 @@ def optimize(filename, algorithm,
         loop.run_parallel(scheduler=scheduler, max_concurrent=max_concurrent) 
     # Return best result. 
     rval = loop.results_table.get_best()
+    server_process.join()
     return rval
 
 
@@ -96,6 +97,7 @@ def run_plotting_process(output_dir, port=0):
     process.daemon = True
     process.start()
     print("Running Dashboard on 0.0.0.0:{}".format(port))
+    return process
 
 
 class MainLoop():

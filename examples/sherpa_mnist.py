@@ -1,5 +1,6 @@
 from __future__ import print_function
 import os
+import datetime
 import sherpa
 from sherpa.hyperparameters import DistributionHyperparameter as Hyperparameter
 from sherpa.scheduler import LocalScheduler,SGEScheduler
@@ -25,12 +26,13 @@ def run_sherpa():
     ]
 
     # Algorithm used for optimization.
-    alg = sherpa.algorithms.RandomSearch(samples=4, epochs=1, hp_ranges=hp_space)
+    alg = sherpa.algorithms.RandomSearch(samples=50, epochs=10, hp_ranges=hp_space)
     # alg  = sherpa.algorithms.RandomSearch(samples=100, epochs=1, hp_ranges=hp_ranges, max_concurrent=10)
 
-    dir = './output'  # All files written to here.
+    datetime_now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    dir = './output_{}'.format(datetime_now)  # All files written to here.
     sched = LocalScheduler()  # Run on local machine without SGE.
-    rval = sherpa.optimize(filename='mnist_convnet.py', algorithm=alg, dir=dir, overwrite=True, scheduler=sched, max_concurrent=3)
+    rval = sherpa.optimize(filename='mnist_convnet.py', algorithm=alg, dir=dir, overwrite=True, scheduler=sched, max_concurrent=4)
     print()
     print('Best results:')
     print(rval)
