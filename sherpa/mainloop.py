@@ -234,6 +234,8 @@ class MainLoop():
     def _collect_results(self):
         results = self.scheduler.get_all_from_queue() # Updates self.processes.
         for index in results:
+            if results[index] == -1:
+                continue
             # Read historyfile to update results_table.
             modelfile, historyfile = self.id2filenames(index)
             self.results_table.on_finish(index=index, historyfile=historyfile)
