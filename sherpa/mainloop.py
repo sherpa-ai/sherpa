@@ -12,6 +12,7 @@ from collections import defaultdict
 from .resultstable import ResultsTable
 from .scheduler import SGEScheduler,LocalScheduler
 import multiprocessing
+import threading
 
 try:
     from http.server import HTTPServer, SimpleHTTPRequestHandler # Python 3
@@ -41,7 +42,8 @@ def optimize(filename, algorithm,
     '''
     
     loop = MainLoop(filename, algorithm, dir=dir, results_table=results_table, loss=loss, overwrite=overwrite)
-    server_process = run_plotting_process(output_dir=dir, port=6006)
+    server_process, server_queue = run_plotting_process(output_dir=dir,
+                                                        port=6006)
     if scheduler is None:
         assert max_concurrent == 1, 'Define a scheduler for parallelization.'
         loop.run_serial() 
@@ -49,6 +51,7 @@ def optimize(filename, algorithm,
         loop.run_parallel(scheduler=scheduler, max_concurrent=max_concurrent) 
     # Return best result. 
     rval = loop.results_table.get_best()
+    server_queue.put(-1)
     server_process.join()
     return rval
 
@@ -60,7 +63,7 @@ def run_plotting_process(output_dir, port=0):
     Untars files into output directory, starts a process, changes into the
     output dir and starts a simple server.
     """
-    def run_server_in_dir(target_dir, port=0):
+    def run_server_in_dir(target_dir, queue, port=0):
         """
         Changes into target_dir and runs server on port. To be run in a separate
         process.
@@ -72,12 +75,12 @@ def run_plotting_process(output_dir, port=0):
         sys.stdout = open(os.devnull, 'w')
         os.chdir(target_dir)
         server = HTTPServer(('localhost', port), SimpleHTTPRequestHandler)
-        server.serve_forever()
-        while True:
-            try:
-                time.sleep(10)
-            finally:
-                server.shutdown()
+        thread = threading.Thread(target=server.serve_forever)
+        thread.daemon = True
+        thread.start()
+        while queue.empty():
+            time.sleep(5)
+        server.shutdown()
 
     def untar(target_dir):
         """
@@ -92,15 +95,16 @@ def run_plotting_process(output_dir, port=0):
             tar.extractall(target_dir)
 
     untar(output_dir)
+    queue = multiprocessing.Queue()
     process =multiprocessing.Process(target=run_server_in_dir,
-                                     args=(output_dir, port))
+                                     args=(output_dir, queue, port))
     process.daemon = True
     process.start()
     print("Running Dashboard on 0.0.0.0:{}".format(port))
-    return process
+    return process, queue
 
 
-class MainLoop():
+class MainLoop(object):
     """
     Main Loop:
     1) Query Algorithm
