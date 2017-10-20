@@ -62,8 +62,6 @@ class Iterate(AbstractAlgorithm):
             self.sampler = GridSearch(self.hp_ranges) # Iterate over all combinations of hp.
         elif hp_iter is not None:
             assert isinstance(hp_iter, list)
-            #temp = [Hyperparameter.fromlist(name, [choice]) for (name, choice) in hp_iter.items()]
-            #self.sampler = GridSearch(temp)
             self.sampler = IterateSampler(hp_iter)    
         else:
             raise ValueError('Iterate algorithm expects either hp_ranges or hp_iter.')
@@ -91,7 +89,7 @@ class RandomSearch(AbstractAlgorithm):
         self.samples = samples
         self.count   = 0
         if isinstance(hp_ranges, dict):
-            self.hp_ranges = [Hyperparameter.fromlist(name, choices) in name,choices in hp_ranges.items()]
+            self.hp_ranges = [Hyperparameter.fromlist(name, choices) in name, choices in hp_ranges.items()]
         else:
             self.hp_ranges   = hp_ranges
         self.sampler   = RandomSampler(hp_ranges)
@@ -108,12 +106,10 @@ class RandomSearch(AbstractAlgorithm):
         3) 'stop': Signal to main loop that we are finished.
         '''
         assert isinstance(results_table, ResultsTable)
-        df     = results_table.get_table() # Pandas df
-        assert isinstance(df.shape[0], int)
-        if df.shape[0] == self.samples:
+        idxs = results_table.get_indices() # Pandas df
+        if len(idxs) == self.samples:
             return 'stop'
         else:
-            index = self.count
             self.count += 1
             return index, self.sampler.next()
 
@@ -235,89 +231,3 @@ class Hyperhack(AbstractAlgorithm):
 
         index, hp = self.population.pop(0)
         return index, hp, self.epochs_per_stage
-
-#
-# class Hyperband():
-#     '''
-#     Hyperband
-#     '''
-#     def __init__(self, R, eta, hp_ranges, max_concurrent=10):
-#         self.R = R
-#         self.eta = eta
-#         self.hp_ranges = hp_ranges
-#         self.sampler = RandomSampler(hp_ranges)
-#         self.max_concurrent = max_concurrent
-#
-#         # Visualize schedule.
-#         total_epochs = visualize_hyperband_params(R=self.R, eta=self.eta)
-#
-#         # State variables.
-#         log_eta = lambda x: math.log(x) / math.log(eta)
-#         s_max = int(log_eta(R))
-#         B = (s_max + 1) * R
-#         self.s = 0
-#         self.i = 0
-#         self.j = 1 # range()
-#
-#     def next(self, results_table):
-#         '''
-#         Examine current results and produce next experiment.
-#         Valid return values:
-#         1) run_id, hp, epochs: Tells main loop to start this experiment.
-#         2) 'wait': Signal to main loop that we are waiting.
-#         3) 'stop': Signal to main loop that we are finished.
-#         '''
-#
-#         if len(pending) >= max_concurrent:
-#             return 'wait'
-#
-#         log_eta = lambda x: math.log(x) / math.log(eta)
-#         s_max = int(log_eta(R))
-#         B = (s_max + 1) * R
-#
-#         for s in reversed(range(s_max + 1)):
-#             n = int(math.ceil(B / R / (s + 1) * eta ** s))
-#             r = R * eta ** (-s)
-#
-#             for i in range(s + 1):
-#                 n_i = int(n * eta ** (-i))
-#                 r_i = int(round(r * eta ** (i)))
-#
-#                 run = s_max - s + 1
-#                 if i == 0:
-#                     for j in range(1, n_i+1):
-#                         if s==s_max and i==0 and j==1:
-#                             self.estimate_time(self.scheduler.submit,
-#                                                {'run_id': '{}_{}'.format(run,j),
-#                                                 'hp':
-#                                                     self.hparam_gen.next(),
-#                                                 'epochs': r_i},
-#                                                total_epochs=total_epochs,
-#                                                r_i=r_i)
-#
-#                         else:
-#                             self.scheduler.submit(run_id='{}_{}'.format(run,
-#                                                                         j),
-#                                                   hp=self.hparam_gen.next(),
-#                                                   epochs=r_i)
-#                 else:
-#                     for run_id in self.results_table.get_k_lowest_from_run(n_i,
-#                                                                         run):
-#                         self.scheduler.submit(run_id=run_id, epochs=r_i)
-#
-#         return self.results_table.get_table()
-#
-#     @staticmethod
-#     def estimate_time(f, args, total_epochs, r_i):
-#         time, result = timedcall(f, args)
-#
-#         secs = total_epochs * time / r_i
-#         hrs = secs // 3600
-#         mins = (secs % 3600) // 60
-#         print('-' * 100)
-#         print('\nThe complete Hyperband optimization is '
-#               'estimated to take {}hrs and {} '
-#               'mins\n'.format(
-#             hrs, mins))
-#         print('-' * 100)
-#

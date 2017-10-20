@@ -2,16 +2,19 @@ import os
 import sys
 import re
 import subprocess
-import inspect
 import time
-import pickle
 import importlib
 import abc
-from collections import defaultdict
 import multiprocessing as mp
-import subprocess # Used only on local scheduler.
 
 class AbstractScheduler(object):
+    """
+    Abstract class for scheduler.
+
+    Attributes:
+        queue (multiprocessing.Queue): Subprocess results returned here.
+        active_processes (dict): maps process index to process
+    """
     def __init__(self):
         self.queue = mp.Queue()    # Subprocess results returned here.
         self.active_processes = {} # 
@@ -23,7 +26,18 @@ class AbstractScheduler(object):
         self.dir = dir
 
     def start_subprocess(self, filename, index, hp, modelfile, metricsfile):
-        # Start subprocess to run filename from command line with hp args. 
+        """
+        Start subprocess to call filename with hyperparameters hp.
+
+        Overwrites modelfile and historyfile.
+
+        Arguments:
+            filename (str): name of file that contains user training code
+            index (int): process index
+            hp (dict): hyperparameters
+            modelfile (str): path to file from which model will be loaded
+            metricsfile (str): path to file that stores history
+        """
         cmd = self.args_to_cmd(filename, index, hp, modelfile, metricsfile)
         p = mp.Process(target=self._subprocess, args=(cmd, index, metricsfile))
         p.start()
@@ -31,10 +45,14 @@ class AbstractScheduler(object):
         return
     
     def get_all_from_queue(self):
-        # Collect any results in the queue.
-        # Each result consists of the following:
-        # index   = Unique identifying int for each experiment.
-        # rval    = Return value of experiment. (Currently not used.)
+        """
+        Collect results in the queue.
+
+        Each result consists of the following:
+            index: Unique identifying int for each experiment.
+            hp: If None or empty, existing hp not overwritten in ResultsTable.
+            rval: Return value of experiment. Not used.
+        """
         rvals = {}
         while not self.queue.empty():
             index, rval = self.queue.get() 
@@ -45,9 +63,17 @@ class AbstractScheduler(object):
         return rvals
     
     def queue_is_empty(self):
+        """
+        Returns:
+            (bool) whether queue is empty
+        """
         return self.queue.empty()
 
     def get_active_processes(self):
+        """
+        Returns:
+            (list) active process indices
+        """
         return list(self.active_processes.keys())    
 
     def args_to_cmd(self, filename, index, hp, modelfile, metricsfile):
@@ -68,33 +94,36 @@ class AbstractScheduler(object):
 
     @abc.abstractmethod
     def _subprocess(self, filename, index, hp, modelfile, metricsfile):
-        '''
+        """
         Run experiment in subprocess,
         updates modelfile and metricsfile,
         and puts (index, rval) pair in the queue when done.
-        '''
+        """
         return
     
    
 class LocalScheduler(AbstractScheduler):
-    ''' Runs jobs as subprocesses on local machine.'''
+    """ Runs jobs as subprocesses on local machine."""
     def __init__(self, **kwargs):
         super(LocalScheduler, self).__init__(**kwargs)
     
     def _subprocess(self, cmd, index, metricsfile):
-        # Call python script in subprocess.
+        """ Run experiment in subprocess."""
         try:
             subprocess.check_call(cmd) # Raises CalledProcessError if nonzero return value.
+            rval = None
+            self.queue.put((index, rval))
         except subprocess.CalledProcessError as e:
-            #print('Following bash call failed: {}'.format(cmd))
-            raise e # Or should we ignore?
-        # Check that metricsfile was written?
-        rval = None
-        self.queue.put((index, rval))
+            print('Following bash call failed: {}'.format(cmd))
+            #raise e # Or should we ignore?
+            pass
+        finally:
+            rval = -1
+            self.queue.put((index, rval))
         return
  
 class SGEScheduler(AbstractScheduler):
-    ''' Submits jobs to SGE.'''
+    """ Submits jobs to SGE."""
     def __init__(self, environment, submit_options, **kwargs):
         self.environment = environment
         self.submit_options = submit_options
@@ -120,9 +149,12 @@ class SGEScheduler(AbstractScheduler):
         return cmd
 
     def _subprocess(self, cmd, index, metricsfile):
-        # Submit experiment to SGE and return when finished.
-        # Process waits for SGE job to complete, then puts to queue.
-        # However, it doesn't capture the return value.
+        """
+        Submit experiment to SGE and return when finished.
+
+        Process waits for SGE job to complete, then puts to queue. However,
+        it doesn't capture the return value.
+        """
 
         # Create temp directory.
         outdir = os.path.join(self.dir, 'sge')
@@ -151,10 +183,10 @@ class SGEScheduler(AbstractScheduler):
         job_script += cmd  # 'python file.py args...'
         
         # Just for debugging.
-        job_script_file = os.path.join(outdir, '{}.sh'.format(index))
-        with open(job_script_file, 'w') as fid:
-            fid.write(job_script)
-            fid.write(str(cmd))
+        #job_script_file = os.path.join(outdir, '{}.sh'.format(index))
+        #with open(job_script_file, 'w') as fid:
+        #    fid.write(job_script)
+        #    fid.write(str(cmd))
 
         # Submit command to SGE.
         # Note: submitting job using drmaa didn't work because we weren't able to specify options.
@@ -162,7 +194,9 @@ class SGEScheduler(AbstractScheduler):
         submit_command = 'qsub -S /bin/bash -wd {} -j y -o {} -e {} {}'.format(
                           os.getcwd(), sgeoutfile, sgeoutfile, self.submit_options)
         assert ' -cwd' not in submit_command
-        process_id = self._submit_job(submit_command, job_script)  # Submit using subprocess so we can get SGE process ID.
+
+        # Submit using subprocess so we can get SGE process ID.
+        process_id = self._submit_job(submit_command, job_script)
 
         print('\t{}: job submitted for model id {}'.format(process_id, index))
 

@@ -7,9 +7,19 @@ import os
 import sys
 import re
 import glob
+import tarfile
 from collections import defaultdict
 from .resultstable import ResultsTable
 from .scheduler import SGEScheduler,LocalScheduler
+import multiprocessing
+import threading
+try:
+    from http.server import HTTPServer, SimpleHTTPRequestHandler # Python 3
+except ImportError:
+    from SimpleHTTPServer import BaseHTTPServer
+    HTTPServer = BaseHTTPServer.HTTPServer
+    from SimpleHTTPServer import SimpleHTTPRequestHandler # Python 2
+
 
 def optimize(filename, algorithm, 
              dir='./output',
@@ -17,7 +27,8 @@ def optimize(filename, algorithm,
              loss='loss',
              overwrite=False,
              scheduler=None, 
-             max_concurrent=1): 
+             max_concurrent=1,
+             dashboard_port=6006):
     ''' 
     Convenience function for running Sherpa optimization.
     INPUTS:
@@ -31,12 +42,74 @@ def optimize(filename, algorithm,
     max_concurrent = Limits the number of jobs Sherpa submits to scheduler. 
     '''
     loop = MainLoop(filename, algorithm, dir=dir, results_table=results_table, loss=loss, overwrite=overwrite) 
+    server_process, server_queue = run_plotting_process(output_dir=dir,
+                                                        port=dashboard_port)
     loop.run(scheduler=scheduler, max_concurrent=max_concurrent) 
+    
     # Return best result. 
     rval = loop.results_table.get_best()
-    return rval 
+    server_queue.put(-1)
+    server_process.join()
+    return rval
 
-class MainLoop():
+
+def run_plotting_process(output_dir, port=0):
+    """
+    Runs the plotting server as part of a SHERPA optimization.
+
+    Untars files into output directory, starts a process, changes into the
+    output dir and starts a simple server.
+    """
+
+    class PlotHandler(SimpleHTTPRequestHandler):
+        def log_message(self, format, *args):
+            """
+            Overwrite to suppress output from http server.
+            """
+            pass
+
+    def run_server_in_dir(target_dir, queue, port=0):
+        """
+        Changes into target_dir and runs server on port. To be run in a separate
+        process.
+
+        Arguments:
+            target_dir (str): dir to run server in
+            port (int): port to run server on
+        """
+        sys.stdout = open(os.devnull, 'w')
+        os.chdir(target_dir)
+        server = HTTPServer(('localhost', port), PlotHandler)
+        thread = threading.Thread(target=server.serve_forever)
+        thread.daemon = True
+        thread.start()
+        while queue.empty():
+            time.sleep(5)
+        server.shutdown()
+
+    def untar(target_dir):
+        """
+        Extract tar with plotting files to output dir
+
+        Arguments:
+            target_dir (str): directory where to tar to (output dir)
+        """
+        sherpa_dir = os.path.dirname(os.path.abspath(__file__))
+        tar_path = os.path.join(sherpa_dir, 'plot_files.tar.gz')
+        with tarfile.open(tar_path) as tar:
+            tar.extractall(target_dir)
+
+    untar(output_dir)
+    queue = multiprocessing.Queue()
+    process =multiprocessing.Process(target=run_server_in_dir,
+                                     args=(output_dir, queue, port))
+    process.daemon = True
+    process.start()
+    print("Running Dashboard on 0.0.0.0:{}".format(port))
+    return process, queue
+
+
+class MainLoop(object):
     """
     Main Loop:
     1) Query Algorithm
@@ -134,6 +207,8 @@ class MainLoop():
     def _collect_results(self):
         results = self.scheduler.get_all_from_queue() # Updates self.processes.
         for index in results:
+            if results[index] == -1:
+                continue
             # Read metricsfile to update results_table.
             modelfile, metricsfile = self.id2filenames(index)
             self.results_table.on_finish(index=index, historyfile=metricsfile)
