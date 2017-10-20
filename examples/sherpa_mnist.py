@@ -15,6 +15,8 @@ else:
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--sge', help='Use SGE', action='store_true')
+parser.add_argument('--max_concurrent', help='Number of concurrent processes',
+                    type=int, default=2)
 FLAGS = parser.parse_args()
 
 
@@ -44,7 +46,12 @@ def run_sherpa():
         sched = LocalScheduler()  # Run on local machine without SGE.
 
 
-    rval = sherpa.optimize(filename='mnist_convnet.py', algorithm=alg, dir=dir, overwrite=True, scheduler=sched, max_concurrent=4)
+    rval = sherpa.optimize(filename='mnist_convnet.py',
+                           algorithm=alg,
+                           dir=dir,
+                           overwrite=True,
+                           scheduler=sched,
+                           max_concurrent=FLAGS.max_concurrent)
     print()
     print('Best results:')
     print(rval)
