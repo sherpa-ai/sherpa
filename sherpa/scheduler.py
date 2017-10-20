@@ -55,9 +55,11 @@ class AbstractScheduler(object):
         """
         rvals = {}
         while not self.queue.empty():
+            assert len(self.get_active_processes()) > 0
             index, rval = self.queue.get() 
             assert index in self.active_processes, (index, self.get_active_processes())
             p = self.active_processes.pop(index)
+            assert index not in self.active_processes
             p.join()  # Process should be finished.
             rvals[index] = rval
         return rvals
@@ -115,11 +117,11 @@ class LocalScheduler(AbstractScheduler):
             self.queue.put((index, rval))
         except subprocess.CalledProcessError as e:
             print('Following bash call failed: {}'.format(cmd))
-            #raise e # Or should we ignore?
-            pass
-        finally:
-            rval = -1
-            self.queue.put((index, rval))
+            raise e # Or should we ignore?
+            #pass
+        #finally:
+        #    rval = -1
+        #    self.queue.put((index, rval))
         return
  
 class SGEScheduler(AbstractScheduler):

@@ -4,7 +4,7 @@ import pickle as pkl
 import numpy as np
 import pandas as pd
 import abc
-
+import copy
 
 class AbstractResultsTable(object):
     ''' 
@@ -20,28 +20,20 @@ class AbstractResultsTable(object):
         self.loss_summary = loss_summary or (lambda loss_list: loss_list[-1])
         return      
    
-    def on_start(self, index=None, hp=None):
+    def on_start(self, hp):
         '''
-        Called before model training begins. If index is None, then this is
-        a new model instance with hyperparameters hp, and a new index is 
-        returned. Otherwise, index should be the index of a model to keep 
-        training.
+        Called before model training begins. 
+        A new model instance with hyperparameters hp, and a new index is 
+        returned.
         '''
-        if index is not None:
-            # Resume training.
-            assert hp is None
-            assert index in self.get_indices()
-            self._set(index=index, pending=True)
-            return
+        # Create new row, return unique index.
+        indices = self.get_indices()
+        if len(indices) == 0:
+            index = 0
         else:
-            # Create new row, return unique index.
-            indices = self.get_indices()
-            if len(indices) == 0:
-                index = 0
-            else:
-                index = max(indices) + 1
-            self._set(index=index, hp=hp, pending=True)
-            return index
+            index = max(indices) + 1
+        self._set(index=index, hp=hp, pending=True)
+        return index
 
     def on_finish(self, index, historyfile):
         '''
@@ -170,7 +162,8 @@ class ResultsTable(AbstractResultsTable):
         loss  = loss value.
         epochs = Total number of epochs that the model has been trained.
         historyfile = File path.    
-        """ 
+        """
+              
         if index in self.df.index:
             # Update previous result.
             self.df.set_value(index=index, col='Loss', value=loss)
@@ -179,7 +172,12 @@ class ResultsTable(AbstractResultsTable):
             self.df.set_value(index=index, col='Pending', value=pending)
         else:
             assert hp, "Trying to add row but no Hyperparameters provided."
+            # Convert hyperparameter dict into resultstable friendly form. 
+            hp = copy.deepcopy(hp)
             for key in hp:
+                if type(hp[key]) in [list, dict]:
+                    # Convert this hp value to string.
+                    hp[key] = str(hp[key])
                 if key not in self.dtypes:
                     self.dtypes[key] = type(hp[key])
             # New line.

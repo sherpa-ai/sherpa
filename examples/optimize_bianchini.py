@@ -13,16 +13,16 @@ def run_example():
                 'momentum':[0.0],
                 'lrdecay':[0.0],
                 'arch': [[20,5], [20, 10], [10,10,10]],
-                'epochs': [4],
+                'epochs': [2],
                 }
-    #alg = sherpa.algorithms.Iterate(epochs=2, hp_ranges=hp_space)
-    alg = sherpa.algorithms.LocalSearch(hp_ranges=hp_space, hp_init=None)
+    alg = sherpa.algorithms.Iterate(hp_ranges=hp_space)
+    #alg = sherpa.algorithms.LocalSearch(hp_ranges=hp_space, hp_init=None)
     f   = './bianchini.py'
     dir = './output' # All files written to here.
     env = '/home/pjsadows/profiles/auto.profile' # Script specifying environment variables.
     opt = '-N demo -P arcus.p -q arcus-ubuntu.q -q arcus.q -l hostname=\'(arcus-2)\'' # SGE options.
-    sched = LocalScheduler() # Run on local machine without SGE.
-    #sched = SGEScheduler(environment=env, submit_options=opt)
+    #sched = LocalScheduler() # Run on local machine without SGE.
+    sched = SGEScheduler(environment=env, submit_options=opt)
     rval = sherpa.optimize(filename=f, algorithm=alg, dir=dir, overwrite=True, scheduler=sched, max_concurrent=4)
     print()
     print('Best results:')
