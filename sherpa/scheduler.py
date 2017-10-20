@@ -92,9 +92,9 @@ class LocalScheduler(AbstractScheduler):
         """
         Run experiment in subprocess on this machine.
         """
-        # Must remove '.py' from file path.
         rval = -1
         try:
+            # Must remove '.py' from file path.
             module = importlib.import_module(filename.rsplit('.', 1)[0])
             rval = module.main(hp=hp, epochs=epochs, modelfile=modelfile,
                                historyfile=historyfile, verbose=2)
