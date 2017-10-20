@@ -27,7 +27,8 @@ def optimize(filename, algorithm,
              loss='loss',
              overwrite=False,
              scheduler=None, 
-             max_concurrent=1): 
+             max_concurrent=1,
+             dashboard_port=6006):
     ''' 
     Convenience function for running Sherpa optimization.
     INPUTS:
@@ -43,7 +44,7 @@ def optimize(filename, algorithm,
     
     loop = MainLoop(filename, algorithm, dir=dir, results_table=results_table, loss=loss, overwrite=overwrite)
     server_process, server_queue = run_plotting_process(output_dir=dir,
-                                                        port=6006)
+                                                        port=dashboard_port)
     if scheduler is None:
         assert max_concurrent == 1, 'Define a scheduler for parallelization.'
         loop.run_serial() 
