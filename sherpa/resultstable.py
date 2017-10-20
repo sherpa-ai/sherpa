@@ -4,11 +4,6 @@ import pickle as pkl
 import numpy as np
 import pandas as pd
 import abc
-import logging
-
-
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
 
 
 class AbstractResultsTable(object):
@@ -158,7 +153,8 @@ class ResultsTable(AbstractResultsTable):
         try:
             self.df = pd.read_csv(self.csv_path, dtype=self.dtypes)
         except:
-            print('Unable to read existing csv file at {} using pandas'.format(self.csv_path))
+            print('Unable to read existing csv file at {} using'
+                  'pandas'.format(self.csv_path))
             raise
  
     def _save(self):
