@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import abc
 
+
 class AbstractResultsTable(object):
     ''' 
     Required methods for MainLoop and Algorithms. Additional functionality 
@@ -15,7 +16,7 @@ class AbstractResultsTable(object):
         loss = Key in history to be minimized, E.G. 'loss', 'kl', or 'mse'.
         loss_summary = Function for summarizing loss from list, E.G. np.min.
         '''
-        self.loss         = loss
+        self.loss = loss
         self.loss_summary = loss_summary or (lambda loss_list: loss_list[-1])
         return      
    
@@ -49,8 +50,14 @@ class AbstractResultsTable(object):
         historyfile = Pickle file containing history dictionary.
         '''
         assert index in self.get_indices(), 'Index {} not in {}'.format(index, self.get_indices)
-        with open(historyfile, 'rb') as f:
-            history = pkl.load(f)
+        try:
+            with open(historyfile, 'rb') as f:
+                history = pkl.load(f)
+        except OSError:
+            raise ValueError("History file not found at {}. SHERPA requires"
+                             "every experiment to store a"
+                             "history file.".format(historyfile))
+
         assert self.loss in history, 'Key {} not in {}'.format(self.loss, history.keys())
         epochs_seen   = len(history[self.loss])
         lowest_loss   = self.loss_summary(history[self.loss]) if epochs_seen>0 else np.inf
@@ -102,16 +109,15 @@ class ResultsTable(AbstractResultsTable):
         super(ResultsTable, self).__init__(loss=loss, loss_summary=loss_summary)
  
         self.dir = dir
-        self.csv_path  = os.path.join(dir, 'results.csv') # Human-readable results.
-        self.keys = ('ID', 'Loss', 'Epochs', 'HP', 'History', 'Pending')
+        self.csv_path = os.path.join(dir, 'results.csv') # Human-readable results.
+        self.keys = ('ID', 'Loss', 'Epochs', 'History', 'Pending')
+        self.dtypes = {'ID': np.int, 'Loss': np.float64, 'Epochs': np.int,
+                       'History': np.str, 'Pending': np.bool}
         try:
             os.makedirs(dir)
         except:
             pass
-        
-        #if os.path.isfile(self.csv_path):
-        #    print('WARNING: Overwriting results file at {}'.format(self.csv_path))
-        # Create new table even if one already exists, as loss_summary function might have changed.
+
         # TODO: Have _create_table load existing historyfile data from specified dir.
         self._create_table()
 
@@ -123,7 +129,6 @@ class ResultsTable(AbstractResultsTable):
             hfiles = glob.glob('{}/*_history.pkl'.format(load_results))
             print('Loading {} history files into results table from {}/'.format(len(hfiles), load_results))
             for f in hfiles:
-                #index = int(os.path.basename(f).split('_')[0])
                 self.load(historyfile=f)
         return
     
@@ -137,7 +142,7 @@ class ResultsTable(AbstractResultsTable):
 
     def _create_table(self):
         ''' Creates new, empty, table and saves it to disk.'''
-        self.df = pd.DataFrame(columns=self.keys, )
+        self.df = pd.DataFrame()
         self._save()
         
     def _load_csv(self):
@@ -146,16 +151,17 @@ class ResultsTable(AbstractResultsTable):
         # Returns: pandas df
         '''
         try:
-            self.df = pd.read_csv(self.csv_path)
+            self.df = pd.read_csv(self.csv_path, dtype=self.dtypes)
         except:
-            print('Unable to read existing csv file at {} using pandas'.format(self.csv_path))
+            print('Unable to read existing csv file at {} using'
+                  'pandas'.format(self.csv_path))
             raise
  
     def _save(self):
         """
         Updates stored csv
         """
-        self.df.to_csv(self.csv_path)
+        self.df.to_csv(self.csv_path, index=False)
        
     def _set(self, index, loss=np.inf, epochs=0, hp=None, historyfile=None, pending=False):
         """
@@ -172,8 +178,18 @@ class ResultsTable(AbstractResultsTable):
             self.df.set_value(index=index, col='History', value=historyfile)
             self.df.set_value(index=index, col='Pending', value=pending)
         else:
+            assert hp, "Trying to add row but no Hyperparameters provided."
+            for key in hp:
+                if key not in self.dtypes:
+                    self.dtypes[key] = type(hp[key])
             # New line.
-            new_line = pd.DataFrame([[index, loss, epochs, hp, historyfile, pending]], index=[index], columns=self.keys)
+            new_dict = {'ID': index,
+                        'Loss': loss,
+                        'Epochs': epochs,
+                        'History': historyfile,
+                        'Pending': pending}
+            new_dict.update(hp)
+            new_line = pd.DataFrame(new_dict, index=[index])
             self.df = self.df.append(new_line)
         self._save()
     
