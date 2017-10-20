@@ -1,6 +1,7 @@
 from __future__ import print_function
 import os
 import datetime
+import argparse
 import sherpa
 from sherpa.hyperparameters import DistributionHyperparameter as Hyperparameter
 from sherpa.scheduler import LocalScheduler,SGEScheduler
@@ -10,6 +11,11 @@ if os.environ.get('KERAS_BACKEND') == 'theano':
     os.environ['THEANO_FLAGS'] = "floatX=float32,device=cpu,base_compiledir=~/.theano/cpu"
 else:
     os.environ['CUDA_VISIBLE_DEVICES'] = ""
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--sge', help='Use SGE', action='store_true')
+FLAGS = parser.parse_args()
 
 
 def run_sherpa():
@@ -27,11 +33,17 @@ def run_sherpa():
 
     # Algorithm used for optimization.
     alg = sherpa.algorithms.RandomSearch(samples=50, epochs=10, hp_ranges=hp_space)
-    # alg  = sherpa.algorithms.RandomSearch(samples=100, epochs=1, hp_ranges=hp_ranges, max_concurrent=10)
-
     datetime_now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     dir = './output_{}'.format(datetime_now)  # All files written to here.
-    sched = LocalScheduler()  # Run on local machine without SGE.
+
+    if FLAGS.sge:
+        env = '/home/lhertel/profiles/main.profile'  # Script specifying environment variables.
+        opt = '-N myexample -P arcus.p -q arcus-ubuntu.q -l hostname=\'(arcus-7)\''  # SGE options.
+        sched = SGEScheduler(dir=dir, environment=env, submit_options=opt)
+    else:
+        sched = LocalScheduler()  # Run on local machine without SGE.
+
+
     rval = sherpa.optimize(filename='mnist_convnet.py', algorithm=alg, dir=dir, overwrite=True, scheduler=sched, max_concurrent=4)
     print()
     print('Best results:')
@@ -39,5 +51,5 @@ def run_sherpa():
 
 
 if __name__ == '__main__':
-    run_sherpa()  # Sherpa optimization.
+    run_sherpa()
 
