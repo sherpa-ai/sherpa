@@ -1,23 +1,9 @@
 from __future__ import print_function
-import os
 import datetime
 import argparse
 import sherpa
 from sherpa.hyperparameters import DistributionHyperparameter as Hyperparameter
 from sherpa.scheduler import LocalScheduler,SGEScheduler
-
-# Don't use gpu if we are just starting Sherpa.
-if os.environ.get('KERAS_BACKEND') == 'theano':
-    os.environ['THEANO_FLAGS'] = "floatX=float32,device=cpu,base_compiledir=~/.theano/cpu"
-else:
-    os.environ['CUDA_VISIBLE_DEVICES'] = ""
-
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--sge', help='Use SGE', action='store_true')
-parser.add_argument('--max_concurrent', help='Number of concurrent processes',
-                    type=int, default=2)
-FLAGS = parser.parse_args()
 
 
 def run_sherpa():
@@ -40,11 +26,11 @@ def run_sherpa():
 
     if FLAGS.sge:
         env = '/home/lhertel/profiles/main.profile'  # Script specifying environment variables.
-        opt = '-N myexample -P arcus.p -q arcus-ubuntu.q -l hostname=\'(arcus-7)\''  # SGE options.
+        opt = '-N sherpaMNIST -P {} -q {} -l {}'.format(FLAGS.P, FLAGS.q,
+                                                        FLAGS.l)
         sched = SGEScheduler(dir=dir, environment=env, submit_options=opt)
     else:
         sched = LocalScheduler()  # Run on local machine without SGE.
-
 
     rval = sherpa.optimize(filename='mnist_convnet.py',
                            algorithm=alg,
@@ -58,5 +44,19 @@ def run_sherpa():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--sge', help='Use SGE', action='store_true')
+    parser.add_argument('--max_concurrent',
+                        help='Number of concurrent processes',
+                        type=int, default=2)
+    parser.add_argument('-P',
+                        help="Specifies the project to which this  job  is  assigned.",
+                        default='arcus.p')
+    parser.add_argument('-q',
+                        help='Defines a list of cluster queues or queue instances which may be used to execute this job.',
+                        default='arcus-ubuntu.q')
+    parser.add_argument('-l', help='the given resource list.',
+                        default="hostname=\'(arcus-7)\'")
+    FLAGS = parser.parse_args()
     run_sherpa()
 

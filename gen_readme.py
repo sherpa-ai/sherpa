@@ -1,6 +1,7 @@
 static_text = """
 # SHERPA
-Sherpa aims to provide a fast and easy hyperparameter search framework.
+Welcome to SHERPA. Our goal is to speed up your machine learning research by
+providing you with a tool for hyperparameter tuning.
 
 ### Dependencies
 + Pandas 0.19.2
@@ -26,8 +27,8 @@ optimization significantly. Be sure to use
 server so you can use the visualization.
 
 Now go ahead and run
-```python sherpa_mnist.py --max_concurrent <no of processes>``` where
-```<no of processes>``` is the number of processes you want to run in parallel.
+```python sherpa_mnist.py --max_concurrent [no of processes]``` where
+```[no of processes]``` is the number of processes you want to run in parallel.
 If you have GPUs this should be set to the number of available GPUs on the
 machine. If you have a machine with many CPUs you can set this to the number of
 CPUs you intend to use.
@@ -43,10 +44,22 @@ a hyperparameter configuration and at least one metric. The plot is linked to th
 hover over any of the rows in the table the corresponding line will highlight
 in the plot. You can brush over the loss axis in the plot to select only the
 models with the lowest loss. You can then check if you see patterns on the other
-coordinates.
+coordinates. Once the optimization finished the webserver shuts down. To view
+the results again go to the folder titled ```output_[datetime]``` that has been
+created in the examples folder. Now call ```python -m SimpleHTTPServer 6006```
+from the command line (or ```python -m http.server 6006``` for Python 3).
 
 ### SGE
+In addition to the local scheduler that you used above SHERPA also supports
+Sun Grid Engine (SGE). This can be useful if you want to use GPUs across
+multiple machines. You can call  ```python sherpa_mnist.py --sge``` and pass
+the SGE project name ```-P```, the queue name ```-q``` and the resources
+```-l``` as arguments.
 
+#### Baldi Group
+The default is set to submit to the Arcus 5 to 9 machines and none of the flags
+need to be set. However, be sure to submit the script from
+```nimbus.ics.uci.edu```.
 
 ## Authoring your own Optimization
 
