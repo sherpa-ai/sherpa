@@ -43,14 +43,13 @@ class Iterate(AbstractAlgorithm):
     TODO: Implement option to iterate over specific hp combinations, 
           rather than all. But maybe easier to do this in terms of constraints?
     '''
-    def __init__(self, epochs=1, hp_ranges=None, hp_iter=None):
+    def __init__(self, hp_ranges=None, hp_iter=None):
         '''
         Inputs:
           hp_ranges = Dictionary mapping hp names to lists of values.
           hp_iter   = List of dictionaries mapping hp names to values, 
                       which allows us to iterate over combinations.
         '''
-        self.epochs  = epochs
         if hp_ranges is not None:
             if hp_iter is not None:
                 raise NotImplementedError('TODO: combine hp_ranges with hp_iter in Iterate algorithm.')
@@ -75,12 +74,11 @@ class Iterate(AbstractAlgorithm):
         Valid return values:
         1) 'wait': Signal to main loop that we are waiting.
         2) 'stop': Signal to main loop that we are finished.
-        3) hp, epochs: Tells main loop to start this experiment.
-        4) index, epochs: Tells main loop to resume this experiment.
+        3) hp: Tells main loop to start this experiment.
         '''
         assert isinstance(results_table, ResultsTable)
         try:
-            return self.sampler.next(), self.epochs
+            return self.sampler.next()
         except StopIteration:
             return 'stop'
         
@@ -89,9 +87,8 @@ class RandomSearch(AbstractAlgorithm):
     """
     Random Search over hyperparameter space.
     """
-    def __init__(self, samples, epochs, hp_ranges):
+    def __init__(self, samples, hp_ranges):
         self.samples = samples
-        self.epochs  = epochs
         self.count   = 0
         if isinstance(hp_ranges, dict):
             self.hp_ranges = [Hyperparameter.fromlist(name, choices) in name,choices in hp_ranges.items()]
@@ -106,8 +103,7 @@ class RandomSearch(AbstractAlgorithm):
         '''
         Examine current results and produce next experiment.
         Valid return values:
-        1) hp, epochs: Tells main loop to start this experiment.
-        1) index, epochs: Tells main loop to start this experiment.
+        1) hp: Tells main loop to start this experiment.
         2) 'wait': Signal to main loop that we are waiting.
         3) 'stop': Signal to main loop that we are finished.
         '''
@@ -119,7 +115,7 @@ class RandomSearch(AbstractAlgorithm):
         else:
             index = self.count
             self.count += 1
-            return index, self.sampler.next(), self.epochs
+            return index, self.sampler.next()
 
 class LocalSearch(AbstractAlgorithm):
     '''
@@ -127,14 +123,12 @@ class LocalSearch(AbstractAlgorithm):
 
     TODO: Generalize this to real-valued parameters.
     '''
-    def __init__(self, epochs, hp_ranges, hp_init=None):
+    def __init__(self, hp_ranges, hp_init=None):
         '''
         Inputs:
-          epochs    = Number of epochs to train each model.
           hp_ranges = Dictionary mapping hp names to lists of values.
           hp_init   = Run this first if not in results table. Otherwise randomly select. 
         '''
-        self.epochs  = epochs
         assert all([type(v) == list for v in hp_ranges.values()]), 'All dict values should be lists of possible values: {}'.format(hp_ranges)
         self.hp_ranges = hp_ranges
         self.hp_init = hp_init # None if hp_init not specified.
@@ -148,20 +142,19 @@ class LocalSearch(AbstractAlgorithm):
         Valid return values:
         1) 'wait': Signal to main loop that we are waiting.
         2) 'stop': Signal to main loop that we are finished.
-        3) hp, epochs: Tells main loop to start this experiment.
-        4) index, epochs: Tells main loop to resume this experiment.
+        3) hp: Tells main loop to start this experiment.
         '''
         assert isinstance(results_table, ResultsTable)
         if self.hp_init is not None and len(results_table.get_indices(hp=self.hp_init)) == 0:
             # Start this point first.
-            return self.hp_init, self.epochs
+            return self.hp_init
         
         # Try to find best result so far.
         try:
             hp_best = results_table.get_best(ignore_pending=True)['HP'] # Check that not pending?
         except ValueError:
             # No results yet. Select random point.
-            return self.randomsampler.next(), self.epochs
+            return self.randomsampler.next()
  
         # Try to improve best result.
         for hp in hp_best.keys():
@@ -171,7 +164,7 @@ class LocalSearch(AbstractAlgorithm):
                 hp_next[hp] = val
                 if len(results_table.get_indices(hp=hp_next)) == 0:
                     # Haven't tried this hp combination yet.
-                    return hp_next, self.epochs
+                    return hp_next
         return 'stop'  
 
 class Hyperhack(AbstractAlgorithm):

@@ -9,17 +9,23 @@ import importlib
 import abc
 from collections import defaultdict
 import multiprocessing as mp
+import subprocess # Used only on local scheduler.
 
 class AbstractScheduler(object):
     def __init__(self):
-        self.queue = mp.Queue() # Subprocess results returned here.
-        self.active_processes = {}
-        
-    def start_subprocess(self, filename, index, hp, epochs, modelfile, historyfile):
-        # Start subprocess to perform filename.main() with hyperparameters hp.
-        # Overwrites modelfile and historyfile.
-        assert type(epochs) == int
-        p = mp.Process(target=self._subprocess, args=(filename, index, hp, epochs, modelfile, historyfile))
+        self.queue = mp.Queue()    # Subprocess results returned here.
+        self.active_processes = {} # 
+        self.dir = None            # Directory for scheduler files; set by mainloop with set_dir.
+    
+    def set_dir(self, dir):
+        # Sets directory for any scheduler files.
+        # Called by mainloop.
+        self.dir = dir
+
+    def start_subprocess(self, filename, index, hp, modelfile, metricsfile):
+        # Start subprocess to run filename from command line with hp args. 
+        cmd = self.args_to_cmd(filename, index, hp, modelfile, metricsfile)
+        p = mp.Process(target=self._subprocess, args=(cmd, index, metricsfile))
         p.start()
         self.active_processes[index] = p
         return
@@ -28,8 +34,7 @@ class AbstractScheduler(object):
         # Collect any results in the queue.
         # Each result consists of the following:
         # index   = Unique identifying int for each experiment.
-        # hp      = If None or empty, existing hp not overwritten in ResultsTable.
-        # rval    = Return value of experiment. Not used.
+        # rval    = Return value of experiment. (Currently not used.)
         rvals = {}
         while not self.queue.empty():
             index, rval = self.queue.get() 
@@ -45,11 +50,27 @@ class AbstractScheduler(object):
     def get_active_processes(self):
         return list(self.active_processes.keys())    
 
+    def args_to_cmd(self, filename, index, hp, modelfile, metricsfile):
+        # Command line string (or list) to run experiment from command line.
+        # Unpacks hyperparameter dict into command line arguments.
+        arglist = []
+        arglist += ['--index', '{}'.format(index)]
+        arglist += ['--metricsfile', '{}'.format(metricsfile)]
+        arglist += ['--modelfile', '{}'.format(modelfile)]
+        for key, val in hp.items():
+            if type(val) in [int, float, bool, str]:
+                arglist += ['--{}'.format(key), str(val)]
+            else:
+                # Convert to string and try to reconstruct in file from ast.literal_eval.
+                arglist += ['--{}'.format(key), '{}'.format(str(val).replace('\'', '\"'))]
+        cmd = ['python', filename] + arglist
+        return cmd
+
     @abc.abstractmethod
-    def _subprocess(self, filename, index, hp, epochs, modelfile, historyfile):
+    def _subprocess(self, filename, index, hp, modelfile, metricsfile):
         '''
         Run experiment in subprocess,
-        updates modelfile and historyfile,
+        updates modelfile and metricsfile,
         and puts (index, rval) pair in the queue when done.
         '''
         return
@@ -60,22 +81,45 @@ class LocalScheduler(AbstractScheduler):
     def __init__(self, **kwargs):
         super(LocalScheduler, self).__init__(**kwargs)
     
-    def _subprocess(self, filename, index, hp, epochs, modelfile, historyfile):
-        # Run experiment in subprocess on this machine.
-        module = importlib.import_module(filename.rsplit('.', 1)[0])  # Must remove '.py' from file path.
-        rval = module.main(hp=hp, epochs=epochs, modelfile=modelfile, historyfile=historyfile, verbose=2)
-        #rval = None
+    def _subprocess(self, cmd, index, metricsfile):
+        # Call python script in subprocess.
+        try:
+            subprocess.check_call(cmd) # Raises CalledProcessError if nonzero return value.
+        except subprocess.CalledProcessError as e:
+            #print('Following bash call failed: {}'.format(cmd))
+            raise e # Or should we ignore?
+        # Check that metricsfile was written?
+        rval = None
         self.queue.put((index, rval))
-        
+        return
+ 
 class SGEScheduler(AbstractScheduler):
     ''' Submits jobs to SGE.'''
-    def __init__(self, dir, environment, submit_options, **kwargs):
-        self.dir   = dir
+    def __init__(self, environment, submit_options, **kwargs):
         self.environment = environment
         self.submit_options = submit_options
         super(SGEScheduler, self).__init__(**kwargs)
-        
-    def _subprocess(self, filename, index, hp, epochs, modelfile, historyfile):
+    
+    def args_to_cmd(self, filename, index, hp, modelfile, metricsfile):
+        # Command line string (or list) to run experiment from command line.
+        # Unpacks hyperparameter dict into command line arguments.
+        # Complex hyperparameters need to have quotations around them in the 
+        # Popen.communicate() method we use here.
+        arglist = []
+        arglist += ['--index', '{}'.format(index)]
+        arglist += ['--metricsfile', '{}'.format(metricsfile)]
+        arglist += ['--modelfile', '{}'.format(modelfile)]
+        for key, val in hp.items():
+            if type(val) in [int, float, bool, str]:
+                arglist += ['--{}'.format(key), str(val)]
+            else:
+                # Convert to string and try to reconstruct in file from ast.literal_eval.
+                arglist += ['--{}'.format(key), '\'{}\''.format(str(val).replace('\'', '\"'))] # Different from that in LocalScheduler.
+        cmd = ['python', filename] + arglist
+        cmd = ' '.join(cmd)
+        return cmd
+
+    def _subprocess(self, cmd, index, metricsfile):
         # Submit experiment to SGE and return when finished.
         # Process waits for SGE job to complete, then puts to queue.
         # However, it doesn't capture the return value.
@@ -86,12 +130,12 @@ class SGEScheduler(AbstractScheduler):
             os.mkdir(outdir)
 
         # Create python script that can run job with specified hyperparameters.
-        python_script = 'import %s as mymodule\n' % filename.rsplit('.', 1)[0]  # Module.
-        python_script += 'rval=mymodule.main(modelfile=\'%s\', historyfile=\'%s\', hp=%s, epochs=%d, verbose=2)' % (
-                            modelfile, historyfile, hp, epochs)
-        python_script_file = os.path.join(outdir, '{}.py'.format(index))
-        with open(python_script_file, 'w') as fid:
-            fid.write(python_script)
+        #python_script = 'import %s as mymodule\n' % filename.rsplit('.', 1)[0]  # Module.
+        #python_script += 'rval=mymodule.main(modelfile=\'%s\', metricsfile=\'%s\', hp=%s, verbose=2)' % (
+        #                    modelfile, metricsfile, hp)
+        #python_script_file = os.path.join(outdir, '{}.py'.format(index))
+        #with open(python_script_file, 'w') as fid:
+        #    fid.write(python_script)
 
         # Create bash script that runs python script.
         sgeoutfile = os.path.join(outdir, '{}.out'.format(index))
@@ -103,9 +147,14 @@ class SGEScheduler(AbstractScheduler):
         if self.environment:
             job_script += 'source %s\n' % self.environment  # Set environment variables.
         job_script += 'echo "Running from" ${HOSTNAME}\n'
-        job_script += 'python %s\n' % python_script_file  # How do we pass args? via python file.
-        # with open(job_script_file, 'w') as fid:
-        #    fid.write(job_script)
+        #job_script += 'python %s\n' % python_script_file  # How do we pass args? via python file.
+        job_script += cmd  # 'python file.py args...'
+        
+        # Just for debugging.
+        job_script_file = os.path.join(outdir, '{}.sh'.format(index))
+        with open(job_script_file, 'w') as fid:
+            fid.write(job_script)
+            fid.write(str(cmd))
 
         # Submit command to SGE.
         # Note: submitting job using drmaa didn't work because we weren't able to specify options.
@@ -150,14 +199,14 @@ class SGEScheduler(AbstractScheduler):
         except:
             pass
         # Check that history file now exists.
-        if not os.path.isfile(historyfile):
-            raise Exception('Job {}, model id {} failed. (No historyfile {}.) \
+        if not os.path.isfile(metricsfile):
+            raise Exception('Job {}, model id {} failed. (No metricsfile {}.) \
                              \nSee SGE output in {}'.format(
-                             process_id, index, historyfile, sgeoutfile))
+                             process_id, index, metricsfile, sgeoutfile))
         # TODO: Find a way to confirm that this subprocess succeeded.
 
         # Let parent process know that this job is done.
-        rval = None # TODO: Figure out how to get this rval.
+        rval = None
         self.queue.put((index, rval))  # See _read_queue for details.
         return
 
@@ -179,60 +228,4 @@ class SGEScheduler(AbstractScheduler):
             sys.stderr.write(output)
             return None
 
-    def _alive(self, process_id):
-        # NOT USED.
-        # This wastes a bit of time, but prevents
-        # objects than inherit and don't use DRMAA from
-        # having a dependency on this library
-        # I am sure there is a way to get the best of both
-        # worlds but this is the cleanest
-        import drmaa
 
-        s = drmaa.Session()
-        s.initialize()
-
-        try:
-            status = s.jobStatus(str(process_id))
-        except:
-            # job not found
-            sys.stderr.write("EXC: %s\n" % str(sys.exc_info()[0]))
-            sys.stderr.write(
-                "Could not find job for rocess id %d\n" % process_id)
-            try:
-                s.exit()
-            except:
-                pass
-            return False
-
-        if status in [drmaa.JobState.QUEUED_ACTIVE, drmaa.JobState.RUNNING]:
-            alive = True
-
-        elif status == drmaa.JobState.DONE:
-            sys.stderr.write(
-                "Process %d complete but not yet updated.\n" % process_id)
-            alive = True
-
-        elif status == drmaa.JobState.UNDETERMINED:
-            sys.stderr.write(
-                "Process %d in undetermined state.\n" % process_id)
-            alive = False
-
-        elif status in [drmaa.JobState.SYSTEM_ON_HOLD,
-                        drmaa.JobState.USER_ON_HOLD,
-                        drmaa.JobState.USER_SYSTEM_ON_HOLD,
-                        drmaa.JobState.SYSTEM_SUSPENDED,
-                        drmaa.JobState.USER_SUSPENDED]:
-            sys.stderr.write("Process is held or suspended.\n" % process_id)
-            alive = False
-
-        elif status == drmaa.JobState.FAILED:
-            sys.stderr.write("Process %d failed.\n" % process_id)
-            alive = False
-
-        # try to close session
-        try:
-            s.exit()
-        except:
-            pass
-
-        return alive
