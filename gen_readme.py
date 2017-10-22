@@ -1,12 +1,12 @@
 static_text = """
 # SHERPA
-Welcome to SHERPA. Our goal is to speed up your machine learning research by
-providing you with a tool for hyperparameter tuning.
+Welcome to SHERPA. Our goal is to speed up machine learning research by
+providing a tool for hyperparameter tuning.
 
 ### Dependencies
 + Pandas 0.19.2
 
-In order to get SHERPA running you can clone the repository from GitLab by
+In order to get SHERPA running clone the repository from GitLab by
 calling ```git clone git@gitlab.ics.uci.edu:uci-igb/sherpa.git``` from the
 command line and adding the directory to the Python path (e.g.
 ```export PYTHONPATH=$PYTHONPATH:/user/local/sherpa/```). In order to get the
@@ -14,8 +14,8 @@ necessary dependencies you can run ```python setup.py``` from the SHERPA folder.
 
 ## Getting Started
 For a first step navigate to ```sherpa/examples``` and run
-```python simple.py```. In this example SHERPA calls the script simple with the
-shown parameters. 
+```python optimize_bianchini.py```. In this example SHERPA calls the script
+```bianchini.py``` which trains a shallow neural network on the Bianchini function.
 
 ## Optimizing a CNN for MNIST
 The next example runs a small hyperparameter optimization on a Convolutional
@@ -24,15 +24,10 @@ be sure to run ```pip install keras``` in case you don't have Keras installed.
 If you have a GPU machine available this will speed up the running time of the
 optimization significantly. Be sure to use
 ```ssh -L 16006:127.0.0.1:6006 username@hostname``` when SSHing into a remote
-server so you can use the visualization.
+server so you can use the visualization. Now go ahead and run
+```python sherpa_mnist.py```.
 
-Now go ahead and run
-```python sherpa_mnist.py --max_concurrent [no of processes]``` where
-```[no of processes]``` is the number of processes you want to run in parallel.
-If you have GPUs this should be set to the number of available GPUs on the
-machine. If you have a machine with many CPUs you can set this to the number of
-CPUs you intend to use.
-
+### Visualizing Results
 After running the command you SHERPA will display output in the terminal.
 Among this it will display the address of the dashboard. If you are running 
 SHERPA on your laptop or desktop you can go to ```0.0.0.0:6006``` in your
@@ -48,6 +43,15 @@ coordinates. Once the optimization finished the webserver shuts down. To view
 the results again go to the folder titled ```output_[datetime]``` that has been
 created in the examples folder. Now call ```python -m SimpleHTTPServer 6006```
 from the command line (or ```python -m http.server 6006``` for Python 3).
+
+<img src="./parcords.png" alt="Parallel Coordinates Plot">
+
+### Training in Parallel
+```--max_concurrent [no of processes]``` where
+```[no of processes]``` is the number of processes you want to run in parallel.
+If you have GPUs this should be set to the number of available GPUs on the
+machine. If you have a machine with many CPUs you can set this to the number of
+CPUs you intend to use.
 
 ### SGE
 In addition to the local scheduler that you used above SHERPA also supports
@@ -74,3 +78,5 @@ need to be set. However, be sure to submit the script from
 
 """
 
+with open('README.md', 'w') as f:
+    f.write(static_text)
