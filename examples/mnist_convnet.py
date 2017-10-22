@@ -78,10 +78,11 @@ def get_model(hp):
     else:
         input_shape = (img_rows, img_cols, 1)
 
-    num_filters = hp['num_filters']
-    filter_size = hp['filter_size']
-    dropout = hp['dropout']
-    activation = hp['activation']
+    num_filters = hp.get('num_filters', 32)
+    filter_size = hp.get('filter_size', 3)
+    dropout = hp.get('dropout', 0.)
+    activation = hp.get('activation', 'relu')
+    lr = hp.get('lr', 0.01)
 
     model = Sequential()
     model.add(Conv2D(num_filters//2, kernel_size=(filter_size, filter_size),
@@ -96,7 +97,7 @@ def get_model(hp):
     model.add(Dense(num_classes, activation='softmax'))
 
     model.compile(loss=keras.losses.categorical_crossentropy,
-                  optimizer=keras.optimizers.Adadelta(),
+                  optimizer=keras.optimizers.SGD(lr=lr, momentum=0.9),
                   metrics=['accuracy'])
     return model
 
