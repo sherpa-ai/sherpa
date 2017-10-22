@@ -72,12 +72,28 @@ need to be set. However, be sure to submit the script from
 
 ## Authoring your own Optimization
 
+You define a SHERPA optimization via the function ```sherpa.optimize()```. This
+expects at minimum a ``filename``` for the training code and an algorithm. For
+all arguments view the API section below.
+
+### The training code
+SHERPA expects your training code to be wrapped in one file. This should be a
+script that expects hyperparameters via the command line arguments.
+
+### The algorithm
+We first define a list of ```sherpa.Hyperparameter``` objects which we will pass
+to the algorithm. You can then use for example ```sherpa.algorithms.RandomSearch```
+with the parameters ```samples``` (the number of trials),
+```epochs``` (the number of epochs for each trial) and ```hp_ranges``` (the list
+of ```Hyperparameter``` objects). See below for a list of all available
+algorithms.
+
 ### Local vs. SGE
 
 
 ## API
 
-### Supported Algorithms
+### Available Algorithms
 
 ### Writing your own algorithms
 

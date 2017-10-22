@@ -32,7 +32,8 @@ def optimize(filename, algorithm,
     ''' 
     Convenience function for running Sherpa optimization.
     INPUTS:
-    filename = File containing main function that runs experiment.
+    filename = File that runs training. Accepts hyperparameters via command line
+               and submits results via ```sherpa.send_metrics```.
     algorithm = Sherpa algorithm.
     dir      = Sherpa models are saved in (dir)/sherpa_models/.
     results_table = Sherpa ResultsTable object to use. 
