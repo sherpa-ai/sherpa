@@ -44,7 +44,7 @@ the results again go to the folder titled ```output_[datetime]``` that has been
 created in the examples folder. Now call ```python -m SimpleHTTPServer 6006```
 from the command line (or ```python -m http.server 6006``` for Python 3).
 
-<img src="./parcords.png" alt="Parallel Coordinates Plot">
+![Parallel Coordinates Plot](parcords.png "SHERPA Dashboard")
 
 ### Training in Parallel
 ```--max_concurrent [no of processes]``` where
