@@ -1,3 +1,24 @@
+import re
+import sherpa
+from sherpa.hyperparameters import DistributionHyperparameter as Hyperparameter
+from sherpa.scheduler import LocalScheduler,SGEScheduler
+
+
+# from keras
+def process_function_docstring(docstring):
+    docstring = re.sub(r'\n    # (.*)\n',
+                       r'\n    __\1__\n\n',
+                       docstring)
+    docstring = re.sub(r'    ([^\s\\\(]+) (.*):(.*)\n',
+                       r'    - __\1__ _\2_:\3\n',
+                       docstring)
+
+    docstring = docstring.replace('    ' * 6, '\t\t')
+    docstring = docstring.replace('    ' * 4, '\t')
+    docstring = docstring.replace('    ', '')
+    return docstring
+
+
 static_text = """
 # SHERPA
 
@@ -9,6 +30,7 @@ command line and adding the directory to the Python path (e.g.
 necessary dependencies you can run ```python setup.py``` from the SHERPA folder.
 
 ### Dependencies
++ Numpy 1.13.1
 + Pandas 0.19.2
 + Keras (for examples)
 
@@ -42,7 +64,7 @@ After running ```python sherpa_mnist.py``` SHERPA will display output in the ter
 Among this you will see the address of the dashboard. If you are running 
 SHERPA on your laptop or desktop you can go to ```0.0.0.0:6006``` in your
 web browser. If you are using SSH you can go to ```0.0.0.0:16006``` (that is the
-local port that we forwarded ```6006``` to). At the address you will see a
+local port that we forwarded ```6006``` to above). At the address you will see a
 parallel coordinates plot and a table as shown in the screenshot below.
 The table shows the results so far. Hit
 refresh to get the latest results. Each row represents one trial consisting of
@@ -63,10 +85,8 @@ In addition to the local scheduler that you used above SHERPA also supports
 Sun Grid Engine (SGE). This can be useful if you want to use GPUs across
 multiple machines. You can call  ```python sherpa_mnist.py --sge``` and pass
 the SGE project name ```-P```, the queue name ```-q``` and the resources
-```-l``` as arguments.
-
-#### Baldi Group
-The default is set to submit to the Arcus 5 to 9 machines and none of the flags
+```-l``` as arguments. **Baldi Group: ** The default is set to submit to the
+Arcus 5 to 9 machines. None of the flags
 need to be set. However, be sure to submit the script from
 ```nimbus.ics.uci.edu```.
 
@@ -76,28 +96,48 @@ You define a SHERPA optimization via the function ```sherpa.optimize()```. This
 expects at minimum a ``filename``` for the training code and an algorithm. For
 all arguments view the API section below.
 
-### The training code
+### The Training Code
 SHERPA expects your training code to be wrapped in one file. This should be a
-script that expects hyperparameters via the command line arguments.
+script that expects hyperparameters via the command line arguments. The training
+needs to submit metrics at least once at the end using the
+```sherpa.send_metrics``` function.
 
-### The algorithm
-We first define a list of ```sherpa.Hyperparameter``` objects which we will pass
-to the algorithm. You can then use for example ```sherpa.algorithms.RandomSearch```
-with the parameters ```samples``` (the number of trials),
-```epochs``` (the number of epochs for each trial) and ```hp_ranges``` (the list
-of ```Hyperparameter``` objects). See below for a list of all available
-algorithms.
+### The Optimization Code
 
-### Local vs. SGE
-
+We now make a second Python script that defines and runs the optimization.
+We first define a list of ```sherpa.Hyperparameter``` objects. These define the
+parameters you want to tune. This is passed to one of the algorithms in 
+```sherpa.algorithms```. See below for a list of all available algorithms. By
+default SHERPA uses the local scheduler (```sherpa.schedulers.LocalScheduler```)
+. This will execute jobs on the machine that SHERPA is run on. You can also use
+the SGE scheduler. The SGE scheduler expects an environment and submit options.
 
 ## API
 
-### Available Algorithms
-
-### Writing your own algorithms
-
 """
 
+text = static_text
+
+text += "#### sherpa.hyperparameters.DistributionHyperparameter"
+text += process_function_docstring(Hyperparameter.__doc__)
+text += "\n"
+text += "#### sherpa.optimize"
+text += process_function_docstring(sherpa.optimize.__doc__)
+text += "\n"
+text += "#### sherpa.schedulers.LocalScheduler"
+text += process_function_docstring(sherpa.scheduler.LocalScheduler.__doc__)
+text += "\n"
+text += "#### sherpa.schedulers.SGEScheduler"
+text += process_function_docstring(sherpa.scheduler.SGEScheduler.__doc__)
+
+text += "\n"
+text += "\n"
+text += "### Supported Algorithms"
+text += "\n"
+text += "#### sherpa.algorithms.RandomSearch"
+text += process_function_docstring(sherpa.algorithms.RandomSearch.__doc__)
+text += "\n"
+
+
 with open('README.md', 'w') as f:
-    f.write(static_text)
+    f.write(text)
