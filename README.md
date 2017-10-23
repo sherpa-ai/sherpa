@@ -66,8 +66,7 @@ multiple machines. You can call  ```python sherpa_mnist.py --sge``` and pass
 the SGE project name ```-P```, the queue name ```-q``` and the resources
 ```-l``` as arguments. **Baldi Group: ** The default is set to submit to the
 Arcus 5 to 9 machines. None of the flags
-need to be set. However, be sure to submit the script from
-```nimbus.ics.uci.edu```.
+need to be set. However, be sure to submit the script from nimbus.ics.uci.edu.
 
 ## Authoring your own Optimization
 
