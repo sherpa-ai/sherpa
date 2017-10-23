@@ -9,6 +9,7 @@ command line and adding the directory to the Python path (e.g.
 necessary dependencies you can run ```python setup.py``` from the SHERPA folder.
 
 ### Dependencies
++ Numpy 1.13.1
 + Pandas 0.19.2
 + Keras (for examples)
 
@@ -42,7 +43,7 @@ After running ```python sherpa_mnist.py``` SHERPA will display output in the ter
 Among this you will see the address of the dashboard. If you are running 
 SHERPA on your laptop or desktop you can go to ```0.0.0.0:6006``` in your
 web browser. If you are using SSH you can go to ```0.0.0.0:16006``` (that is the
-local port that we forwarded ```6006``` to). At the address you will see a
+local port that we forwarded ```6006``` to above). At the address you will see a
 parallel coordinates plot and a table as shown in the screenshot below.
 The table shows the results so far. Hit
 refresh to get the latest results. Each row represents one trial consisting of
@@ -63,21 +64,87 @@ In addition to the local scheduler that you used above SHERPA also supports
 Sun Grid Engine (SGE). This can be useful if you want to use GPUs across
 multiple machines. You can call  ```python sherpa_mnist.py --sge``` and pass
 the SGE project name ```-P```, the queue name ```-q``` and the resources
-```-l``` as arguments.
-
-#### Baldi Group
-The default is set to submit to the Arcus 5 to 9 machines and none of the flags
+```-l``` as arguments. **Baldi Group: ** The default is set to submit to the
+Arcus 5 to 9 machines. None of the flags
 need to be set. However, be sure to submit the script from
 ```nimbus.ics.uci.edu```.
 
 ## Authoring your own Optimization
 
-### Local vs. SGE
+You define a SHERPA optimization via the function ```sherpa.optimize()```. This
+expects at minimum a ``filename``` for the training code and an algorithm. For
+all arguments view the API section below.
 
+### The Training Code
+SHERPA expects your training code to be wrapped in one file. This should be a
+script that expects hyperparameters via the command line arguments. The training
+needs to submit metrics at least once at the end using the
+```sherpa.send_metrics``` function.
+
+### The Optimization Code
+
+We now make a second Python script that defines and runs the optimization.
+We first define a list of ```sherpa.Hyperparameter``` objects. These define the
+parameters you want to tune. This is passed to one of the algorithms in 
+```sherpa.algorithms```. See below for a list of all available algorithms. By
+default SHERPA uses the local scheduler (```sherpa.schedulers.LocalScheduler```)
+. This will execute jobs on the machine that SHERPA is run on. You can also use
+the SGE scheduler. The SGE scheduler expects an environment and submit options.
 
 ## API
 
-### Supported Algorithms
+#### sherpa.hyperparameters.DistributionHyperparameter
+Hyperparameter with a specified distribution.
 
-### Writing your own algorithms
+__Arguments__
+
+- __name__ _(str)_: The hyperparameter name.
+- __distribution__ _(str, default='uniform')_: Name of distribution as provided
+by numpy.random or "log-uniform".
+- __dist_args__ _(list/dict)_: Distribution arguments as accepted by
+```numpy.random.[distribution]```
+- __seed__ _(int, default=None)_: Seed for the random number generator.
+
+#### sherpa.optimize 
+Initializes and runs Sherpa optimization.
+
+__Arguments__
+
+- __filename__ _(str)_: File that runs training. Accepts hyperparameters via
+command line and submits results via ```sherpa.send_metrics```.
+- __algorithm__ _(sherpa.algorithms.AbstractAlgorithm)_: Sherpa algorithm.
+- __dir__ _(str)_: Sherpa models are saved in (dir)/sherpa_models/.
+- __results_table__ _(sherpa.resultstable.AbstractResultsTable)_: Sherpa
+ResultsTable object to use.
+- __loss__ _(str)_: Key specifying which channel to minimize.
+- __overwrite__ _(bool)_: If True, deletes existing files in (dir).
+- __scheduler__ _(sherpa.schedulers.AbstractScheduler)_: Sherpa Scheduler
+object, defaults to LocalScheduler with single process
+(serial mode).
+- __max_concurrent__ _(int)_: Limits the number of jobs Sherpa submits to
+scheduler.
+
+#### sherpa.schedulers.LocalScheduler
+Runs jobs as subprocesses on local machine.
+
+#### sherpa.schedulers.SGEScheduler
+Submits jobs to SGE.
+
+__Arguments__
+
+- __environment__ _(str)_: Path to an environment to be used when submitting
+jobs to SGE.
+- __submit_options__ _(str)_: Submit options for SGE in command line flags
+format.
+
+
+
+### Supported Algorithms
+#### sherpa.algorithms.RandomSearch
+Random Search over hyperparameter space.
+
+__Arguments__
+
+- __samples__ _(int)_: Number of trials to evaluate.
+- __hp_ranges__ _(list)_: List of Hyperparameter objects.
 
