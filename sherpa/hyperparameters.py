@@ -48,7 +48,7 @@ class DistributionHyperparameter(AbstractSampleableHyperparameter, AbstractGridH
         distribution (str, default='uniform'): Name of distribution as provided
             by numpy.random or "log-uniform".
         dist_args (list/dict): Distribution arguments as accepted by
-            ```numpy.random.[distribution]```.
+            `numpy.random.[distribution]`.
         seed (int, default=None): Seed for the random number generator.
     """
     def __init__(self, name, distribution='uniform', dist_args={}, seed=None):
