@@ -115,7 +115,7 @@ class RandomSearch(AbstractAlgorithm):
             return 'stop'
         else:
             self.count += 1
-            return index, self.sampler.next()
+            return self.sampler.next()
 
 class LocalSearch(AbstractAlgorithm):
     '''

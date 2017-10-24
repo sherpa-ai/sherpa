@@ -20,7 +20,7 @@ def run_sherpa():
     ]
 
     # Algorithm used for optimization.
-    alg = sherpa.algorithms.RandomSearch(samples=50, epochs=10, hp_ranges=hp_space)
+    alg = sherpa.algorithms.RandomSearch(samples=50, hp_ranges=hp_space)
     datetime_now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     dir = './output_{}'.format(datetime_now)  # All files written to here.
 
@@ -48,7 +48,7 @@ if __name__ == '__main__':
     parser.add_argument('--sge', help='Use SGE', action='store_true')
     parser.add_argument('--max_concurrent',
                         help='Number of concurrent processes',
-                        type=int, default=2)
+                        type=int, default=1)
     parser.add_argument('-P',
                         help="Specifies the project to which this  job  is  assigned.",
                         default='arcus.p')
