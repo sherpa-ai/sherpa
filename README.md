@@ -101,7 +101,7 @@ __Arguments__
 - __distribution__ _(str, default='uniform')_: Name of distribution as provided
 by numpy.random or "log-uniform".
 - __dist_args__ _(list/dict)_: Distribution arguments as accepted by
-```numpy.random.[distribution]```
+```numpy.random.[distribution]```.
 - __seed__ _(int, default=None)_: Seed for the random number generator.
 
 #### sherpa.optimize 
