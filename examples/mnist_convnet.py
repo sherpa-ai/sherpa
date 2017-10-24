@@ -6,31 +6,26 @@ Gets to 99.25% test accuracy after 12 epochs
 
 from __future__ import print_function
 import os
-import socket
-# Before importing keras, decide which gpu to use.
-try:
-    # gpu_lock module located at /home/pjsadows/libs
-    import gpu_lock
+import argparse
+import sherpa
 
-    GPUIDX = gpu_lock.obtain_lock_id()  # Return gpuid, or -1 if there was a problem.
-except:
-    print('Could not import gpu_lock. Prepend /extra/pjsadows0/libs/shared/gpu_lock/ to PYTHONPATH.')
-    GPUIDX = 0
-assert GPUIDX >= 0, '\nNo gpu available.'
-print('\nRunning from GPU %s' % str(GPUIDX))
-# Carefully import backend.
-if os.environ.get('KERAS_BACKEND') == 'theano':
-    os.environ['THEANO_FLAGS'] = "floatX=float32,device=cuda{},base_compiledir=~/.theano/{}_gpu{}".format(GPUIDX, socket.gethostname(), GPUIDX)
-else:
+os.environ['KERAS_BACKEND'] = 'tensorflow'
+
+if False:
+    # Before importing keras, decide which gpu to use.
+    try:
+        # gpu_lock module located at /home/pjsadows/libs
+        import gpu_lock
+        GPUIDX = gpu_lock.obtain_lock_id() # Return gpuid, or -1 if there was a problem.
+    except:
+        print('Could not import gpu_lock. Prepend /extra/pjsadows0/libs/shared/gpu_lock/ to PYTHONPATH.')
+        GPUIDX = 0
+    assert GPUIDX >= 0, '\nNo gpu available.'
+    print('Running from GPU %s' % str(GPUIDX))
     os.environ['CUDA_VISIBLE_DEVICES'] = str(GPUIDX)
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-    import tensorflow as tf
-
-    CONFIG = tf.ConfigProto(device_count={'GPU': 1}, log_device_placement=False, allow_soft_placement=False)
-    CONFIG.gpu_options.allow_growth = True  # Prevents tf from grabbing all gpu memory.
-    sess = tf.Session(config=CONFIG)
-    from keras import backend as K
-    K.set_session(sess)
+else:
+    print('Running on CPU')
+    os.environ['CUDA_VISIBLE_DEVICES'] = ''
 
 import keras
 from keras.datasets import mnist
@@ -39,13 +34,23 @@ from keras.layers import Dense, Dropout, Flatten
 from keras.layers import Conv2D, MaxPooling2D
 from keras import backend as K
 
-from collections import defaultdict
-import pickle as pkl
+parser = argparse.ArgumentParser()
+parser.add_argument('--num_filters', type=int, default=16)
+parser.add_argument('--filter_size', type=int, default=3)
+parser.add_argument('--dropout', type=float, default=0.)
+parser.add_argument('--activation', type=str, default='relu')
+# Args used by scheduler.
+parser.add_argument('--index', type=int, default=0)
+parser.add_argument('--metricsfile', type=str)
+parser.add_argument('--modelfile', type=str)
+FLAGS = parser.parse_args()
+HP = vars(FLAGS)
 
 batch_size = 128
 num_classes = 10
 epochs = 12
 img_rows, img_cols = 28, 28
+
 
 def get_mnist():
     # the data, shuffled and split between train and test sets
@@ -78,10 +83,11 @@ def get_model(hp):
     else:
         input_shape = (img_rows, img_cols, 1)
 
-    num_filters = hp['num_filters']
-    filter_size = hp['filter_size']
-    dropout = hp['dropout']
-    activation = hp['activation']
+    num_filters = hp.get('num_filters', 32)
+    filter_size = hp.get('filter_size', 3)
+    dropout = hp.get('dropout', 0.)
+    activation = hp.get('activation', 'relu')
+    lr = hp.get('lr', 0.01)
 
     model = Sequential()
     model.add(Conv2D(num_filters//2, kernel_size=(filter_size, filter_size),
@@ -96,59 +102,30 @@ def get_model(hp):
     model.add(Dense(num_classes, activation='softmax'))
 
     model.compile(loss=keras.losses.categorical_crossentropy,
-                  optimizer=keras.optimizers.Adadelta(),
+                  optimizer=keras.optimizers.SGD(lr=lr, momentum=0.9),
                   metrics=['accuracy'])
     return model
 
 
-def main(modelfile, historyfile, hp={}, epochs=1, verbose=2):
-    """
-    ---------------------------------------------------------------------------
-    EDIT THIS METHOD
-    ---------------------------------------------------------------------------
-    This main function is called by Sherpa.
-    Input:
-        modelfile  = File containing model.
-        historyfile= File containing dictionary of per-epoch results.
-        hp         = Dictionary of hyperparameters.
-        epochs     = Number of epochs to train this round.
-        verbose    = Passed to keras.fit_generator.
-    Output:
-        No return value is given, but updates modelfile and historyfile.
-    """
-    if os.path.isfile(historyfile):
-        # Resume training.
-        assert os.path.isfile(modelfile)
-        assert hp is None or len(hp) == 0
-        model = keras.models.load_model(modelfile)
-        with open(historyfile, 'rb') as f:
-            history = pkl.load(f)
-        initial_epoch = len(history['loss'])  # Assumes loss is list of length epochs.
-    else:
-        # Create new model.
-        model = get_model(hp=hp)
-        history = defaultdict(list)
-        initial_epoch = 0
+def train_mnist():
+    model = get_model(hp=HP)
 
-    print('Running with {}'.format(str(hp)))
+    print('Running with {}'.format(str(HP)))
 
     # Define dataset.
     x_train, y_train, x_test, y_test = get_mnist()
 
-    partialh = model.fit(x_train, y_train,
+    history = model.fit(x_train, y_train,
               batch_size=batch_size,
-              epochs=epochs,
-              verbose=verbose,
-              validation_data=(x_test, y_test),
-              initial_epoch=initial_epoch)
+              epochs=1,
+              validation_data=(x_test, y_test))
 
-    # Update history and save to file.
-    partialh = partialh.history
-    for k in partialh:
-        history[k].extend(partialh[k])
-    with open(historyfile, 'wb') as fid:
-        pkl.dump(history, fid)
-    # Save model file if we want to restart.
-    model.save(modelfile)
+    # Send metrics to sherpa.
+    sherpa.send_metrics(index=FLAGS.index, metrics=history.history,
+                        metricsfile=FLAGS.metricsfile)
 
     return
+
+
+if __name__=='__main__':
+    train_mnist()

@@ -1,4 +1,25 @@
+import re
+import sherpa
+from sherpa.hyperparameters import DistributionHyperparameter as Hyperparameter
+from sherpa.scheduler import LocalScheduler,SGEScheduler
 
+
+# from keras
+def process_function_docstring(docstring):
+    docstring = re.sub(r'\n    # (.*)\n',
+                       r'\n    __\1__\n\n',
+                       docstring)
+    docstring = re.sub(r'    ([^\s\\\(]+) (.*):(.*)\n',
+                       r'    - __\1__ _\2_:\3\n',
+                       docstring)
+
+    docstring = docstring.replace('    ' * 6, '\t\t')
+    docstring = docstring.replace('    ' * 4, '\t')
+    docstring = docstring.replace('    ', '')
+    return docstring
+
+
+static_text = """
 # SHERPA
 
 Welcome to SHERPA - a hyperparameter tuning framework for machine learning.
@@ -133,58 +154,30 @@ sherpa.optimize(filename='my_script.py',
 
 ## API
 Below is a list of functions that are needed to set up a SHERPA optimization.
-#### sherpa.hyperparameters.DistributionHyperparameter
-Hyperparameter with a specified distribution.
+"""
 
-__Arguments__
+text = static_text
 
-- __name__ _(str)_: The hyperparameter name.
-- __distribution__ _(str, default='uniform')_: Name of distribution as provided
-by numpy.random or "log-uniform".
-- __dist_args__ _(list/dict)_: Distribution arguments as accepted by
-`numpy.random.[distribution]`.
-- __seed__ _(int, default=None)_: Seed for the random number generator.
+text += "#### sherpa.hyperparameters.DistributionHyperparameter"
+text += process_function_docstring(Hyperparameter.__doc__)
+text += "\n"
+text += "#### sherpa.optimize"
+text += process_function_docstring(sherpa.optimize.__doc__)
+text += "\n"
+text += "#### sherpa.schedulers.LocalScheduler"
+text += process_function_docstring(sherpa.scheduler.LocalScheduler.__doc__)
+text += "\n"
+text += "#### sherpa.schedulers.SGEScheduler"
+text += process_function_docstring(sherpa.scheduler.SGEScheduler.__doc__)
 
-#### sherpa.optimize 
-Initializes and runs Sherpa optimization.
-
-__Arguments__
-
-- __filename__ _(str)_: File that runs training. Accepts hyperparameters via
-command line and submits results via ```sherpa.send_metrics```.
-- __algorithm__ _(sherpa.algorithms.AbstractAlgorithm)_: Sherpa algorithm.
-- __dir__ _(str)_: Sherpa models are saved in (dir)/sherpa_models/.
-- __results_table__ _(sherpa.resultstable.AbstractResultsTable)_: Sherpa
-ResultsTable object to use.
-- __loss__ _(str)_: Key specifying which channel to minimize.
-- __overwrite__ _(bool)_: If True, deletes existing files in (dir).
-- __scheduler__ _(sherpa.schedulers.AbstractScheduler)_: Sherpa Scheduler
-object, defaults to LocalScheduler with single process
-(serial mode).
-- __max_concurrent__ _(int)_: Limits the number of jobs Sherpa submits to
-scheduler.
-
-#### sherpa.schedulers.LocalScheduler
-Runs jobs as subprocesses on local machine.
-
-#### sherpa.schedulers.SGEScheduler
-Submits jobs to SGE.
-
-__Arguments__
-
-- __environment__ _(str)_: Path to an environment to be used when submitting
-jobs to SGE.
-- __submit_options__ _(str)_: Submit options for SGE in command line flags
-format.
+text += "\n"
+text += "\n"
+text += "### Supported Algorithms"
+text += "\n"
+text += "#### sherpa.algorithms.RandomSearch"
+text += process_function_docstring(sherpa.algorithms.RandomSearch.__doc__)
+text += "\n"
 
 
-
-### Supported Algorithms
-#### sherpa.algorithms.RandomSearch
-Random Search over hyperparameter space.
-
-__Arguments__
-
-- __samples__ _(int)_: Number of trials to evaluate.
-- __hp_ranges__ _(list)_: List of Hyperparameter objects.
-
+with open('README.md', 'w') as f:
+    f.write(text)

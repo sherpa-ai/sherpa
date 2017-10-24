@@ -84,6 +84,10 @@ class Iterate(AbstractAlgorithm):
 class RandomSearch(AbstractAlgorithm):
     """
     Random Search over hyperparameter space.
+
+    # Arguments
+        samples (int): Number of trials to evaluate.
+        hp_ranges (list): List of Hyperparameter objects.
     """
     def __init__(self, samples, hp_ranges):
         self.samples = samples
@@ -111,7 +115,7 @@ class RandomSearch(AbstractAlgorithm):
             return 'stop'
         else:
             self.count += 1
-            return index, self.sampler.next()
+            return self.sampler.next()
 
 class LocalSearch(AbstractAlgorithm):
     '''

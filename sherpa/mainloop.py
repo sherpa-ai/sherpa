@@ -29,18 +29,24 @@ def optimize(filename, algorithm,
              scheduler=None, 
              max_concurrent=1,
              dashboard_port=6006):
-    ''' 
-    Convenience function for running Sherpa optimization.
-    INPUTS:
-    filename = File containing main function that runs experiment.
-    algorithm = Sherpa algorithm.
-    dir      = Sherpa models are saved in (dir)/sherpa_models/.
-    results_table = Sherpa ResultsTable object to use. 
-    loss     = String key specifying which channel to minimize.
-    overwrite = If True, deletes existing files in (dir).
-    scheduler = Sherpa Scheduler object, defaults to LocalScheduler with single process (serial mode).
-    max_concurrent = Limits the number of jobs Sherpa submits to scheduler. 
-    '''
+    """ 
+    Initializes and runs Sherpa optimization.
+
+    # Arguments
+        filename (str): File that runs training. Accepts hyperparameters via
+            command line and submits results via ```sherpa.send_metrics```.
+        algorithm (sherpa.algorithms.AbstractAlgorithm): Sherpa algorithm.
+        dir (str): Sherpa models are saved in (dir)/sherpa_models/.
+        results_table (sherpa.resultstable.AbstractResultsTable): Sherpa
+            ResultsTable object to use.
+        loss (str): Key specifying which channel to minimize.
+        overwrite (bool): If True, deletes existing files in (dir).
+        scheduler (sherpa.schedulers.AbstractScheduler): Sherpa Scheduler
+            object, defaults to LocalScheduler with single process
+            (serial mode).
+        max_concurrent (int): Limits the number of jobs Sherpa submits to
+            scheduler.
+    """
     loop = MainLoop(filename, algorithm, dir=dir, results_table=results_table, loss=loss, overwrite=overwrite) 
     server_process, server_queue = run_plotting_process(output_dir=dir,
                                                         port=dashboard_port)

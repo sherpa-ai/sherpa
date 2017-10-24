@@ -5,9 +5,9 @@ import math
 import abc
 
 class AbstractSampleableHyperparameter(object):
-    '''
+    """
     Abstract class for a Hyperparameter that is sampleable.
-    '''
+    """
     def __init__(self, name):
         if not isinstance(name, str):
             raise ValueError('Argument name should be a string, found {}'.format(str(name.__class__)))
@@ -18,13 +18,13 @@ class AbstractSampleableHyperparameter(object):
  
     @abc.abstractmethod
     def get_sample(self):
-        '''Draw one sample.'''
+        """Draw one sample."""
         raise NotImplementedError()
 
 class AbstractGridHyperparameter(object):
-    '''
+    """
     Abstract class for a Hyperparameter that can return specified number of samples.
-    '''
+    """
     def __init__(self, name):
         if not isinstance(name, str):
             raise ValueError('Argument name should be a string, found {}'.format(str(name.__class__)))
@@ -35,15 +35,22 @@ class AbstractGridHyperparameter(object):
     
     @abc.abstractmethod
     def get_grid(self, k):
-        ''' Return k samples.'''
+        """ Return k samples."""
         raise NotImplementedError()
 
 
 class DistributionHyperparameter(AbstractSampleableHyperparameter, AbstractGridHyperparameter):
-    '''
-    Hyperparameter with a distribution specified in a certain way. 
-    Note that this distribution may not be bounded.
-    '''
+    """
+    Hyperparameter with a specified distribution.
+
+    # Arguments
+        name (str): The hyperparameter name.
+        distribution (str, default='uniform'): Name of distribution as provided
+            by numpy.random or "log-uniform".
+        dist_args (list/dict): Distribution arguments as accepted by
+            `numpy.random.[distribution]`.
+        seed (int, default=None): Seed for the random number generator.
+    """
     def __init__(self, name, distribution='uniform', dist_args={}, seed=None):
         super(DistributionHyperparameter, self).__init__(name)
         if not isinstance(distribution, str):
@@ -67,21 +74,21 @@ class DistributionHyperparameter(AbstractSampleableHyperparameter, AbstractGridH
 
     @classmethod
     def fromlist(cls, name, choices):
-        '''Constructs hyperparameter from list of choices.'''
+        """Constructs hyperparameter from list of choices."""
         assert isinstance(choices, list) or isinstance(choices, tuple)
         return cls(name, distribution='choice', dist_args=choices)
 
     def is_choice(self):
-        ''' Is this a distribution over discrete choices? '''
+        """ Is this a distribution over discrete choices? """
         return self.distribution == 'choice'
         
     def num_choices(self):
-        ''' Is this a distribution over discrete choices? '''
+        """ Is this a distribution over discrete choices? """
         assert self.is_choice()
         return len(self.dist_args)
 
     def get_grid(self, k=None):
-        ''' Return k samples that are reasonably spaced out. '''
+        """ Return k samples that are reasonably spaced out. """
         if (k is None) or (self.is_choice() and self.num_choices() == k):
             # Return all choices.
             assert self.is_choice()
@@ -97,7 +104,7 @@ class DistributionHyperparameter(AbstractSampleableHyperparameter, AbstractGridH
             return [self.get_sample() for i in range(k)]  
 
     def get_sample(self):
-        ''' Draws one sample from distribution. '''
+        """ Draws one sample from distribution. """
         if self.distribution == 'log-uniform':
             if isinstance(self.dist_args, dict):
                 low  = self.dist_args['low']
@@ -131,10 +138,10 @@ class DistributionHyperparameter(AbstractSampleableHyperparameter, AbstractGridH
 
 
 class BoundedDistributionHyperparameter(DistributionHyperparameter):
-    '''
+    """
     Hyperparameter with specified, bounded distribution.
     Bounds are needed for grid searches.
-    '''
+    """
     def __init__(self, name, distribution='uniform', dist_args={}, seed=None):
         super(BoundedDistributionHyperparameter, self).__init__(name, distribution, dist_args, seed)
         

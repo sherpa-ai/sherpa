@@ -105,7 +105,9 @@ class AbstractScheduler(object):
     
    
 class LocalScheduler(AbstractScheduler):
-    """ Runs jobs as subprocesses on local machine."""
+    """
+    Runs jobs as subprocesses on local machine.
+    """
     def __init__(self, **kwargs):
         super(LocalScheduler, self).__init__(**kwargs)
     
@@ -118,14 +120,19 @@ class LocalScheduler(AbstractScheduler):
         except subprocess.CalledProcessError as e:
             print('Following bash call failed: {}'.format(cmd))
             raise e # Or should we ignore?
-            #pass
-        #finally:
-        #    rval = -1
-        #    self.queue.put((index, rval))
         return
  
 class SGEScheduler(AbstractScheduler):
-    """ Submits jobs to SGE."""
+    """
+    Submits jobs to SGE.
+
+    # Arguments
+        environment (str): Path to an environment to be used when submitting
+            jobs to SGE.
+        submit_options (str): Submit options for SGE in command line flags
+            format.
+
+    """
     def __init__(self, environment, submit_options, **kwargs):
         self.environment = environment
         self.submit_options = submit_options
