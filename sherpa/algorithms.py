@@ -60,11 +60,14 @@ class Iterate(AbstractAlgorithm):
                 self.hp_ranges = hp_ranges
             # TODO: do we need to keep hp_ranges as a instance object?
             self.sampler = GridSearch(self.hp_ranges) # Iterate over all combinations of hp.
+            self.nsamples = np.prod(np.array([len(h) for h in hp_ranges.values()]))  
         elif hp_iter is not None:
             assert isinstance(hp_iter, list)
-            self.sampler = IterateSampler(hp_iter)    
+            self.sampler = IterateSampler(hp_iter)
+            self.nsamples = len(hp_iter) 
         else:
             raise ValueError('Iterate algorithm expects either hp_ranges or hp_iter.')
+        print('Iterate Algorithm: Iterating over {} hp combinations.'.format(self.nsamples))
 
     def next(self, results_table):
         '''

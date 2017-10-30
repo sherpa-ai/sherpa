@@ -7,7 +7,9 @@ from . import scheduler
 from . import mainloop
 from .mainloop import optimize
 
+import os
 import pickle as pkl
+
 def send_metrics(index, metrics, metricsfile=None, db=None):
     '''
     Called by experiment to report results.
@@ -19,6 +21,12 @@ def send_metrics(index, metrics, metricsfile=None, db=None):
     '''
     if metricsfile:
         # Save metrics to metricsfile.
+        if not os.path.exists(os.path.dirname(metricsfile)):
+            try:
+                os.makedirs(os.path.dirname(metricsfile))
+            except OSError as exc: # Guard against race condition
+                if exc.errno != errno.EEXIST:
+                    raise
         with open(metricsfile, 'wb') as fid:
             pkl.dump(metrics, fid)
     if db:

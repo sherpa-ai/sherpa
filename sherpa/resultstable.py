@@ -153,6 +153,9 @@ class ResultsTable(AbstractResultsTable):
         """
         Updates stored csv
         """
+        if 'Loss' in self.df.columns:
+            # Sort by loss for readability.
+            self.df = self.df.sort_values(by=['Loss'])
         self.df.to_csv(self.csv_path, index=False)
        
     def _set(self, index, loss=np.inf, epochs=0, hp=None, historyfile=None, pending=False):

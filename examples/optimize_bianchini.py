@@ -4,9 +4,7 @@ import sherpa
 from sherpa.hyperparameters import DistributionHyperparameter as Hyperparameter
 from sherpa.scheduler import LocalScheduler,SGEScheduler
 
-
-
-def run_example():
+def run_example(FLAGS):
     '''
     Run parallel Sherpa optimization over a set of discrete hp combinations.
     '''
@@ -19,15 +17,16 @@ def run_example():
                 'epochs': [2],
                 }
     alg = sherpa.algorithms.Iterate(hp_ranges=hp_space)
-    f = './bianchini.py'
-    dir = './output' # All files written to here.
+    f   = './bianchini.py' # Python script to run.
+    dir = './output'       # All files written to here.
 
     if FLAGS.sge:
+        # Submit to SGE queue.
         env = '/home/pjsadows/profiles/auto.profile'  # Script specifying environment variables.
-        opt = '-N sherpaMNIST -P {} -q {} -l {}'.format(FLAGS.P, FLAGS.q,
-                                                        FLAGS.l)
-        sched = SGEScheduler(dir=dir, environment=env, submit_options=opt)
+        opt = '-N example -P {} -q {} -l {}'.format(FLAGS.P, FLAGS.q, FLAGS.l)
+        sched = SGEScheduler(environment=env, submit_options=opt)
     else:
+        # Run on local machine.
         sched = LocalScheduler()  # Run on local machine without SGE.
 
     rval = sherpa.optimize(filename=f, algorithm=alg, dir=dir, overwrite=True, scheduler=sched, max_concurrent=FLAGS.max_concurrent)
@@ -36,7 +35,8 @@ def run_example():
     print(rval)
 
 def run_example_advanced():
-    ''' 
+    '''
+    NOTE: OUTDATED 
     Run Sherpa hyperparameter optimization.
     User may want to run this as a separate file.
     '''
@@ -67,7 +67,7 @@ def run_example_advanced():
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--sge', help='Use SGE', action='store_true')
+    parser.add_argument('--sge', help='Use SGE', action='store_false')
     parser.add_argument('--max_concurrent',
                         help='Number of concurrent processes',
                         type=int, default=1)
@@ -80,5 +80,5 @@ if __name__=='__main__':
     parser.add_argument('-l', help='the given resource list.',
                         default="hostname=\'(arcus-7)\'")
     FLAGS = parser.parse_args()
-    run_example()  # Sherpa optimization.
+    run_example(FLAGS)  # Sherpa optimization.
 
