@@ -27,6 +27,13 @@ if False:
     print('Running from GPU %s' % str(GPUIDX))
     # Carefully import backend.
     os.environ['CUDA_VISIBLE_DEVICES'] = str(GPUIDX)
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+    import tensorflow as tf
+    CONFIG = tf.ConfigProto(device_count = {'GPU': 1}, log_device_placement=False, allow_soft_placement=False)
+    CONFIG.gpu_options.allow_growth = True # Prevents tf from grabbing all gpu memory.
+    sess = tf.Session(config=CONFIG)
+    from keras import backend as K
+    K.set_session(sess)
 else:
     print('Running on CPU')
     os.environ['CUDA_VISIBLE_DEVICES'] = ''
