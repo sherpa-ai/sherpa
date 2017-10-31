@@ -126,7 +126,7 @@ class DistributionHyperparameter(AbstractSampleableHyperparameter, AbstractGridH
             elif l == 1:
                 return self.dist_args[0]
             else:
-                i = self.rng.randint(0, l-1)
+                i = self.rng.randint(0, l)
                 return self.dist_args[i]
             
         else:
