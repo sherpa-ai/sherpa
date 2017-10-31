@@ -194,11 +194,8 @@ class ResultsTable(AbstractResultsTable):
             self.df = self.df.append(new_line)
         self._save()
     
-    def get_indices(self, hp=None):
-        if hp is None:
-            return [i for i in self.df.index]
-        else:
-            return [i for i in self.df[self.df['HP'] == hp].index]
+    def get_indices(self):
+        return [i for i in self.df.index]
 
     def get_k_lowest(self, k, ignore_pending=True):
         """
@@ -218,15 +215,38 @@ class ResultsTable(AbstractResultsTable):
         if len(data) < k:
             raise ValueError('Tried to get top {} results but only found {} results.'.format(k, len(data)))
         assert len(data.index) >= k, len(data.index)
-        data = data.iloc[0:k]
+        data = copy.deepcopy(data.iloc[0:k])
         return data 
 
-    def get_best(self, ignore_pending=True):
+    def get_best(self, ignore_pending=True, hp_only=False):
         ''' Return values for best model so far.'''    
         data = self.get_k_lowest(k=1, ignore_pending=ignore_pending)
-        bestdict = dict(zip(self.keys, [data[k].iloc[0] for k in self.keys]))
+        #bestdict = dict(zip(self.keys, [data[k].iloc[0] for k in self.keys]))
+        bestdict = dict(data.iloc[0])
+        if hp_only:
+            # Remove non-hyperparameter columns.
+            for col in ['ID', 'Loss', 'Epochs', 'History', 'Pending']:
+                bestdict.pop(col, None) 
         return bestdict
- 
+
+    def get_matches(self, hp):
+        """
+        Return data frame of experiments that match hyperparameters hp.
+        """
+        match_indices = []
+        for i in self.df.index:
+            row = self.df.iloc[i]
+            match = True
+            #print(hp)
+            
+            for k,v in hp.items():
+                if row[k] != v:
+                    match = False
+                    break
+            if match:
+                match_indices.append(i)
+        return match_indices
+     
     def update_hist2loss(self, hist2loss):
         ''' 
         Change hist2loss function, then update csv from historyfiles.

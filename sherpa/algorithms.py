@@ -148,24 +148,31 @@ class LocalSearch(AbstractAlgorithm):
         3) hp: Tells main loop to start this experiment.
         '''
         assert isinstance(results_table, ResultsTable)
-        if self.hp_init is not None and len(results_table.get_indices(hp=self.hp_init)) == 0:
-            # Start this point first.
-            return self.hp_init
+        if self.hp_init is not None:
+            if len(results_table.get_matches(self.hp_init)) == 0:
+                # Start this point first.
+                return self.hp_init
+            else:
+                pass
+                #print('Warning: LocalSearch received hp_init arg, but it will only be used if results_table is empty. TODO:fix')
         
-        # Try to find best result so far.
+        # Try to find best result so far. Otherwise, start random sample.
+        if len(results_table.get_indices()) == 0:
+            return self.randomsampler.next()
         try:
-            hp_best = results_table.get_best(ignore_pending=True)['HP'] # Check that not pending?
+            hp_best = results_table.get_best(ignore_pending=True, hp_only=True) # Check that not pending?
         except ValueError:
             # No results yet. Select random point.
             return self.randomsampler.next()
  
         # Try to improve best result.
-        for hp in hp_best.keys():
+        for hp in self.hp_ranges.keys():
             vals = self.hp_ranges[hp]
             for val in vals:
+                # Create new hyperparameter dict with val.
                 hp_next = hp_best.copy()
                 hp_next[hp] = val
-                if len(results_table.get_indices(hp=hp_next)) == 0:
+                if len(results_table.get_matches(hp=hp_next)) == 0:
                     # Haven't tried this hp combination yet.
                     return hp_next
         return 'stop'  
