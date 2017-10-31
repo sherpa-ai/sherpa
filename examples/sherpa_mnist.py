@@ -20,7 +20,7 @@ def run_sherpa():
     ]
 
     # Algorithm used for optimization.
-    alg = sherpa.algorithms.RandomSearch(samples=50, hp_ranges=hp_space)
+    alg = sherpa.algorithms.RandomSearch(samples=15, hp_ranges=hp_space)
     datetime_now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     dir = './output_{}'.format(datetime_now)  # All files written to here.
 
@@ -28,13 +28,14 @@ def run_sherpa():
         env = '/home/lhertel/profiles/main.profile'  # Script specifying environment variables.
         opt = '-N sherpaMNIST -P {} -q {} -l {}'.format(FLAGS.P, FLAGS.q,
                                                         FLAGS.l)
-        sched = SGEScheduler(dir=dir, environment=env, submit_options=opt)
+        sched = SGEScheduler(environment=env, submit_options=opt)
     else:
         sched = LocalScheduler()  # Run on local machine without SGE.
 
     rval = sherpa.optimize(filename='mnist_convnet.py',
                            algorithm=alg,
                            dir=dir,
+                           loss='val_loss',
                            overwrite=True,
                            scheduler=sched,
                            max_concurrent=FLAGS.max_concurrent)
@@ -56,7 +57,7 @@ if __name__ == '__main__':
                         help='Defines a list of cluster queues or queue instances which may be used to execute this job.',
                         default='arcus-ubuntu.q')
     parser.add_argument('-l', help='the given resource list.',
-                        default="hostname=\'(arcus-7)\'")
+                        default="hostname=\'(arcus-5|arcus-6|arcus-8|arcus-9)\'")
     FLAGS = parser.parse_args()
     run_sherpa()
 

@@ -11,7 +11,7 @@ import sherpa
 
 os.environ['KERAS_BACKEND'] = 'tensorflow'
 
-if False:
+if True:
     # Before importing keras, decide which gpu to use.
     try:
         # gpu_lock module located at /home/pjsadows/libs
@@ -33,6 +33,8 @@ from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten
 from keras.layers import Conv2D, MaxPooling2D
 from keras import backend as K
+from keras.callbacks import *
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--num_filters', type=int, default=16)
@@ -41,8 +43,8 @@ parser.add_argument('--dropout', type=float, default=0.)
 parser.add_argument('--activation', type=str, default='relu')
 # Args used by scheduler.
 parser.add_argument('--index', type=int, default=0)
-parser.add_argument('--metricsfile', type=str)
-parser.add_argument('--modelfile', type=str)
+parser.add_argument('--metricsfile', type=str, default='./test.pkl')
+parser.add_argument('--modelfile', type=str, default='./testmodelfile')
 FLAGS = parser.parse_args()
 HP = vars(FLAGS)
 
@@ -114,16 +116,13 @@ def train_mnist():
 
     # Define dataset.
     x_train, y_train, x_test, y_test = get_mnist()
-
     history = model.fit(x_train, y_train,
               batch_size=batch_size,
-              epochs=1,
+              epochs=10,
               validation_data=(x_test, y_test))
 
-    # Send metrics to sherpa.
-    sherpa.send_metrics(index=FLAGS.index, metrics=history.history,
-                        metricsfile=FLAGS.metricsfile)
-
+    metrics = history.history
+    sherpa.send_metrics(index=FLAGS.index, metrics=metrics, metricsfile=FLAGS.metricsfile)
     return
 
 
