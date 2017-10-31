@@ -28,9 +28,7 @@ example can be run on your laptop.
 The next example runs a small hyperparameter optimization on a Convolutional
 Neural Network trained on the MNIST dataset in Keras. If you have a GPU machine
 available this will speed up the running time of the
-optimization significantly. Be sure to use
-```ssh -L 16006:127.0.0.1:6006 username@hostname``` when SSHing into a remote
-server so you can use the visualization. Now go ahead and run
+optimization significantly. You can go ahead and run
 ```python sherpa_mnist.py```. This executes the script ```mnist_convnet.py```
 with hyperparameter configurations as defined in ```sherpa_mnist.py```.
 
@@ -46,10 +44,7 @@ number of processes to run.
 
 ### Visualizing Results
 After running ```python sherpa_mnist.py``` SHERPA will display output in the terminal.
-Among this you will see the address of the dashboard. If you are running 
-SHERPA on your laptop or desktop you can go to ```0.0.0.0:6006``` in your
-web browser. If you are using SSH you can go to ```0.0.0.0:16006``` (that is the
-local port that we forwarded ```6006``` to above). At the address you will see a
+Among this you will see the address of the dashboard.  If you visit the the address in your web-browser you will see a
 parallel coordinates plot and a table as shown in the screenshot below.
 The table shows the results so far. Hit
 refresh to get the latest results. Each row represents one trial consisting of

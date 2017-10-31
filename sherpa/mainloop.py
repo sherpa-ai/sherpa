@@ -3,6 +3,7 @@ from __future__ import division
 import time
 import importlib
 import pickle as pkl
+import socket
 import os
 import sys
 import re
@@ -111,7 +112,7 @@ def run_plotting_process(output_dir, port=0):
                                      args=(output_dir, queue, port))
     process.daemon = True
     process.start()
-    print("Running Dashboard on 0.0.0.0:{}".format(port))
+    print("Running Dashboard on {}:{}".format(socket.getfqdn(), port))
     return process, queue
 
 
