@@ -10,7 +10,8 @@ setup(name='sherpa',
       download_url='https://gitlab.ics.uci.edu/uci-igb/sherpa',
       license='',
       install_requires=['pandas',
-                        'scipy'
+                        'scipy',
+                        'drmaa'
                         ],
       package_data={'sherpa': ['README.md']},
       packages=find_packages())
