@@ -195,13 +195,13 @@ class MainLoop(object):
                 time.sleep(5)
                 continue
             elif rval == 'wait' and len(pending)==0:
-                raise Exception('Algorithm shouldnt wait if there are no pending jobs.')
+                raise Exception('Something wrong. Algorithm shouldnt wait if there are no pending jobs.')
             else:
                 if type(rval) != dict:
                     raise ValueError('Algorithm.next() should return "stop", "wait", or dict of hyperparams. Returned {}'.format(rval))
                 # Start new experiment specified by Algorithm.
                 hp = rval
-                index = self.results_table.on_start(hp=hp) # ResultsTable returns unique index.
+                index = self.results_table.on_start(hp=hp) # ResultsTable returns unique experiment id.
                 modelfile, metricsfile = self.id2filenames(index) # TODO: Maybe we want to restart models and save to same file. 
                 # Submit experiment to scheduler.
                 self.scheduler.start_subprocess(self.filename, index, hp, modelfile, metricsfile) 
@@ -217,7 +217,7 @@ class MainLoop(object):
                 continue
             # Read metricsfile to update results_table.
             modelfile, metricsfile = self.id2filenames(index)
-            self.results_table.on_finish(index=index, historyfile=metricsfile)
+            self.results_table.on_finish(expid=index, metricsfile=metricsfile)
 
     def id2filenames(self, index):
         modelfile   = os.path.join(self.dir_models, '{}.h5'.format(index))

@@ -29,7 +29,7 @@ class AbstractScheduler(object):
         """
         Start subprocess to call filename with hyperparameters hp.
 
-        Overwrites modelfile and historyfile.
+        Overwrites modelfile and metricsfile.
 
         Arguments:
             filename (str): name of file that contains user training code

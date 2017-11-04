@@ -113,7 +113,7 @@ class RandomSearch(AbstractAlgorithm):
         3) 'stop': Signal to main loop that we are finished.
         '''
         assert isinstance(results_table, ResultsTable)
-        idxs = results_table.get_indices() # Pandas df
+        idxs = results_table.get_expids() # Pandas df
         if len(idxs) == self.samples:
             return 'stop'
         else:
@@ -148,34 +148,39 @@ class LocalSearch(AbstractAlgorithm):
         3) hp: Tells main loop to start this experiment.
         '''
         assert isinstance(results_table, ResultsTable)
-        if self.hp_init is not None:
-            if len(results_table.get_matches(self.hp_init)) == 0:
-                # Start this point first.
-                return self.hp_init
-            else:
-                pass
-                #print('Warning: LocalSearch received hp_init arg, but it will only be used if results_table is empty. TODO:fix')
-        
-        # Try to find best result so far. Otherwise, start random sample.
-        if len(results_table.get_indices()) == 0:
+        if self.hp_init is not None and len(results_table.get_matches(self.hp_init)) == 0:
+            # Start this point first.
+            print('Starting with {}'.format(self.hp_init))
+            return self.hp_init
+       
+        # If ResultsTable is empty, suggest random. 
+        if len(results_table.get_expids()) == 0:
             return self.randomsampler.next()
+            
+        # Try to find best result so far.
         try:
-            hp_best = results_table.get_best(ignore_pending=True, hp_only=True) # Check that not pending?
+            hp_best = results_table.get_best(ignore_pending=True)
+            # TODO: Handle ties. Right now it just grabs one at random.
         except ValueError:
-            # No results yet. Select random point.
+            # No finished results yet. Select random point.
             return self.randomsampler.next()
  
         # Try to improve best result.
-        for hp in self.hp_ranges.keys():
-            vals = self.hp_ranges[hp]
+        for key in self.hp_ranges.keys():
+            vals = self.hp_ranges[key]
             for val in vals:
-                # Create new hyperparameter dict with val.
+                # Create new hyperparameter dict with all the same except val.
                 hp_next = hp_best.copy()
-                hp_next[hp] = val
+                hp_next[key] = val
                 if len(results_table.get_matches(hp=hp_next)) == 0:
                     # Haven't tried this hp combination yet.
                     return hp_next
-        return 'stop'  
+
+        # Nothing to submit right now.
+        if len(results_table.get_pending()) > 0:
+            return 'wait'
+        else:
+            return 'stop'  
 
 class Hyperhack(AbstractAlgorithm):
     '''
