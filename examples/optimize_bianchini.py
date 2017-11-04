@@ -67,7 +67,7 @@ def run_example_advanced():
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--sge', help='Use SGE', action='store_false')
+    parser.add_argument('--sge', help='Use SGE', action='store_true')
     parser.add_argument('--max_concurrent',
                         help='Number of concurrent processes',
                         type=int, default=1)
