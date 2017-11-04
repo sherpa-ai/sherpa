@@ -32,6 +32,7 @@ necessary dependencies you can run ```python setup.py``` from the SHERPA folder.
 ### Dependencies
 + Numpy 1.13.1
 + Pandas 0.19.2
++ Drmaa 0.7.8
 + Keras (for examples)
 + GPU Lock (for examples)
 
