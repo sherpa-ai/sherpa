@@ -29,7 +29,7 @@ class AbstractScheduler(object):
         """
         Start subprocess to call filename with hyperparameters hp.
 
-        Overwrites modelfile and historyfile.
+        Overwrites modelfile and metricsfile.
 
         Arguments:
             filename (str): name of file that contains user training code
@@ -241,12 +241,21 @@ class SGEScheduler(AbstractScheduler):
             s.exit()
         except:
             pass
+
+        # NOTE: Currently, we throw exception if job fails, and we don't put
+        # anything in the queue. So Sherpa treats this process as pending, 
+        # and a job is not submitted to take it's place. This is good for 
+        # debugging, but it may be useful to have an option to turn this off.
+        # Instead, the resultstable could treat the job as FAILED.  
+
+        # TODO: Find a way to confirm that this subprocess succeeded.
         # Check that history file now exists.
         if not os.path.isfile(metricsfile):
-            raise Exception('Job {}, model id {} failed. (No metricsfile {}.) \
-                             \nSee SGE output in {}'.format(
+            raise Exception('Job {}, model id {} failed.\
+                             \nNo metricsfile found at {}. \
+                             \nSee SGE output in {}. \
+                             \nWorker process NOT being restarted.'.format(
                              process_id, index, metricsfile, sgeoutfile))
-        # TODO: Find a way to confirm that this subprocess succeeded.
 
         # Let parent process know that this job is done.
         rval = None

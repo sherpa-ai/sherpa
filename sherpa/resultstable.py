@@ -23,43 +23,43 @@ class AbstractResultsTable(object):
     def on_start(self, hp):
         '''
         Called before model training begins. 
-        A new model instance with hyperparameters hp, and a new index is 
+        A new model instance with hyperparameters hp, and a new expid is 
         returned.
         '''
-        # Create new row, return unique index.
-        indices = self.get_indices()
-        if len(indices) == 0:
-            index = 0
+        # Create new row, return unique expid.
+        expids = self.get_expids()
+        if len(expids) == 0:
+            expid = 0
         else:
-            index = max(indices) + 1
-        self._set(index=index, hp=hp, pending=True)
-        return index
+            expid = max(expids) + 1
+        self._set(expid=expid, hp=hp, pending=True)
+        return expid
 
-    def on_finish(self, index, historyfile):
+    def on_finish(self, expid, metricsfile):
         '''
         Update results table. Called by MainLoop.
-        index       = Unique index for a model instantiation.
-        historyfile = Pickle file containing history dictionary.
+        expid       = Unique expid for a model instantiation.
+        metricsfile = Pickle file containing history dictionary.
         '''
-        assert index in self.get_indices(), 'Index {} not in {}'.format(index, self.get_indices)
+        assert expid in self.get_expids(), 'Index {} not in {}'.format(expid, self.get_expids())
         try:
-            with open(historyfile, 'rb') as f:
+            with open(metricsfile, 'rb') as f:
                 history = pkl.load(f)
         except OSError:
             raise ValueError("History file not found at {}. SHERPA requires"
                              "every experiment to store a"
-                             "history file.".format(historyfile))
+                             "history file.".format(metricsfile))
 
         assert self.loss in history, 'Key {} not in {}'.format(self.loss, history.keys())
         epochs_seen   = len(history[self.loss])
         lowest_loss   = self.loss_summary(history[self.loss]) if epochs_seen>0 else np.inf
-        self._set(index=index, loss=lowest_loss, epochs=epochs_seen, historyfile=historyfile, pending=False)
+        self._set(expid=expid, loss=lowest_loss, epochs=epochs_seen, metricsfile=metricsfile, pending=False)
         return 
 
     @abc.abstractmethod
-    def get_indices(self):
+    def get_expids(self):
         ''' 
-        Return list of unique indices in the ResultsTable.
+        Return list of unique experiment ids in the ResultsTable.
         Called by Algorithm.     
         '''
         raise NotImplementedError()
@@ -67,17 +67,17 @@ class AbstractResultsTable(object):
     @abc.abstractmethod
     def get_pending(self):
         '''
-        Return list of unique indices in the ResultsTable that are pending.
+        Return list of unique expids in the ResultsTable that are pending.
         '''
         raise NotImplementedError()
    
     @abc.abstractmethod
     def get_best(self):
-        ''' Return dictionary of info about the best result. '''
+        ''' Return hp dictionary for the best result. '''
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def _set(self, index, loss=None, epochs=None, hp=None, historyfile=None, pending=False):
+    def _set(self, expid, loss=None, epochs=None, hp=None, metricsfile=None, pending=False):
         ''' Set values in results table. '''
         raise NotImplementedError()
     
@@ -105,32 +105,37 @@ class ResultsTable(AbstractResultsTable):
         self.keys = ('ID', 'Loss', 'Epochs', 'History', 'Pending')
         self.dtypes = {'ID': np.int, 'Loss': np.float64, 'Epochs': np.int,
                        'History': np.str, 'Pending': np.bool}
+        self.expid2hp = {}  # Stash hyperparameter dicts in original form.
         try:
             os.makedirs(dir)
         except:
             pass
 
-        # TODO: Have _create_table load existing historyfile data from specified dir.
+        # TODO: Have _create_table load existing metricsfile data from specified dir.
         self._create_table()
 
         # Optional: load existing results into table.
         # Note that this is better than loading results.csv because this 
         # Ensures that the loss and loss_summary are calculated properly.
         if load_results is not None:
-            assert os.path.isdir(load_results), 'Could not find path {}'.format(load_results)
-            hfiles = glob.glob('{}/*_history.pkl'.format(load_results))
-            print('Loading {} history files into results table from {}/'.format(len(hfiles), load_results))
-            for f in hfiles:
-                self.load(historyfile=f)
+            if type(load_results) is str:
+                if not os.path.isdir(load_results):
+                    raise ValueError('load_results must be directory of pkl files or list. Could not find path {}'.format(load_results))
+                files = glob.glob('{}/*.pkl'.format(load_results))
+                print('Loading {} metric files into results table from {}/'.format(len(hfiles), load_results))
+            else:
+                files = load_results
+            for f in files:
+                self.load(metricsfile=f)
         return
     
-    def load(self, historyfile):
-        ''' Load result from historyfile.'''
-        with open(historyfile, 'rb') as f:
+    def load(self, metricsfile):
+        ''' Load result from metricsfile.'''
+        with open(metricsfile, 'rb') as f:
             history = pkl.load(f) 
         hp = history['hp']
-        index = self.on_start(hp=hp)
-        self.on_finish(index=index, historyfile=historyfile)
+        expid = self.on_start(hp=hp)
+        self.on_finish(expid=expid, metricsfile=metricsfile)
 
     def _create_table(self):
         ''' Creates new, empty, table and saves it to disk.'''
@@ -158,23 +163,19 @@ class ResultsTable(AbstractResultsTable):
             self.df = self.df.sort_values(by=['Loss'])
         self.df.to_csv(self.csv_path, index=False)
        
-    def _set(self, index, loss=np.inf, epochs=0, hp=None, historyfile=None, pending=False):
+    def _set(self, expid, loss=np.inf, epochs=0, hp=None, metricsfile=None, pending=False):
         """
-        Sets a value for a model using index as identifier and saves the hyperparameter description of it. 
-        index = Unique identifier for each model instantiation. Used to identify models that are paused/restarted.
+        Sets a value for a model using expid as identifier and saves the hyperparameter description of it. 
+        expid = Unique identifier for each model instantiation. Used to identify models that are paused/restarted.
         loss  = loss value.
         epochs = Total number of epochs that the model has been trained.
-        historyfile = File path.    
+        metricsfile = File path.    
         """
-              
-        if index in self.df.index:
-            # Update previous result.
-            self.df.set_value(index=index, col='Loss', value=loss)
-            self.df.set_value(index=index, col='Epochs', value=epochs)
-            self.df.set_value(index=index, col='History', value=historyfile)
-            self.df.set_value(index=index, col='Pending', value=pending)
-        else:
-            assert hp, "Trying to add row but no Hyperparameters provided."
+        if len(self.df) == 0 or expid not in self.df['ID']:
+            if hp is None:
+                raise ValueError('Must provide hyperparameters for any new row.') 
+            # Save raw hp dict.
+            self.expid2hp[expid] = hp
             # Convert hyperparameter dict into resultstable friendly form. 
             hp = copy.deepcopy(hp)
             for key in hp:
@@ -184,31 +185,47 @@ class ResultsTable(AbstractResultsTable):
                 if key not in self.dtypes:
                     self.dtypes[key] = type(hp[key])
             # New line.
-            new_dict = {'ID': index,
+            new_dict = {'ID': expid,
                         'Loss': loss,
                         'Epochs': epochs,
-                        'History': historyfile,
+                        'History': metricsfile,
                         'Pending': pending}
             new_dict.update(hp)
-            new_line = pd.DataFrame(new_dict, index=[index])
+            new_line = pd.DataFrame(new_dict, index=[expid])
             self.df = self.df.append(new_line)
+        else:
+            # Update previous result.
+            ridx = self.df['ID'] == expid
+            assert len(self.df.loc[ridx]) == 1, ridx
+            self.df.loc[ridx, 'Loss']    = loss
+            self.df.loc[ridx, 'Epochs']  = epochs
+            self.df.loc[ridx, 'History'] = metricsfile
+            self.df.loc[ridx, 'Pending'] = pending
+            
         self._save()
     
-    def get_indices(self, hp=None):
-        if hp is None:
-            return [i for i in self.df.index]
+    def get_expids(self):
+        if len(self.df) > 0:
+            return [i for i in self.df['ID']]
         else:
-            return [i for i in self.df[self.df['HP'] == hp].index]
+            return []
+    
+    def get_pending(self):
+        if len(self.df) > 0:
+            return [i for i in self.df['ID'] if self.df['Pending'].iloc[i] == True]
+        else:
+            return []
 
-    def get_k_lowest(self, k, ignore_pending=True):
+
+    def get_k_lowest(self, k=1, ignore_pending=True):
         """
-        Gets the k models with lowest global loss.
+        Gets the k models with lowest loss.
 
         # Args:
              k: Integer, number of id's to return
-
+            
         # Returns:
-             list with model ids
+             List of experiment ids.
 
         TODO: add more options, e.g. ignore repeats.
         """
@@ -218,191 +235,46 @@ class ResultsTable(AbstractResultsTable):
         if len(data) < k:
             raise ValueError('Tried to get top {} results but only found {} results.'.format(k, len(data)))
         assert len(data.index) >= k, len(data.index)
-        data = data.iloc[0:k]
-        return data 
+        expid_best = list(data.iloc[0:k]['ID'])
+        return expid_best
 
-    def get_best(self, ignore_pending=True):
-        ''' Return values for best model so far.'''    
-        data = self.get_k_lowest(k=1, ignore_pending=ignore_pending)
-        bestdict = dict(zip(self.keys, [data[k].iloc[0] for k in self.keys]))
-        return bestdict
- 
-    def update_hist2loss(self, hist2loss):
-        ''' 
-        Change hist2loss function, then update csv from historyfiles.
-        '''
-        self.hist2loss = hist2loss
-        for index in self.df.index:
-            historyfile = self.df.iloc[index]['History']
-            self.update(index, historyfile)
-        
-                    
-
-class ResultsTableOld(AbstractResultsTable):
-    """
-    DEPRECATED
-    
-    Handles input/output of an underlying hard-disk stored .csv that stores the results
-    """
-    def __init__(self, dir='./', loss='loss', overwrite=False):
-        super(ResultsTable, self).__init__(dir=dir, loss=loss)
-        self.keys = ('Run', 'ID', 'Hparams', 'Loss', 'Epochs')
-        if overwrite:
-            df = self._create_table()
-            self._save(df)
-        return
-
-    def get_k_lowest_from_run(self, k, run):
+    def get_best(self, ignore_pending=True, k=None):
         """
-        Gets the k models with lowest loss from a specific run. Note this is not necesarily the global minimum
-        
+        Return hyperparameters of best experiment(s) so far.
+
         # Args:
-            k: Integer, number of id's to return
-            run: Integer, refers to hyper-band run
+            ignore_pending: Ignore any pending results.
+            k: If None, return best hp dict. If k is int, return list.
 
         # Returns:
-            list of id's from this run
-        """
-        df = self.get_table()
-        df_run = df[df['Run'] == run]
-        sorted_df_run = df_run.sort_values(by='Loss', ascending=True)
-        return list(sorted_df_run.index[0:k])
-
-    def sample_k_ids_from_run(self, k, run, temperature=1.):
-        """
-        Samples k models with  probability proportional to inverse loss
-        from a specific run. Note this is not necesarily the global minimum
-
-        # Args:
-            k: Integer, number of id's to return
-            run: Integer, refers to hyper-band run
-
-        # Returns:
-            list of id's from this run
-        """
-        df = self.get_table()
-        df_run = df[df['Run'] == run]
-        # p = 1/df_run['Loss']
-        p = np.exp(-df_run['Loss']/temperature)
-        sampled_ids = np.random.choice(df_run.index, size=k, replace=False,
-                                       p=p/np.sum(p))
-        return list(sampled_ids)
-
-
-    def get_k_lowest(self, k):
-        """
-        Gets the k models with lowest global loss.
-
-        # Args:
-             k: Integer, number of id's to return
-
-        # Returns:
-             list with run-id strings to identify models 
-        """
-        df = self.get_table()
-        sorted_df_run = df.sort_values(by='Loss', ascending=True)
-        ids = list(sorted_df_run['ID'][0:k])
-        runs = list(sorted_df_run['Run'][0:k])
-        id_run = []
-        for row_id in zip(ids, runs):
-            id_run.append(self._get_idx(row_id[0], row_id[1]))
-        return id_run
-
-    def set(self, run_id, loss, epochs, hp=None):
-        """
-        Sets a value for a model using (run, id) as identifier and saves the hyperparameter description of it. 
-        
-        # Args:
-            run_id: Tuple, contains run and id numbers
-            loss: float, e.g. validation loss value to set in table
-            hp:
-
-
-        """
-        df = self.get_table()
-        run, id = [int(num) for num in run_id.split('_')]
-        if hp:
-            new_line = pd.DataFrame({key: [val] for key, val in zip(self.keys, (run, id, hp, loss, epochs))},
-                                    index=[run_id])
-            df = df.append(new_line)
+            Dict of hp, or list of dicts.
+        """    
+        if k is None:
+            expid_best = self.get_k_lowest(k=1, ignore_pending=ignore_pending)
+            return self.expid2hp[expid_best[0]]
         else:
-            df.set_value(index=run_id, col='Loss', value=loss)
-            df.set_value(index=run_id, col='Epochs', value=epochs)
-        self._save(df)
+            expid_best = self.get_k_lowest(k=k, ignore_pending=ignore_pending)
+            return [self.expid2hp[expid_best[i]] for i in range(k)]
 
-    def set_value(self, run_id, col, value):
-        df = self.get_table()
-        df.set_value(index=run_id, col=col, value=value)
-        self._save(df)
-
-    def _get_idx(self, run, id):
+    def get_matches(self, hp):
         """
-        Returns the run, id in a string with the format to be used in the table
-        
-        # Args 
-            run: Integer, run number
-            id: Integer, id number within the run
-
-        # Returns:
-           String with correct format for identification
-        """
-        return '{}_{}'.format(run, id)
-
-    def _create_table(self):
-        """
-        Initializes a pandas dataframe with the set of keys of this object
-        
-        # Returns: 
-            pandas dataframe
-
-        """
-        return pd.DataFrame(columns=self.keys)
-
-    def get_table(self):
-        """
-        Loads table from disk and returns it.
-        # Returns: pandas df
-
-        """
-        return pd.read_csv(self.csv_path, index_col=0, dtype={'Run': np.int32,
-                                                     'Epochs': np.int32,
-                                                     'ID': np.int32,
-                                                     'Loss': np.float64,
-                                                     'Hparams': np.dtype('U')})
-
-    def get(self, run_id, parameter=None):
-        """
-        Returns parameter value of a model from the table
-        Args:
-            run_id: tuple, (run, id)
-            parameter: string, name of the parameter to be returned
-
-        Returns: validation loss 
-
-        """
-        df = self.get_table()
-        assert parameter is not None, "you must specify a parameter to get" \
-                                      "from the resultstable keys"
-        assert parameter in self.keys, \
-            'parameter must match with one of the keys of resultstable,' \
-            'found {}'.format(parameter)
-        return df.ix[run_id][parameter]
-
-    def _save(self, df):
-        """
-        Updates stored csv
+        Return expids of experiments that match hyperparameters,
+        including those for which Pending=True. Note that we use 
+        expid2hp instead of the dataframe because the complex 
+        hyperparameters are transformed into strings for the df.
         # Args:
-            df: dataframe
-
+            hp: dict of hyperparameters. Possibly not complete.
+        # Returns:
+            List of expids that have these hyperparameters.
         """
-        df.to_csv(self.csv_path)
+        matches = []
+        for expid, hpcombo in self.expid2hp.items():
+            match = True
+            for k,v in hp.items():
+                if k not in hpcombo or hpcombo[k] != v:
+                    match = False
+                    break
+            if match:
+                matches.append(expid)
+        return matches
 
-    def get_hp_df(self, as_design_matrix=False):
-        df = self.get_table()
-        hparam_df = pd.DataFrame([eval(item) for item in df['Hparams']])
-        return hparam_df if not as_design_matrix or hparam_df.empty else \
-            pd.get_dummies(hparam_df, drop_first=True)
-
-    def get_column(self, key='Loss'):
-        df = self.get_table()
-        return df[key]
