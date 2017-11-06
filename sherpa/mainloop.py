@@ -86,7 +86,7 @@ def run_plotting_process(output_dir, port=0):
         """
         sys.stdout = open(os.devnull, 'w')
         os.chdir(target_dir)
-        server = HTTPServer(('localhost', port), PlotHandler)
+        server = HTTPServer(('', port), PlotHandler)
         thread = threading.Thread(target=server.serve_forever)
         thread.daemon = True
         thread.start()
