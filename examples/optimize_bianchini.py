@@ -2,7 +2,7 @@ import os
 import argparse
 import sherpa
 from sherpa.hyperparameters import DistributionHyperparameter as Hyperparameter
-from sherpa.scheduler import LocalScheduler,SGEScheduler
+from sherpa.schedulers import LocalScheduler,SGEScheduler
 
 def run_example(FLAGS):
     '''

@@ -1,7 +1,7 @@
 import re
 import sherpa
 from sherpa.hyperparameters import DistributionHyperparameter as Hyperparameter
-from sherpa.scheduler import LocalScheduler,SGEScheduler
+from sherpa.schedulers import LocalScheduler,SGEScheduler
 
 
 # from keras
@@ -166,10 +166,10 @@ text += "#### sherpa.optimize"
 text += process_function_docstring(sherpa.optimize.__doc__)
 text += "\n"
 text += "#### sherpa.schedulers.LocalScheduler"
-text += process_function_docstring(sherpa.scheduler.LocalScheduler.__doc__)
+text += process_function_docstring(sherpa.schedulers.LocalScheduler.__doc__)
 text += "\n"
 text += "#### sherpa.schedulers.SGEScheduler"
-text += process_function_docstring(sherpa.scheduler.SGEScheduler.__doc__)
+text += process_function_docstring(sherpa.schedulers.SGEScheduler.__doc__)
 
 text += "\n"
 text += "\n"
