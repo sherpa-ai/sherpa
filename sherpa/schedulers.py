@@ -27,10 +27,10 @@ class Scheduler(object):
         """
         pass
 
-    def get_status(self, process_ids):
+    def get_status(self, job_ids):
         """
         # Returns:
-            (dict) of process_id keys to respective status
+            (dict) of job_id keys to respective status
         """
         pass
 
@@ -81,11 +81,11 @@ class SGEScheduler(Scheduler):
         assert ' -cwd' not in submit_command
 
         # Submit using subprocess so we can get SGE process ID.
-        process_id = self._submit_job(submit_command, job_script)
+        job_id = self._submit_job(submit_command, job_script)
 
-        logger.info('\t{}: job submitted'.format(process_id))
+        logger.info('\t{}: job submitted'.format(job_id))
 
-        return process_id
+        return job_id
 
     @staticmethod
     def _submit_job(submit_command, run_command):
@@ -109,28 +109,41 @@ class SGEScheduler(Scheduler):
         # Parse out the process id from text
         match = re.search(output_regexp, output)
         if match:
-            return int(match.group(1))
+            return match.group(1)
         else:
             sys.stderr.write(output)
             return None
 
-    def get_status(self, process_ids):
+    def get_status(self, job_ids):
         """
         # Arguments:
-            process_ids (list[str]): list of SGE process IDs.
+            job_ids (list[str]): list of SGE process IDs.
 
         # Returns:
             (list[?]) list of statuses.
         """
-        statuses = {pid: None for pid in process_ids}
+        statuses = {pid: None for pid in job_ids}
         with drmaa.Session() as s:
-            for pid in process_ids:
+            for pid in job_ids:
                 try:
                     status = s.jobStatus(str(pid))
                 except drmaa.errors.InvalidJobException:
                     status = 'failed/done'
                 statuses[pid] = status
         return statuses
+
+    @staticmethod
+    def kill_job(job_id):
+        """
+        Kills a job submitted to SGE.
+
+        # Arguments:
+            job_id (str): the SGE ID of the job.
+        """
+        logger.info("Killing job {}".format(job_id))
+        with drmaa.Session() as s:
+            s.control(job_id, drmaa.JobControlAction.TERMINATE)
+        return
 
 # SGE codes
 # TODO: make Sherpa enumerable with states and code into that

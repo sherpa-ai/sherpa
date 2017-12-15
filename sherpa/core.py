@@ -2,6 +2,10 @@ import numpy
 import pandas
 import collections
 import time
+import multiprocessing
+import logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 class Trial(object):
@@ -31,12 +35,20 @@ class Study(object):
         lower_is_better (bool): whether lower objective values are better.
 
     """
-    def __init__(self, parameters, algorithm, stopping_rule, lower_is_better):
+    def __init__(self, parameters, algorithm, stopping_rule, lower_is_better,
+                 dashboard_port=None):
         self.parameters = parameters
         self.algorithm = algorithm
         self.stopping_rule = stopping_rule
         self.lower_is_better = lower_is_better
         self.results = pandas.DataFrame()
+        self.num_trials = 0
+        # if dashboard_port:
+        #     self.dashboard_process = multiprocessing.Process(target=app.run,
+        #                                                      kwargs={
+        #                                                          'debug': True})
+        #     self.dashboard_process.daemon = True
+        #     self.dashboard_process.start()
 
     def add_observation(self, trial, iteration, objective, context):
         """
@@ -62,7 +74,8 @@ class Study(object):
 
         # Use ordered dict to maintain order
         row = collections.OrderedDict([(key, [value]) for key, value in row])
-        self.results = self.results.append(pandas.DataFrame.from_dict(row))
+        self.results = self.results.append(pandas.DataFrame.from_dict(row),
+                                           ignore_index=True)
 
     def finalize(self, trial, status):
         """
@@ -75,7 +88,7 @@ class Study(object):
         # Find best row as minimum or maximum objective
         best_idx = (rows['Objective'].idxmin() if self.lower_is_better
                     else rows['Objective'].idxmax())
-        best_row = rows[best_idx]
+        best_row = rows.ix[best_idx].copy()
 
         # Set status and append
         best_row['Status'] = status
@@ -86,7 +99,10 @@ class Study(object):
         # Returns:
             (dict) a parameter suggestion.
         """
-        return self.algorithm.get_suggestion(self.parameters, self.results)
+        p = self.algorithm.get_suggestion(self.parameters, self.results)
+        self.num_trials += 1
+        t = Trial(id=self.num_trials, parameters=p)
+        return t
 
     def should_trial_stop(self, trial):
         """
@@ -180,15 +196,12 @@ class Runner(object):
             time.sleep(10)
 
 
-
-
-
 class Parameter(object):
     """
     Base class for a parameter.
     """
     @staticmethod
-    def from_config(config):
+    def from_dict(config):
         if config.get('type') == 'continuous':
             return Continuous(name=config.get('name'),
                               range=config.get('range'),
@@ -198,8 +211,8 @@ class Parameter(object):
                             range=config.get('range'),
                             scale=config.get('scale', 'linear'))
         elif config.get('type') == 'choice':
-            return Discrete(name=config.get('name'),
-                            range=config.get('range'))
+            return Choice(name=config.get('name'),
+                          range=config.get('range'))
         else:
             raise ValueError("Got unexpected value for type: {}".format(
                 config.get('type')))
@@ -216,10 +229,10 @@ class Continuous(Parameter):
 
     def sample(self):
         if self.scale == 'log':
-            return 10**numpy.random.uniform(low=numpy.log10(range[0]),
-                                            high=numpy.log10(range[1]))
+            return 10**numpy.random.uniform(low=numpy.log10(self.range[0]),
+                                            high=numpy.log10(self.range[1]))
         else:
-            return numpy.random.uniform(low=range[0], high=range[1])
+            return numpy.random.uniform(low=self.range[0], high=self.range[1])
 
 
 class Discrete(Parameter):
@@ -233,10 +246,10 @@ class Discrete(Parameter):
 
     def sample(self):
         if self.scale == 'log':
-            return 10**numpy.random.randint(low=numpy.log10(range[0]),
-                                            high=numpy.log10(range[1]))
+            return 10**numpy.random.randint(low=numpy.log10(self.range[0]),
+                                            high=numpy.log10(self.range[1]))
         else:
-            return numpy.random.randint(low=range[0], high=range[1])
+            return numpy.random.randint(low=self.range[0], high=self.range[1])
 
 
 class Choice(Parameter):

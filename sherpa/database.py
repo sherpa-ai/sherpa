@@ -1,6 +1,8 @@
 import pymongo
 from pymongo import MongoClient
-import core
+from . import core
+import subprocess
+import atexit
 
 
 class Database(object):
@@ -14,15 +16,23 @@ class Database(object):
         dbpath (str): the path where Mongo-DB stores its files.
         port (int): the port on which the Mongo-DB should run.
     """
-    def __init__(self):
+    def __init__(self, dir):
         self.client = MongoClient()
         self.db = self.client.sherpa
         self.collected_results = []
+        self.mongo_process = None
+        self.dir = dir
+
+    def exit_handler(self):
+        print('Closing Process!')
+        self.mongo_process.terminate()
 
     def start(self):
         """
         Runs the DB in a sub-process.
         """
+        self.mongo_process = subprocess.Popen(['mongod', '--dbpath', self.dir])
+        atexit.register(self.exit_handler)
 
     def get_new_results(self):
         """
@@ -36,6 +46,9 @@ class Database(object):
                 self.collected_results.append(result)
         return new_results
 
+    def __del__(self):
+        self.exit_handler()
+
     def enqueue_trial(self, trial):
         """
         Puts a new trial in the queue for workers to pop off.
@@ -47,7 +60,7 @@ class Database(object):
         print(t_id)
 
 
-class SherpaClient(object):
+class Client(object):
     def __init__(self, port):
         self.client = MongoClient('localhost', port)
         self.db = self.client.sherpa
@@ -62,7 +75,7 @@ def register_with_study(port=27017):
     # Arguments:
         port (int): port that database is running on.
     """
-    return SherpaClient(port)
+    return Client(port)
 
 
 def get_trial(client):
