@@ -2,7 +2,6 @@ import pymongo
 from pymongo import MongoClient
 from . import core
 import subprocess
-import atexit
 
 
 class Database(object):
@@ -23,8 +22,8 @@ class Database(object):
         self.mongo_process = None
         self.dir = dir
 
-    def exit_handler(self):
-        print('Closing Process!')
+    def close(self):
+        print('Closing MongoDB!')
         self.mongo_process.terminate()
 
     def start(self):
@@ -32,7 +31,6 @@ class Database(object):
         Runs the DB in a sub-process.
         """
         self.mongo_process = subprocess.Popen(['mongod', '--dbpath', self.dir])
-        atexit.register(self.exit_handler)
 
     def get_new_results(self):
         """
@@ -41,13 +39,11 @@ class Database(object):
         new_results = []
         for entry in self.db.results.find():
             result = entry
+            result.pop('_id')
             if result not in self.collected_results:
                 new_results.append(result)
                 self.collected_results.append(result)
         return new_results
-
-    def __del__(self):
-        self.exit_handler()
 
     def enqueue_trial(self, trial):
         """
@@ -59,14 +55,18 @@ class Database(object):
         t_id = self.db.trials.insert_one(trial).inserted_id
         print(t_id)
 
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def __del__(self):
+        self.close()
+
 
 class Client(object):
-    def __init__(self, port):
-        self.client = MongoClient('localhost', port)
-        self.db = self.client.sherpa
-
-
-def register_with_study(port=27017):
     """
     Registers a session with a Sherpa Study via the port of the database.
 
@@ -75,44 +75,44 @@ def register_with_study(port=27017):
     # Arguments:
         port (int): port that database is running on.
     """
-    return Client(port)
+    def __init__(self, port=27017, **kwargs):
+        self.client = MongoClient('localhost', port, **kwargs)
+        self.db = self.client.sherpa
 
+    def get_trial(self):
+        """
+        Returns the next trial from a Sherpa Study.
 
-def get_trial(client):
-    """
-    Returns the next trial from a Sherpa Study.
+        # Arguments:
+            client (sherpa.SherpaClient): the client obtained from registering with
+                a study.
 
-    # Arguments:
-        client (sherpa.SherpaClient): the client obtained from registering with
-            a study.
+        # Returns:
+            (sherpa.Trial)
+        """
+        g = (entry for entry in self.db.trials.find({'used': False}))
+        try:
+            t = next(g)
+        except StopIteration:
+            print("No Trial available")
+            raise
+        self.db.trials.update_one({'_id': t.get('_id')}, {'$set': {'used': True}})
+        return core.Trial(id=t.get('id'), parameters=t.get('parameters'))
 
-    # Returns:
-        (sherpa.Trial)
-    """
-    g = (entry for entry in client.db.trials.find({'used': False}))
-    try:
-        t = next(g)
-    except StopIteration:
-        print("No Trial available")
-        return
-    client.db.trials.update_one({'_id': t.get('_id')}, {'$set': {'used': True}})
-    return core.Trial(id=t.get('id'), parameters=t.get('parameters'))
+    def send_metrics(self, trial, iteration, objective, context):
+        """
+        Sends metrics for a trial to database.
 
-
-def send_metrics(client, trial, iteration, objective, context):
-    """
-    Sends metrics for a trial to database.
-
-    # Arguments:
-        client (sherpa.SherpaClient): client to the database.
-        trial (sherpa.Trial): trial to send metrics for.
-        iteration (int): the iteration e.g. epoch the metrics are for.
-        objective (float): the objective value.
-        context (dict): other metric-values.
-    """
-    result = {'parameters': trial.parameters,
-              'trial_id': trial.id,
-              'objective': objective,
-              'iteration': iteration,
-              'context': context}
-    client.db.metrics.insert_one(result)
+        # Arguments:
+            client (sherpa.SherpaClient): client to the database.
+            trial (sherpa.Trial): trial to send metrics for.
+            iteration (int): the iteration e.g. epoch the metrics are for.
+            objective (float): the objective value.
+            context (dict): other metric-values.
+        """
+        result = {'parameters': trial.parameters,
+                  'trial_id': trial.id,
+                  'objective': objective,
+                  'iteration': iteration,
+                  'context': context}
+        self.db.results.insert_one(result)

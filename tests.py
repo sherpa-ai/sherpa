@@ -1,3 +1,4 @@
+import os
 import pytest
 import sherpa
 import pandas
@@ -6,6 +7,8 @@ import unittest.mock as mock
 import logging
 import tempfile
 import shutil
+import pymongo
+import time
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -94,33 +97,47 @@ def test_study():
 
 
 def test_database(test_dir, test_trial):
-    db = sherpa.Database(test_dir)
+    with sherpa.Database(test_dir) as db:
+        db.enqueue_trial(test_trial)
 
-    db.start()
+        client = sherpa.Client(port=27017, connectTimeoutMS=2000)
 
-    db.enqueue_trial(test_trial)
+        t = client.get_trial()
+        assert t.id == 1
+        assert t.parameters == {'a': 1, 'b': 2}
 
-    client = sherpa.Client(port=27017)
+        client.send_metrics(trial=t, iteration=1,
+                            objective=0.1, context={'other_metric': 0.2})
 
-    t = sherpa.get_trial(client)
-    assert t.id == 1
-    assert t.parameters == {'a': 1, 'b': 2}
+        new_results = db.get_new_results()
+        logger.debug(new_results)
+        assert new_results == [{'context': {'other_metric': 0.2},
+                                'iteration': 1,
+                                'objective': 0.1,
+                                'parameters': {'a': 1, 'b': 2},
+                                'trial_id': 1}]
 
-    sherpa.send_metrics(client=client, trial=t, iteration=1,
-                        objective=0.1, context={'other_metric': 0.2})
-
-    new_results = db.get_new_results()
-    logger.debug(new_results)
-    # assert new_results == [{}]
-
-    del db
-
-    client.get_trial()
-
+    # with pytest.raises(pymongo.errors.ServerSelectionTimeoutError):
+    #     client.get_trial()
 
 
-if __name__ == '__main__':
-    # test_trial()
-    # test_parameters()
-    # test_study()
-    test_database(test_dir(), test_trial())
+def test_sge_scheduler(test_dir):
+    if not os.environ.get("HOSTNAME") == "nimbus":
+        return
+
+    with open(os.path.join(test_dir, "sleeper.sh"), 'w') as f:
+        f.write("sleep 10s\n")
+
+    env = '/home/lhertel/profiles/main.profile'
+    sge_options = '-N sherpaMNIST -P arcus.p -q arcus-ubuntu.q -l hostname=\'(arcus-5|arcus-6|arcus-8|arcus-9)\''
+
+    s = sherpa.SGEScheduler(environment=env,
+                            submit_options=sge_options)
+
+    job_id = s.submit_job("sh {}/sleeper.sh".format(test_dir))
+
+    assert s.get_status([job_id]) != 'failed/done'
+
+    time.sleep(10)
+
+    assert s.get_status([job_id]) == 'failed/done'

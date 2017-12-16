@@ -49,10 +49,7 @@ class SGEScheduler(Scheduler):
 
     def submit_job(self, command):
         """
-        Submit experiment to SGE and return when finished.
-
-        Process waits for SGE job to complete, then puts to queue. However,
-        it doesn't capture the return value.
+        Submit experiment to SGE.
         """
 
         # Create temp directory.
