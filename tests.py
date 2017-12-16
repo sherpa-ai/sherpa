@@ -3,7 +3,10 @@ import pytest
 import sherpa
 import pandas
 import collections
-import unittest.mock as mock
+try:
+    import unittest.mock as mock
+except ImportError:
+    import mock
 import logging
 import tempfile
 import shutil
