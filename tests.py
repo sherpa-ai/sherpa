@@ -3,7 +3,10 @@ import pytest
 import sherpa
 import pandas
 import collections
-import unittest.mock as mock
+try:
+    import unittest.mock as mock
+except ImportError:
+    import mock
 import logging
 import tempfile
 import shutil
@@ -97,6 +100,7 @@ def test_study():
 
 
 def test_database(test_dir, test_trial):
+    logger.debug(test_dir)
     with sherpa.Database(test_dir) as db:
         db.enqueue_trial(test_trial)
 
