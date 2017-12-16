@@ -1,5 +1,4 @@
 import subprocess
-import drmaa
 import re
 import sys
 import os
@@ -43,6 +42,7 @@ class SGEScheduler(Scheduler):
     distinguish between a failed and a completed job.
     """
     def __init__(self, submit_options, environment):
+        import drmaa
         self.count = 0
         self.submit_options = submit_options
         self.environment = environment
@@ -142,16 +142,16 @@ class SGEScheduler(Scheduler):
             s.control(job_id, drmaa.JobControlAction.TERMINATE)
         return
 
-# SGE codes
-# TODO: make Sherpa enumerable with states and code into that
-decodestatus = {
-    drmaa.JobState.UNDETERMINED: 'process status cannot be determined',
-    drmaa.JobState.QUEUED_ACTIVE: 'job is queued and active',
-    drmaa.JobState.SYSTEM_ON_HOLD: 'job is queued and in system hold',
-    drmaa.JobState.USER_ON_HOLD: 'job is queued and in user hold',
-    drmaa.JobState.USER_SYSTEM_ON_HOLD: 'job is queued and in user and system hold',
-    drmaa.JobState.RUNNING: 'job is running',
-    drmaa.JobState.SYSTEM_SUSPENDED: 'job is system suspended',
-    drmaa.JobState.USER_SUSPENDED: 'job is user suspended',
-    drmaa.JobState.DONE: 'job finished normally',
-    drmaa.JobState.FAILED: 'job finished, but failed'}
+# # SGE codes
+# # TODO: make Sherpa enumerable with states and code into that
+# decodestatus = {
+#     drmaa.JobState.UNDETERMINED: 'process status cannot be determined',
+#     drmaa.JobState.QUEUED_ACTIVE: 'job is queued and active',
+#     drmaa.JobState.SYSTEM_ON_HOLD: 'job is queued and in system hold',
+#     drmaa.JobState.USER_ON_HOLD: 'job is queued and in user hold',
+#     drmaa.JobState.USER_SYSTEM_ON_HOLD: 'job is queued and in user and system hold',
+#     drmaa.JobState.RUNNING: 'job is running',
+#     drmaa.JobState.SYSTEM_SUSPENDED: 'job is system suspended',
+#     drmaa.JobState.USER_SUSPENDED: 'job is user suspended',
+#     drmaa.JobState.DONE: 'job finished normally',
+#     drmaa.JobState.FAILED: 'job finished, but failed'}

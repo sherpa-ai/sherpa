@@ -100,6 +100,7 @@ def test_study():
 
 
 def test_database(test_dir, test_trial):
+    logger.debug(test_dir)
     with sherpa.Database(test_dir) as db:
         db.enqueue_trial(test_trial)
 
