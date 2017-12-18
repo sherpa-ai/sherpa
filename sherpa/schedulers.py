@@ -3,6 +3,7 @@ import re
 import sys
 import os
 import logging
+import drmaa
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,6 @@ class SGEScheduler(Scheduler):
     distinguish between a failed and a completed job.
     """
     def __init__(self, submit_options, environment, dir):
-        import drmaa
         self.count = 0
         self.submit_options = submit_options
         self.environment = environment
@@ -53,7 +53,7 @@ class SGEScheduler(Scheduler):
         Submit experiment to SGE.
         """
 
-        # Create output directory.
+        # Create temp directory.
         outdir = os.path.join(self.dir, 'sge')
         if not os.path.isdir(outdir):
             os.mkdir(outdir)
@@ -82,6 +82,7 @@ class SGEScheduler(Scheduler):
         job_id = self._submit_job(submit_command, job_script)
 
         logger.info('\t{}: job submitted'.format(job_id))
+        self.count += 1
 
         return job_id
 
@@ -102,6 +103,7 @@ class SGEScheduler(Scheduler):
                                    shell=True,
                                    universal_newlines=True)
         output, std_err = process.communicate(input=run_command)
+        # output, std_err = process.communicate()
         process.stdin.close()
         output_regexp = r'Your job (\d+)'
         # Parse out the process id from text
@@ -126,7 +128,7 @@ class SGEScheduler(Scheduler):
                 try:
                     status = s.jobStatus(str(pid))
                 except drmaa.errors.InvalidJobException:
-                    status = 'failed/done'
+                    status = 'finished'
                 statuses[pid] = status
         return statuses
 

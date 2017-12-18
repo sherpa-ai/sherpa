@@ -3,6 +3,7 @@ import pytest
 import sherpa
 import pandas
 import collections
+
 try:
     import unittest.mock as mock
 except ImportError:
@@ -12,6 +13,7 @@ import tempfile
 import shutil
 import pymongo
 import time
+
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -121,19 +123,22 @@ def test_database(test_dir, test_trial):
                                 'parameters': {'a': 1, 'b': 2},
                                 'trial_id': 1}]
 
-    # with pytest.raises(pymongo.errors.ServerSelectionTimeoutError):
-    #     client.get_trial()
+        # with pytest.raises(pymongo.errors.ServerSelectionTimeoutError):
+        #     client.get_trial()
 
 
 def test_sge_scheduler(test_dir):
-    if not os.environ.get("HOSTNAME") == "nimbus":
-        return
+    test_dir = tempfile.mkdtemp()
+
+    # if not os.environ.get("HOSTNAME") == "nimbus":
+    #     return
+
 
     with open(os.path.join(test_dir, "sleeper.sh"), 'w') as f:
         f.write("sleep 10s\n")
 
     env = '/home/lhertel/profiles/main.profile'
-    sge_options = '-N sherpaMNIST -P arcus.p -q arcus-ubuntu.q -l hostname=\'(arcus-5|arcus-6|arcus-8|arcus-9)\''
+    sge_options = '-N sherpaSchedTest -P arcus.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-8|arcus-9)\''
 
     s = sherpa.SGEScheduler(environment=env,
                             submit_options=sge_options,
@@ -141,8 +146,8 @@ def test_sge_scheduler(test_dir):
 
     job_id = s.submit_job("sh {}/sleeper.sh".format(test_dir))
 
-    assert s.get_status([job_id]) != 'failed/done'
+    assert s.get_status([job_id]) != 'finished'
 
     time.sleep(10)
 
-    assert s.get_status([job_id]) == 'failed/done'
+    assert s.get_status([job_id]) == 'finished'
