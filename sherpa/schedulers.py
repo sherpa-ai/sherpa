@@ -41,18 +41,19 @@ class SGEScheduler(Scheduler):
     Allows to submit jobs to SGE and check on their status. Note: cannot
     distinguish between a failed and a completed job.
     """
-    def __init__(self, submit_options, environment):
+    def __init__(self, submit_options, environment, dir):
         import drmaa
         self.count = 0
         self.submit_options = submit_options
         self.environment = environment
+        self.dir = dir
 
     def submit_job(self, command):
         """
         Submit experiment to SGE.
         """
 
-        # Create temp directory.
+        # Create output directory.
         outdir = os.path.join(self.dir, 'sge')
         if not os.path.isdir(outdir):
             os.mkdir(outdir)

@@ -136,7 +136,8 @@ def test_sge_scheduler(test_dir):
     sge_options = '-N sherpaMNIST -P arcus.p -q arcus-ubuntu.q -l hostname=\'(arcus-5|arcus-6|arcus-8|arcus-9)\''
 
     s = sherpa.SGEScheduler(environment=env,
-                            submit_options=sge_options)
+                            submit_options=sge_options,
+                            dir=test_dir)
 
     job_id = s.submit_job("sh {}/sleeper.sh".format(test_dir))
 
