@@ -114,7 +114,7 @@ class SGEScheduler(Scheduler):
             sys.stderr.write(output)
             return None
 
-    def get_status(self, job_ids):
+    def get_status(self, job_id):
         """
         # Arguments:
             job_ids (list[str]): list of SGE process IDs.
@@ -122,15 +122,12 @@ class SGEScheduler(Scheduler):
         # Returns:
             (list[?]) list of statuses.
         """
-        statuses = {pid: None for pid in job_ids}
         with drmaa.Session() as s:
-            for pid in job_ids:
-                try:
-                    status = s.jobStatus(str(pid))
-                except drmaa.errors.InvalidJobException:
-                    status = 'finished'
-                statuses[pid] = status
-        return statuses
+            try:
+                status = s.jobStatus(str(job_id))
+            except drmaa.errors.InvalidJobException:
+                status = 'finished'
+        return status
 
     @staticmethod
     def kill_job(job_id):

@@ -3,7 +3,6 @@ import pytest
 import sherpa
 import pandas
 import collections
-
 try:
     import unittest.mock as mock
 except ImportError:
@@ -11,7 +10,6 @@ except ImportError:
 import logging
 import tempfile
 import shutil
-import pymongo
 import time
 
 logging.basicConfig(level=logging.DEBUG)
@@ -126,13 +124,13 @@ def test_database(test_dir, test_trial):
 
 
 def test_sge_scheduler(test_dir):
-    test_dir = tempfile.mkdtemp()
+    test_dir = tempfile.mkdtemp(dir=".")
 
     if not os.environ.get("HOSTNAME") == "nimbus":
         return
 
     with open(os.path.join(test_dir, "sleeper.sh"), 'w') as f:
-        f.write("sleep 10s\n")
+        f.write("#!/bin/bash\necho 'Hello world'\nsleep 5s\necho 'Bye world!'\n")
 
     env = '/home/lhertel/profiles/main.profile'
     sge_options = '-N sherpaSchedTest -P arcus.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-8|arcus-9)\''
@@ -148,6 +146,8 @@ def test_sge_scheduler(test_dir):
     time.sleep(10)
 
     assert s.get_status([job_id]) == 'finished'
+
+    shutil.rmtree(test_dir)
 
 
 def get_test_study():
@@ -247,12 +247,28 @@ def test_stop_bad_performers():
     r.update_active_trials.assert_called_once()
 
 
+def test_submit_new_trials():
+    mock_scheduler = mock.MagicMock()
+    mock_scheduler.submit.side_effect = ['job1', 'job2', 'job3']
+    mock_study = mock.MagicMock()
+    mock_study.get_suggestion.side_effect = [sherpa.Trial(1, None),
+                                             sherpa.Trial(2, None),
+                                             sherpa.Trial(3, None)]
 
+    r = sherpa.Runner(study=mock_study,
+                      scheduler=mock_scheduler,
+                      database=mock.MagicMock(),
+                      max_concurrent=3,
+                      command="python test.py")
 
+    r.submit_new_trials()
 
-
-
+    mock_scheduler.submit.has_calls([mock.call("python test.py"),
+                                     mock.call("python test.py"),
+                                     mock.call("python test.py")])
+    assert len(r.active_trials) == 3
+    assert len(r.all_trials) == 3
 
 
 if __name__ == '__main__':
-    test_stop_bad_performers()
+    test_submit_new_trials()
