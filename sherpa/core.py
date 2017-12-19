@@ -130,8 +130,10 @@ class Runner(object):
         scheduler (sherpa.schedulers.Scheduler): a scheduler.
         database (sherpa.database.Database): the database.
     """
-    def __init__(self, study, scheduler, database, max_concurrent, command):
+    def __init__(self, study, scheduler, database, max_concurrent,
+                 command, num_trials=10):
         self.max_concurrent = max_concurrent
+        self.num_trials = num_trials
         self.command = command
         self.scheduler = scheduler
         self.database = database
@@ -145,28 +147,55 @@ class Runner(object):
         the results-table.
         """
         results = self.database.get_results()
+
         for r in results:
-            new_trial = r.trial_id not in self.study.results['Trial-ID']
-            trial_idxs = self.study.results['Trial-ID'] == r.trial_id
-            trial_rows = self.study.results[trial_idxs]
-            new_observation = r.iteration not in trial_rows['Iteration']
+            try:
+                new_trial = r.get('trial_id') not in self.study.results['Trial-ID']
+            except KeyError:
+                new_trial = True
+
+            if not new_trial:
+                trial_idxs = self.study.results['Trial-ID'] == r.get('trial_id')
+                trial_rows = self.study.results[trial_idxs]
+                new_observation = r.iteration not in trial_rows['Iteration']
+            else:
+                new_observation = True
+
             if new_trial or new_observation:
-                self.study.add_observation(trial=self.all_trials[r.trial_id].trial,
-                                           iteration=r.iteration,
-                                           objective=r.objective,
-                                           context=r.context)
+                tid = r.get('trial_id')
+                t = self.all_trials.get(tid).get('trial')
+                self.study.add_observation(trial=t,
+                                           iteration=r.get('iteration'),
+                                           objective=r.get('objective'),
+                                           context=r.get('context'))
 
     def update_active_trials(self):
         """
         Update active trials, finalize any completed/stopped/failed trials
         """
-        for i in range(len(self.active_trials, -1, -1)):
+        for i in range(len(self.active_trials)-1, -1, -1):
             tid = self.active_trials[i]
-            status = self.scheduler.get_status(self.all_trials[tid].process_id)
+            status = self.scheduler.get_status(self.all_trials[tid].get('job_id'))
             if status in ['COMPLETED', 'FAILED', 'STOPPED']:
-                self.active_trials.remove(i)
-                self.study.finalize(trial=self.all_trials[tid].trial,
+                self.active_trials.pop(i)
+                self.study.finalize(trial=self.all_trials[tid].get('trial'),
                                     status=status)
+
+    def stop_bad_performers(self):
+        for tid in self.active_trials:
+            if self.study.should_trial_stop(self.all_trials[tid].get('trial')):
+                logger.info("Stopping Trial {}".format(tid))
+                self.scheduler.kill(self.all_trials[tid].get('job_id'))
+                self.update_active_trials()
+
+    def submit_new_trials(self):
+        while len(self.active_trials) < self.max_concurrent:
+            next_trial = self.study.get_suggestion()
+            self.database.enqueue_trial(next_trial)
+            pid = self.scheduler.submit(command=self.command)
+            self.all_trials[next_trial.id] = {'trial': next_trial,
+                                              'job_id': pid}
+            self.active_trials.append(next_trial.id)
 
     def run_loop(self):
         """
@@ -178,22 +207,15 @@ class Runner(object):
 
             self.update_active_trials()
 
-            # Stop bad performers
-            for tid in self.active_trials:
-                if self.study.should_trial_stop(self.all_trials[tid].trial):
-                    self.scheduler.kill(self.all_trials[tid].process_id)
-                    self.update_active_trials()
+            self.stop_bad_performers()
 
-            # Submit new trials
-            while len(self.active_trials) < self.max_concurrent:
-                next_trial = self.study.get_suggestion()
-                self.database.enqueue_trial(next_trial)
-                pid = self.scheduler.submit(command=self.command)
-                self.all_trials[next_trial.id] = {'trial': next_trial,
-                                                  'process_id': pid}
-                self.active_trials.append(next_trial.id)
+            self.submit_new_trials()
 
             time.sleep(10)
+
+            if (self.num_trials == len(self.all_trials)
+               and len(self.active_trials) == 0):
+                done = True
 
 
 class Parameter(object):

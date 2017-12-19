@@ -18,13 +18,11 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture
 def test_trial():
     p = {'a': 1, 'b': 2}
     t = sherpa.Trial(1, p)
     assert t.id == 1
     assert t.parameters == p
-    yield t
 
 
 @pytest.fixture
@@ -130,9 +128,8 @@ def test_database(test_dir, test_trial):
 def test_sge_scheduler(test_dir):
     test_dir = tempfile.mkdtemp()
 
-    # if not os.environ.get("HOSTNAME") == "nimbus":
-    #     return
-
+    if not os.environ.get("HOSTNAME") == "nimbus":
+        return
 
     with open(os.path.join(test_dir, "sleeper.sh"), 'w') as f:
         f.write("sleep 10s\n")
@@ -140,9 +137,9 @@ def test_sge_scheduler(test_dir):
     env = '/home/lhertel/profiles/main.profile'
     sge_options = '-N sherpaSchedTest -P arcus.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-8|arcus-9)\''
 
-    s = sherpa.SGEScheduler(environment=env,
-                            submit_options=sge_options,
-                            dir=test_dir)
+    s = sherpa.schedulers.SGEScheduler(environment=env,
+                                       submit_options=sge_options,
+                                       dir=test_dir)
 
     job_id = s.submit_job("sh {}/sleeper.sh".format(test_dir))
 
@@ -151,3 +148,111 @@ def test_sge_scheduler(test_dir):
     time.sleep(10)
 
     assert s.get_status([job_id]) == 'finished'
+
+
+def get_test_study():
+    mock_algorithm = mock.MagicMock()
+    mock_algorithm.get_suggestion.return_value = {'a': 1, 'b': 2}
+    mock_stopping_rule = mock.MagicMock()
+
+    s = sherpa.Study(parameters=get_test_parameters(),
+                     algorithm=mock_algorithm,
+                     stopping_rule=mock_stopping_rule,
+                     lower_is_better=True)
+
+    return s
+
+
+def get_test_trial():
+    p = {'a': 1, 'b': 2}
+    t = sherpa.Trial(1, p)
+    return t
+
+
+def test_runner_update_results():
+    mock_db = mock.MagicMock()
+    mock_db.get_results.return_value = [{'context': {'other_metric': 0.2},
+                                         'iteration': 1,
+                                         'objective': 0.1,
+                                         'parameters': {'a': 1, 'b': 2},
+                                         'trial_id': 1}]
+
+    r = sherpa.Runner(study=get_test_study(), scheduler=mock.MagicMock(),
+                      database=mock_db, max_concurrent=1,
+                      command="python test.py")
+
+    # new trial
+    t = get_test_trial()
+    r.all_trials[t.id] = {'trial': t, 'job_id': None}
+    r.update_results()
+    assert r.study.results['Trial-ID'].isin([1]).sum()
+
+    # new observation
+    mock_db.get_results.return_value = [{'context': {'other_metric': 0.3},
+                                         'iteration': 2,
+                                         'objective': 0.2,
+                                         'parameters': {'a': 1, 'b': 2},
+                                         'trial_id': 1}]
+    r.update_results()
+    assert 0.2 in r.study.results['Objective']
+
+
+def test_update_active_trials():
+    mock_scheduler = mock.MagicMock()
+
+    mock_study = mock.MagicMock()
+
+    r = sherpa.Runner(study=mock_study, scheduler=mock_scheduler,
+                      database=mock.MagicMock(), max_concurrent=1,
+                      command="python test.py")
+
+    t = get_test_trial()
+    r.all_trials[t.id] = {'trial': t, 'job_id': None}
+    r.active_trials.append(t.id)
+
+    mock_scheduler.get_status.return_value = 'ACTIVE'
+    r.update_active_trials()
+
+    mock_scheduler.get_status.return_value = 'COMPLETED'
+    r.update_active_trials()
+
+    mock_study.finalize.assert_called_with(trial=t, status='COMPLETED')
+
+    assert r.active_trials == []
+
+
+def test_stop_bad_performers():
+    r = sherpa.Runner(study=mock.MagicMock(),
+                      scheduler=mock.MagicMock(),
+                      database=mock.MagicMock(),
+                      max_concurrent=1,
+                      command="python test.py")
+
+    # setup
+    t = get_test_trial()
+    r.active_trials.append(t.id)
+    r.all_trials[t.id] = {'trial': t, 'job_id': '111'}
+
+    # test that trial is stopped
+    r.update_active_trials = mock.MagicMock()
+    r.study.should_trial_stop.return_value = True
+    r.stop_bad_performers()
+    r.scheduler.kill.assert_called_with('111')
+
+    # test that trial is not stopped
+    r.study.should_trial_stop.return_value = False
+    r.stop_bad_performers()
+
+    # make sure trial is only killed in one case
+    r.update_active_trials.assert_called_once()
+
+
+
+
+
+
+
+
+
+if __name__ == '__main__':
+    test_stop_bad_performers()
