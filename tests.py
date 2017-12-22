@@ -1,6 +1,7 @@
 import os
 import pytest
 import sherpa
+import sherpa.schedulers
 import pandas
 import collections
 try:
@@ -13,7 +14,7 @@ import shutil
 import time
 
 logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+testlogger = logging.getLogger(__name__)
 
 
 def test_trial():
@@ -98,7 +99,7 @@ def test_study():
 
 
 def test_database(test_dir, test_trial):
-    logger.debug(test_dir)
+    testlogger.debug(test_dir)
     with sherpa.Database(test_dir) as db:
         db.enqueue_trial(test_trial)
 
@@ -112,7 +113,7 @@ def test_database(test_dir, test_trial):
                             objective=0.1, context={'other_metric': 0.2})
 
         new_results = db.get_new_results()
-        logger.debug(new_results)
+        testlogger.debug(new_results)
         assert new_results == [{'context': {'other_metric': 0.2},
                                 'iteration': 1,
                                 'objective': 0.1,
@@ -123,14 +124,14 @@ def test_database(test_dir, test_trial):
         #     client.get_trial()
 
 
-def test_sge_scheduler(test_dir):
+def test_sge_scheduler():
     test_dir = tempfile.mkdtemp(dir=".")
 
     if not os.environ.get("HOSTNAME") == "nimbus":
         return
 
-    with open(os.path.join(test_dir, "sleeper.sh"), 'w') as f:
-        f.write("#!/bin/bash\necho 'Hello world'\nsleep 5s\necho 'Bye world!'\n")
+    with open(os.path.join(test_dir, "test.py"), 'w') as f:
+        f.write("import time\ntime.sleep(5)")
 
     env = '/home/lhertel/profiles/main.profile'
     sge_options = '-N sherpaSchedTest -P arcus.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-8|arcus-9)\''
@@ -139,13 +140,32 @@ def test_sge_scheduler(test_dir):
                                        submit_options=sge_options,
                                        dir=test_dir)
 
-    job_id = s.submit_job("sh {}/sleeper.sh".format(test_dir))
+    job_id = s.submit_job("python {}/test.py".format(test_dir))
 
-    assert s.get_status([job_id]) != 'finished'
+    assert s.get_status(job_id) != 'finished'
 
     time.sleep(10)
 
-    assert s.get_status([job_id]) == 'finished'
+    assert s.get_status(job_id) == 'finished'
+
+    shutil.rmtree(test_dir)
+
+
+def test_local_scheduler():
+    test_dir = tempfile.mkdtemp(dir=".")
+
+    with open(os.path.join(test_dir, "test.py"), 'w') as f:
+        f.write("import time\ntime.sleep(5)")
+
+    s = sherpa.schedulers.LocalScheduler()
+
+    job_id = s.submit_job("python {}/test.py".format(test_dir))
+
+    assert s.get_status(job_id) != 'finished'
+
+    time.sleep(10)
+
+    assert s.get_status(job_id) == 'finished'
 
     shutil.rmtree(test_dir)
 
@@ -163,9 +183,9 @@ def get_test_study():
     return s
 
 
-def get_test_trial():
+def get_test_trial(id=1):
     p = {'a': 1, 'b': 2}
-    t = sherpa.Trial(1, p)
+    t = sherpa.Trial(id, p)
     return t
 
 
@@ -270,5 +290,33 @@ def test_submit_new_trials():
     assert len(r.all_trials) == 3
 
 
+def test_median_stopping_rule():
+    results_df = pandas.DataFrame(collections.OrderedDict(
+        [('Trial-ID', [1]*3 + [2]*3 + [3]*3),
+         ('Status', ['INTERMEDIATE']*9),
+         ('Iteration', [1, 2, 3]*3),
+         ('a', [1, 1, 1]*3),
+         ('b', [2, 2, 2]*3),
+         ('Objective', [0.1]*3 + [0.2]*3 + [0.3]*3)]
+    ))
+
+    stopper = sherpa.MedianStoppingRule(min_iterations=2,
+                                        min_trials=1)
+
+    t = get_test_trial(id=3)
+
+    assert stopper.should_trial_stop(trial=t, results=results_df, lower_is_better=True)
+
+    stopper = sherpa.algorithms.MedianStoppingRule(min_iterations=4,
+                                                   min_trials=1)
+    assert not stopper.should_trial_stop(trial=t, results=results_df, lower_is_better=True)
+
+    stopper = sherpa.algorithms.MedianStoppingRule(min_iterations=2,
+                                                   min_trials=4)
+    assert not stopper.should_trial_stop(trial=t, results=results_df, lower_is_better=True)
+
+
+
+
 if __name__ == '__main__':
-    test_submit_new_trials()
+    test_local_scheduler()

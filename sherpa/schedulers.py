@@ -2,10 +2,16 @@ import subprocess
 import re
 import sys
 import os
-import logging
-import drmaa
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# from .core import logger
+from enum import Enum
+
+
+class JobStatus(Enum):
+    finished = 1
+    running = 2
+    failed = 3
+    queued = 4
+    other = 5
 
 
 class Scheduler(object):
@@ -27,12 +33,47 @@ class Scheduler(object):
         """
         pass
 
-    def get_status(self, job_ids):
+    def get_status(self, job_id):
         """
         # Returns:
             (dict) of job_id keys to respective status
         """
         pass
+
+    def kill_job(self, job_id):
+        """
+        Kills a given jobs.
+
+        # Arguments:
+            job_id (str): the id of the job to be killed.
+        """
+        pass
+
+
+class LocalScheduler(Scheduler):
+    def __init__(self):
+        self.jobs = {}
+
+    def submit_job(self, command):
+        process = subprocess.Popen(command.split(' '))
+        self.jobs[process.pid] = process
+        return process.pid
+
+    def get_status(self, job_id):
+        process = self.jobs.get(job_id)
+        if not process:
+            raise ValueError("Job not found.")
+        status = process.poll()
+        if status == 0:
+            return JobStatus.finished
+        else:
+            return JobStatus.running
+
+    def kill_job(self, job_id):
+        process = self.jobs.get(job_id)
+        if not process:
+            raise ValueError("Job not found.")
+        process.kill()
 
 
 class SGEScheduler(Scheduler):
@@ -42,19 +83,30 @@ class SGEScheduler(Scheduler):
     Allows to submit jobs to SGE and check on their status. Note: cannot
     distinguish between a failed and a completed job.
     """
-    def __init__(self, submit_options, environment, dir):
+    def __init__(self, submit_options, environment, output_dir):
         self.count = 0
         self.submit_options = submit_options
         self.environment = environment
-        self.dir = dir
+        self.output_dir = output_dir
+        import drmaa
+        self.decodestatus = {
+            drmaa.JobState.UNDETERMINED: JobStatus.other,
+            drmaa.JobState.QUEUED_ACTIVE: JobStatus.queued,
+            drmaa.JobState.SYSTEM_ON_HOLD: JobStatus.other,
+            drmaa.JobState.USER_ON_HOLD: JobStatus.other,
+            drmaa.JobState.USER_SYSTEM_ON_HOLD: JobStatus.other,
+            drmaa.JobState.RUNNING: JobStatus.running,
+            drmaa.JobState.SYSTEM_SUSPENDED: JobStatus.other,
+            drmaa.JobState.USER_SUSPENDED: JobStatus.other,
+            drmaa.JobState.DONE: JobStatus.finished,
+            drmaa.JobState.FAILED: JobStatus.failed}
 
     def submit_job(self, command):
         """
         Submit experiment to SGE.
         """
-
         # Create temp directory.
-        outdir = os.path.join(self.dir, 'sge')
+        outdir = os.path.join(self.output_dir, 'sge')
         if not os.path.isdir(outdir):
             os.mkdir(outdir)
 
@@ -126,8 +178,8 @@ class SGEScheduler(Scheduler):
             try:
                 status = s.jobStatus(str(job_id))
             except drmaa.errors.InvalidJobException:
-                status = 'finished'
-        return status
+                return JobStatus.finished
+        return self.decodestatus.get(status)
 
     @staticmethod
     def kill_job(job_id):
@@ -144,14 +196,4 @@ class SGEScheduler(Scheduler):
 
 # # SGE codes
 # # TODO: make Sherpa enumerable with states and code into that
-# decodestatus = {
-#     drmaa.JobState.UNDETERMINED: 'process status cannot be determined',
-#     drmaa.JobState.QUEUED_ACTIVE: 'job is queued and active',
-#     drmaa.JobState.SYSTEM_ON_HOLD: 'job is queued and in system hold',
-#     drmaa.JobState.USER_ON_HOLD: 'job is queued and in user hold',
-#     drmaa.JobState.USER_SYSTEM_ON_HOLD: 'job is queued and in user and system hold',
-#     drmaa.JobState.RUNNING: 'job is running',
-#     drmaa.JobState.SYSTEM_SUSPENDED: 'job is system suspended',
-#     drmaa.JobState.USER_SUSPENDED: 'job is user suspended',
-#     drmaa.JobState.DONE: 'job finished normally',
-#     drmaa.JobState.FAILED: 'job finished, but failed'}
+

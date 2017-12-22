@@ -2,8 +2,10 @@ import numpy
 import pandas
 import collections
 import time
-import multiprocessing
 import logging
+from .database import Database
+from .schedulers import JobStatus
+
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
@@ -35,22 +37,16 @@ class Study(object):
         lower_is_better (bool): whether lower objective values are better.
 
     """
-    def __init__(self, parameters, algorithm, stopping_rule, lower_is_better,
-                 dashboard_port=None):
+    def __init__(self, parameters, algorithm, lower_is_better,
+                 stopping_rule=None):
         self.parameters = parameters
         self.algorithm = algorithm
         self.stopping_rule = stopping_rule
         self.lower_is_better = lower_is_better
         self.results = pandas.DataFrame()
         self.num_trials = 0
-        # if dashboard_port:
-        #     self.dashboard_process = multiprocessing.Process(target=app.run,
-        #                                                      kwargs={
-        #                                                          'debug': True})
-        #     self.dashboard_process.daemon = True
-        #     self.dashboard_process.start()
 
-    def add_observation(self, trial, iteration, objective, context):
+    def add_observation(self, trial, iteration, objective, context={}):
         """
         # Arguments:
             trial (sherpa.Trial): trial for which an observation is to be added.
@@ -58,6 +54,8 @@ class Study(object):
             objective (float): objective value.
             context (dict): other metrics.
         """
+        assert isinstance(trial, Trial), "Trial must be sherpa.Trial"
+
         row = [
             ('Trial-ID', trial.id),
             ('Status', 'INTERMEDIATE'),
@@ -77,14 +75,17 @@ class Study(object):
         self.results = self.results.append(pandas.DataFrame.from_dict(row),
                                            ignore_index=True)
 
-    def finalize(self, trial, status):
+    def finalize(self, trial, status='COMPLETED'):
         """
         # Arguments:
             trial (sherpa.Trial): trial that is completed.
         """
+        assert isinstance(trial, Trial), "Trial must be sherpa.Trial"
         assert status in ['COMPLETED', 'FAILED', 'STOPPED']
-        rows = self.results.loc[self.results['Trial-ID'] == trial.id]
 
+        rows = self.results.loc[self.results['Trial-ID'] == trial.id]
+        if len(rows) == 0:
+            raise ValueError("Trial {} does not exist or did not submit metrics.".format(trial.id))
         # Find best row as minimum or maximum objective
         best_idx = (rows['Objective'].idxmin() if self.lower_is_better
                     else rows['Objective'].idxmax())
@@ -100,9 +101,12 @@ class Study(object):
             (dict) a parameter suggestion.
         """
         p = self.algorithm.get_suggestion(self.parameters, self.results)
-        self.num_trials += 1
-        t = Trial(id=self.num_trials, parameters=p)
-        return t
+        if not p:
+            return None
+        else:
+            self.num_trials += 1
+            t = Trial(id=self.num_trials, parameters=p)
+            return t
 
     def should_trial_stop(self, trial):
         """
@@ -112,7 +116,22 @@ class Study(object):
         # Returns:
             (bool) decision.
         """
-        return self.stopping_rule.should_trial_stop(trial, self.results)
+        assert isinstance(trial, Trial), "Trial must be sherpa.Trial"
+        if self.stopping_rule:
+            return self.stopping_rule.should_trial_stop(trial, self.results,
+                                                        self.lower_is_better)
+        else:
+            return False
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        t = self.get_suggestion()
+        if t is None:
+            raise StopIteration
+        else:
+            return t
 
 
 class Runner(object):
@@ -131,10 +150,10 @@ class Runner(object):
         database (sherpa.database.Database): the database.
     """
     def __init__(self, study, scheduler, database, max_concurrent,
-                 command, num_trials=10):
+                 command):
         self.max_concurrent = max_concurrent
-        self.num_trials = num_trials
         self.command = command
+        self.done = False
         self.scheduler = scheduler
         self.database = database
         self.study = study
@@ -146,24 +165,29 @@ class Runner(object):
         Get rows from Mongo DB and check if anything new needs to be added to
         the results-table.
         """
-        results = self.database.get_results()
-
+        results = self.database.get_new_results()
+        if results != {} and self.all_trials == {}:
+            logger.warning("There may be another MongoDB instance running on this port")
         for r in results:
             try:
-                new_trial = r.get('trial_id') not in self.study.results['Trial-ID']
+                new_trial = r.get('trial_id') not in set(self.study.results['Trial-ID'])
             except KeyError:
                 new_trial = True
 
             if not new_trial:
                 trial_idxs = self.study.results['Trial-ID'] == r.get('trial_id')
                 trial_rows = self.study.results[trial_idxs]
-                new_observation = r.iteration not in trial_rows['Iteration']
+                new_observation = r.get('iteration') not in set(trial_rows['Iteration'])
             else:
                 new_observation = True
-
+            logger.debug("Collected Result:\n\tTrial ID: {}\n\tIteration: {}"
+                         "\n\tNew Trial: {}\n\tNew Observation: {}"
+                         "".format(r.get('trial_id'), r.get('iteration'),
+                                   new_trial, new_observation))
             if new_trial or new_observation:
                 tid = r.get('trial_id')
-                t = self.all_trials.get(tid).get('trial')
+                tdict = self.all_trials[tid]
+                t = tdict.get('trial')
                 self.study.add_observation(trial=t,
                                            iteration=r.get('iteration'),
                                            objective=r.get('objective'),
@@ -176,10 +200,11 @@ class Runner(object):
         for i in range(len(self.active_trials)-1, -1, -1):
             tid = self.active_trials[i]
             status = self.scheduler.get_status(self.all_trials[tid].get('job_id'))
-            if status in ['COMPLETED', 'FAILED', 'STOPPED']:
-                self.active_trials.pop(i)
+            if status in [JobStatus.finished, JobStatus.failed]:
+                self.update_results()
                 self.study.finalize(trial=self.all_trials[tid].get('trial'),
-                                    status=status)
+                                    status='COMPLETED')
+                self.active_trials.pop(i)
 
     def stop_bad_performers(self):
         for tid in self.active_trials:
@@ -191,8 +216,17 @@ class Runner(object):
     def submit_new_trials(self):
         while len(self.active_trials) < self.max_concurrent:
             next_trial = self.study.get_suggestion()
+
+            # Check if algorithm is done.
+            if not next_trial:
+                self.done = True
+                break
+
+            logger.info("Submitting Trial {} with parameters"
+                         "{}".format(next_trial.id, next_trial.parameters))
+
             self.database.enqueue_trial(next_trial)
-            pid = self.scheduler.submit(command=self.command)
+            pid = self.scheduler.submit_job(command=self.command)
             self.all_trials[next_trial.id] = {'trial': next_trial,
                                               'job_id': pid}
             self.active_trials.append(next_trial.id)
@@ -201,8 +235,8 @@ class Runner(object):
         """
         Run the optimization.
         """
-        done = False
-        while not done:
+        logger.debug("Running Loop")
+        while not self.done or len(self.active_trials) != 0:
             self.update_results()
 
             self.update_active_trials()
@@ -211,11 +245,31 @@ class Runner(object):
 
             self.submit_new_trials()
 
-            time.sleep(10)
+            logger.info(self.study.results)
+            time.sleep(5)
 
-            if (self.num_trials == len(self.all_trials)
-               and len(self.active_trials) == 0):
-                done = True
+
+def optimize(filename, study, output_dir, scheduler, max_concurrent):
+    """
+    Runs a Study via the Runner class.
+
+    # Arguments:
+        filename (str): the name of the file which is called to evaluate
+            configurations
+        study (sherpa.Study): the Study to be run.
+        output_dir (str): where scheduler and database files will be stored.
+        scheduler (sherpa.Scheduler): a scheduler.
+        max_concurrent (int): the number of trials that will be evaluated in
+            parallel.
+    """
+    with Database(output_dir) as db:
+        runner = Runner(study=study,
+                        scheduler=scheduler,
+                        database=db,
+                        max_concurrent=max_concurrent,
+                        command=' '.join(['python', filename]))
+        runner.run_loop()
+    return study.results
 
 
 class Parameter(object):
@@ -244,7 +298,7 @@ class Continuous(Parameter):
     """
     Continuous parameter class.
     """
-    def __init__(self, name, range, scale):
+    def __init__(self, name, range, scale='linear'):
         self.name = name
         self.range = range
         self.scale = scale

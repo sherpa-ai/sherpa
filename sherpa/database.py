@@ -30,7 +30,8 @@ class Database(object):
         """
         Runs the DB in a sub-process.
         """
-        self.mongo_process = subprocess.Popen(['mongod', '--dbpath', self.dir])
+        self.mongo_process = subprocess.Popen(['mongod', '--dbpath', self.dir],
+                                              stdout=subprocess.DEVNULL)
 
     def get_new_results(self):
         """
@@ -90,16 +91,20 @@ class Client(object):
         # Returns:
             (sherpa.Trial)
         """
-        g = (entry for entry in self.db.trials.find({'used': False}))
-        try:
-            t = next(g)
-        except StopIteration:
-            print("No Trial available")
-            raise
-        self.db.trials.update_one({'_id': t.get('_id')}, {'$set': {'used': True}})
+        # g = (entry for entry in self.db.trials.find({'used': False}))
+        # try:
+        #     t = next(g)
+        # except StopIteration:
+        #     print("No Trial available")
+        #     raise
+        # self.db.trials.update_one({'_id': t.get('_id')}, {'$set': {'used': True}})
+        t = self.db.trials.find_one_and_update(
+            {"used": False},
+            { '$set': {'used': True}}
+        )
         return core.Trial(id=t.get('id'), parameters=t.get('parameters'))
 
-    def send_metrics(self, trial, iteration, objective, context):
+    def send_metrics(self, trial, iteration, objective, context={}):
         """
         Sends metrics for a trial to database.
 
