@@ -1,6 +1,8 @@
 from __future__ import print_function
 import sherpa
+import time
 
+proc, results_channel, stopping_channel = sherpa.run_web_server(8999)
 
 parameters = [sherpa.Choice(name="param_a",
                             range=[1, 2, 3]),
@@ -26,11 +28,17 @@ for trial in study:
         study.add_observation(trial=trial,
                               iteration=i+1,
                               objective=pseudo_objective)
+        results_channel.put(study.results)
+        time.sleep(1)
+
         if study.should_trial_stop(trial=trial):
             print("Stopping Trial {} after {} iterations.".format(trial.id, i+1))
             break
             
     study.finalize(trial=trial,
                    status='COMPLETED')
+    results_channel.put(study.results)
+
+
 
 print(study.results)

@@ -25,7 +25,7 @@ scheduler = sherpa.schedulers.LocalScheduler()
 
 
 testscript = """import sherpa
-import time
+
 client = sherpa.Client()
 trial = client.get_trial()
 # Simulate model training

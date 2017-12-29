@@ -3,6 +3,7 @@ import pandas
 import collections
 import time
 import logging
+import multiprocessing
 from .database import Database
 from .schedulers import JobStatus
 
@@ -38,13 +39,15 @@ class Study(object):
 
     """
     def __init__(self, parameters, algorithm, lower_is_better,
-                 stopping_rule=None):
+                 stopping_rule=None, dashboard_port=None):
         self.parameters = parameters
         self.algorithm = algorithm
         self.stopping_rule = stopping_rule
         self.lower_is_better = lower_is_better
         self.results = pandas.DataFrame()
         self.num_trials = 0
+        # if dashboard_port:
+
 
     def add_observation(self, trial, iteration, objective, context={}):
         """
@@ -270,6 +273,31 @@ def optimize(filename, study, output_dir, scheduler, max_concurrent):
                         command=' '.join(['python', filename]))
         runner.run_loop()
     return study.results
+
+
+def run_web_server(port):
+    """
+    Runs the web server.
+
+    # Arguments:
+        port (int): Port for web app.
+
+    # Returns:
+        proc (multiprocessing.Process): the process that runs the web app.
+        results_channel (multiprocessing.Queue): queue to put results in
+        stopping_channel (multiprocessing.Queue): queue to get models to stop from.
+    """
+    from .app.app import app
+    results_channel = multiprocessing.Queue()
+    stopping_channel = multiprocessing.Queue()
+    app.set_results_channel(results_channel)
+    app.set_stopping_channel(stopping_channel)
+    proc = multiprocessing.Process(target=app.run,
+                                   kwargs={'port': port, 'debug': True})
+    proc.daemon = True
+    proc.start()
+
+    return proc, results_channel, stopping_channel
 
 
 class Parameter(object):
