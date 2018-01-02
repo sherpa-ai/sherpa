@@ -21,9 +21,7 @@ class SherpaApp(Flask):
         return self.results
 
 
-
 app = SherpaApp(__name__)
-
 
 
 @app.route('/')
@@ -53,6 +51,7 @@ def stop_trial(id):
     """
         Put stopping id on queue.
     """
-    app.stopping_channel.put(id)
-    logger.debug(app.stopping_channel)
+    app.stopping_channel.put(int(id))
+    logger.info("Selected Trial {} to stop.".format(id))
+    # logger.debug(app.stopping_channel)
     return redirect('/index')
