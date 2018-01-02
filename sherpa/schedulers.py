@@ -2,9 +2,17 @@ import subprocess
 import re
 import sys
 import os
-import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# from .core import logger
+from enum import Enum
+
+
+class JobStatus(Enum):
+    finished = 1
+    running = 2
+    failed = 3
+    queued = 4
+    killed = 5
+    other = 6
 
 
 class Scheduler(object):
@@ -26,12 +34,52 @@ class Scheduler(object):
         """
         pass
 
-    def get_status(self, job_ids):
+    def get_status(self, job_id):
         """
         # Returns:
             (dict) of job_id keys to respective status
         """
         pass
+
+    def kill_job(self, job_id):
+        """
+        Kills a given jobs.
+
+        # Arguments:
+            job_id (str): the id of the job to be killed.
+        """
+        pass
+
+
+class LocalScheduler(Scheduler):
+    """
+    Runs jobs locally as a subprocess.
+    """
+    def __init__(self):
+        self.jobs = {}
+        self.decode_status = {0: JobStatus.finished,
+                              -15: JobStatus.killed}
+
+    def submit_job(self, command):
+        process = subprocess.Popen(command.split(' '))
+        self.jobs[process.pid] = process
+        return process.pid
+
+    def get_status(self, job_id):
+        process = self.jobs.get(job_id)
+        if not process:
+            raise ValueError("Job not found.")
+        status = process.poll()
+        if status is None:
+            return JobStatus.running
+        else:
+            return self.decode_status.get(status, JobStatus.other)
+
+    def kill_job(self, job_id):
+        process = self.jobs.get(job_id)
+        if not process:
+            raise ValueError("Job not found.")
+        process.terminate()
 
 
 class SGEScheduler(Scheduler):
@@ -41,19 +89,30 @@ class SGEScheduler(Scheduler):
     Allows to submit jobs to SGE and check on their status. Note: cannot
     distinguish between a failed and a completed job.
     """
-    def __init__(self, submit_options, environment):
-        import drmaa
+    def __init__(self, submit_options, environment, output_dir):
         self.count = 0
         self.submit_options = submit_options
         self.environment = environment
+        self.output_dir = output_dir
+        import drmaa
+        self.decode_status = {
+            drmaa.JobState.UNDETERMINED: JobStatus.other,
+            drmaa.JobState.QUEUED_ACTIVE: JobStatus.queued,
+            drmaa.JobState.SYSTEM_ON_HOLD: JobStatus.other,
+            drmaa.JobState.USER_ON_HOLD: JobStatus.other,
+            drmaa.JobState.USER_SYSTEM_ON_HOLD: JobStatus.other,
+            drmaa.JobState.RUNNING: JobStatus.running,
+            drmaa.JobState.SYSTEM_SUSPENDED: JobStatus.other,
+            drmaa.JobState.USER_SUSPENDED: JobStatus.other,
+            drmaa.JobState.DONE: JobStatus.finished,
+            drmaa.JobState.FAILED: JobStatus.failed}
 
     def submit_job(self, command):
         """
         Submit experiment to SGE.
         """
-
         # Create temp directory.
-        outdir = os.path.join(self.dir, 'sge')
+        outdir = os.path.join(self.output_dir, 'sge')
         if not os.path.isdir(outdir):
             os.mkdir(outdir)
 
@@ -81,6 +140,7 @@ class SGEScheduler(Scheduler):
         job_id = self._submit_job(submit_command, job_script)
 
         logger.info('\t{}: job submitted'.format(job_id))
+        self.count += 1
 
         return job_id
 
@@ -101,6 +161,7 @@ class SGEScheduler(Scheduler):
                                    shell=True,
                                    universal_newlines=True)
         output, std_err = process.communicate(input=run_command)
+        # output, std_err = process.communicate()
         process.stdin.close()
         output_regexp = r'Your job (\d+)'
         # Parse out the process id from text
@@ -111,7 +172,7 @@ class SGEScheduler(Scheduler):
             sys.stderr.write(output)
             return None
 
-    def get_status(self, job_ids):
+    def get_status(self, job_id):
         """
         # Arguments:
             job_ids (list[str]): list of SGE process IDs.
@@ -119,15 +180,12 @@ class SGEScheduler(Scheduler):
         # Returns:
             (list[?]) list of statuses.
         """
-        statuses = {pid: None for pid in job_ids}
         with drmaa.Session() as s:
-            for pid in job_ids:
-                try:
-                    status = s.jobStatus(str(pid))
-                except drmaa.errors.InvalidJobException:
-                    status = 'failed/done'
-                statuses[pid] = status
-        return statuses
+            try:
+                status = s.jobStatus(str(job_id))
+            except drmaa.errors.InvalidJobException:
+                return JobStatus.finished
+        return self.decode_status.get(status)
 
     @staticmethod
     def kill_job(job_id):
@@ -144,14 +202,4 @@ class SGEScheduler(Scheduler):
 
 # # SGE codes
 # # TODO: make Sherpa enumerable with states and code into that
-# decodestatus = {
-#     drmaa.JobState.UNDETERMINED: 'process status cannot be determined',
-#     drmaa.JobState.QUEUED_ACTIVE: 'job is queued and active',
-#     drmaa.JobState.SYSTEM_ON_HOLD: 'job is queued and in system hold',
-#     drmaa.JobState.USER_ON_HOLD: 'job is queued and in user hold',
-#     drmaa.JobState.USER_SYSTEM_ON_HOLD: 'job is queued and in user and system hold',
-#     drmaa.JobState.RUNNING: 'job is running',
-#     drmaa.JobState.SYSTEM_SUSPENDED: 'job is system suspended',
-#     drmaa.JobState.USER_SUSPENDED: 'job is user suspended',
-#     drmaa.JobState.DONE: 'job finished normally',
-#     drmaa.JobState.FAILED: 'job finished, but failed'}
+
