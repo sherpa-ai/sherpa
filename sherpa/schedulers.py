@@ -2,8 +2,12 @@ import subprocess
 import re
 import sys
 import os
-# from .core import logger
 from enum import Enum
+import logging
+
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 class JobStatus(Enum):
@@ -94,18 +98,18 @@ class SGEScheduler(Scheduler):
         self.submit_options = submit_options
         self.environment = environment
         self.output_dir = output_dir
-        import drmaa
+        self.drmaa = __import__('drmaa')
         self.decode_status = {
-            drmaa.JobState.UNDETERMINED: JobStatus.other,
-            drmaa.JobState.QUEUED_ACTIVE: JobStatus.queued,
-            drmaa.JobState.SYSTEM_ON_HOLD: JobStatus.other,
-            drmaa.JobState.USER_ON_HOLD: JobStatus.other,
-            drmaa.JobState.USER_SYSTEM_ON_HOLD: JobStatus.other,
-            drmaa.JobState.RUNNING: JobStatus.running,
-            drmaa.JobState.SYSTEM_SUSPENDED: JobStatus.other,
-            drmaa.JobState.USER_SUSPENDED: JobStatus.other,
-            drmaa.JobState.DONE: JobStatus.finished,
-            drmaa.JobState.FAILED: JobStatus.failed}
+            self.drmaa.JobState.UNDETERMINED: JobStatus.other,
+            self.drmaa.JobState.QUEUED_ACTIVE: JobStatus.queued,
+            self.drmaa.JobState.SYSTEM_ON_HOLD: JobStatus.other,
+            self.drmaa.JobState.USER_ON_HOLD: JobStatus.other,
+            self.drmaa.JobState.USER_SYSTEM_ON_HOLD: JobStatus.other,
+            self.drmaa.JobState.RUNNING: JobStatus.running,
+            self.drmaa.JobState.SYSTEM_SUSPENDED: JobStatus.other,
+            self.drmaa.JobState.USER_SUSPENDED: JobStatus.other,
+            self.drmaa.JobState.DONE: JobStatus.finished,
+            self.drmaa.JobState.FAILED: JobStatus.failed}
 
     def submit_job(self, command):
         """
@@ -180,15 +184,14 @@ class SGEScheduler(Scheduler):
         # Returns:
             (list[?]) list of statuses.
         """
-        with drmaa.Session() as s:
+        with self.drmaa.Session() as s:
             try:
                 status = s.jobStatus(str(job_id))
-            except drmaa.errors.InvalidJobException:
+            except self.drmaa.errors.InvalidJobException:
                 return JobStatus.finished
         return self.decode_status.get(status)
 
-    @staticmethod
-    def kill_job(job_id):
+    def kill_job(self, job_id):
         """
         Kills a job submitted to SGE.
 
@@ -196,8 +199,8 @@ class SGEScheduler(Scheduler):
             job_id (str): the SGE ID of the job.
         """
         logger.info("Killing job {}".format(job_id))
-        with drmaa.Session() as s:
-            s.control(job_id, drmaa.JobControlAction.TERMINATE)
+        with self.drmaa.Session() as s:
+            s.control(job_id, self.drmaa.JobControlAction.TERMINATE)
         return
 
 # # SGE codes

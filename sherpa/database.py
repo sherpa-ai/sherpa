@@ -1,6 +1,5 @@
 import pymongo
 from pymongo import MongoClient
-from . import core
 import subprocess
 
 
@@ -102,7 +101,7 @@ class Client(object):
             {"used": False},
             { '$set': {'used': True}}
         )
-        return core.Trial(id=t.get('id'), parameters=t.get('parameters'))
+        return Trial(id=t.get('id'), parameters=t.get('parameters'))
 
     def send_metrics(self, trial, iteration, objective, context={}):
         """
