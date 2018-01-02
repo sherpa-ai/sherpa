@@ -16,7 +16,8 @@ stopping_rule = sherpa.MedianStoppingRule(min_iterations=2,
                                           min_trials=5)
 study = sherpa.Study(parameters=parameters,
                      algorithm=algorithm,
-                     lower_is_better=True)
+                     lower_is_better=True,
+                     dashboard_port=8999)
 
 # scheduler = sherpa.schedulers.SGEScheduler(submit_options="-N example -P arcus.p -q arcus.q -l hostname='arcus-1'",
 #                                            environment="/home/lhertel/profiles/main.profile",
@@ -25,6 +26,7 @@ scheduler = sherpa.schedulers.LocalScheduler()
 
 
 testscript = """import sherpa
+import time
 
 client = sherpa.Client()
 trial = client.get_trial()
@@ -32,6 +34,7 @@ trial = client.get_trial()
 num_iterations = 10
 for i in range(num_iterations):
     pseudo_objective = 1 / float(i + 1) * trial.parameters['param_b']
+    time.sleep(2)
     client.send_metrics(trial=trial, iteration=i+1,
                         objective=pseudo_objective)
     # print("Trial {} Iteration {}.".format(trial.id, i+1))

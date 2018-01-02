@@ -151,8 +151,8 @@ def test_sge_scheduler():
     shutil.rmtree(test_dir)
 
 
-def test_local_scheduler():
-    test_dir = tempfile.mkdtemp(dir=".")
+def test_local_scheduler(test_dir):
+    # test_dir = tempfile.mkdtemp(dir=".")
 
     with open(os.path.join(test_dir, "test.py"), 'w') as f:
         f.write("import time\ntime.sleep(5)")
@@ -161,13 +161,22 @@ def test_local_scheduler():
 
     job_id = s.submit_job("python {}/test.py".format(test_dir))
 
-    assert s.get_status(job_id) != 'finished'
+    # try:
+    assert s.get_status(job_id) == sherpa.schedulers.JobStatus.running
 
     time.sleep(10)
+    testlogger.debug(s.get_status(job_id))
+    assert s.get_status(job_id) == sherpa.schedulers.JobStatus.finished
 
-    assert s.get_status(job_id) == 'finished'
+    job_id = s.submit_job("python {}/test.py".format(test_dir))
+    time.sleep(1)
+    s.kill_job(job_id)
+    time.sleep(1)
+    testlogger.debug(s.get_status(job_id))
+    assert s.get_status(job_id) == sherpa.schedulers.JobStatus.finished
 
-    shutil.rmtree(test_dir)
+    # finally:
+    #     shutil.rmtree(test_dir)
 
 
 def get_test_study():

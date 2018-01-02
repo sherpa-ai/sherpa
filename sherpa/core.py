@@ -224,10 +224,10 @@ class Runner(object):
                 new_observation = r.get('iteration') not in set(trial_rows['Iteration'])
             else:
                 new_observation = True
-            logger.debug("Collected Result:\n\tTrial ID: {}\n\tIteration: {}"
-                         "\n\tNew Trial: {}\n\tNew Observation: {}"
-                         "".format(r.get('trial_id'), r.get('iteration'),
-                                   new_trial, new_observation))
+            # logger.debug("Collected Result:\n\tTrial ID: {}\n\tIteration: {}"
+            #              "\n\tNew Trial: {}\n\tNew Observation: {}"
+            #              "".format(r.get('trial_id'), r.get('iteration'),
+            #                        new_trial, new_observation))
             if new_trial or new_observation:
                 tid = r.get('trial_id')
                 tdict = self.all_trials[tid]
@@ -244,7 +244,7 @@ class Runner(object):
         for i in range(len(self.active_trials)-1, -1, -1):
             tid = self.active_trials[i]
             status = self.scheduler.get_status(self.all_trials[tid].get('job_id'))
-            if status in [JobStatus.finished, JobStatus.failed]:
+            if status in [JobStatus.finished, JobStatus.failed, JobStatus.killed]:
                 self.update_results()
                 self.study.finalize(trial=self.all_trials[tid].get('trial'),
                                     status='COMPLETED')
@@ -254,7 +254,7 @@ class Runner(object):
         for tid in self.active_trials:
             if self.study.should_trial_stop(self.all_trials[tid].get('trial')):
                 logger.info("Stopping Trial {}".format(tid))
-                self.scheduler.kill(self.all_trials[tid].get('job_id'))
+                self.scheduler.kill_job(self.all_trials[tid].get('job_id'))
                 self.update_active_trials()
 
     def submit_new_trials(self):
@@ -290,7 +290,7 @@ class Runner(object):
             self.submit_new_trials()
 
             logger.info(self.study.results)
-            time.sleep(5)
+            time.sleep(1)
 
 
 def optimize(filename, study, output_dir, scheduler, max_concurrent):

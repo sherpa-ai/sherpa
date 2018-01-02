@@ -11,7 +11,8 @@ class JobStatus(Enum):
     running = 2
     failed = 3
     queued = 4
-    other = 5
+    killed = 5
+    other = 6
 
 
 class Scheduler(object):
@@ -51,8 +52,13 @@ class Scheduler(object):
 
 
 class LocalScheduler(Scheduler):
+    """
+    Runs jobs locally as a subprocess.
+    """
     def __init__(self):
         self.jobs = {}
+        self.decode_status = {0: JobStatus.finished,
+                              -15: JobStatus.killed}
 
     def submit_job(self, command):
         process = subprocess.Popen(command.split(' '))
@@ -64,16 +70,16 @@ class LocalScheduler(Scheduler):
         if not process:
             raise ValueError("Job not found.")
         status = process.poll()
-        if status == 0:
-            return JobStatus.finished
-        else:
+        if status is None:
             return JobStatus.running
+        else:
+            return self.decode_status.get(status, JobStatus.other)
 
     def kill_job(self, job_id):
         process = self.jobs.get(job_id)
         if not process:
             raise ValueError("Job not found.")
-        process.kill()
+        process.terminate()
 
 
 class SGEScheduler(Scheduler):
@@ -89,7 +95,7 @@ class SGEScheduler(Scheduler):
         self.environment = environment
         self.output_dir = output_dir
         import drmaa
-        self.decodestatus = {
+        self.decode_status = {
             drmaa.JobState.UNDETERMINED: JobStatus.other,
             drmaa.JobState.QUEUED_ACTIVE: JobStatus.queued,
             drmaa.JobState.SYSTEM_ON_HOLD: JobStatus.other,
@@ -179,7 +185,7 @@ class SGEScheduler(Scheduler):
                 status = s.jobStatus(str(job_id))
             except drmaa.errors.InvalidJobException:
                 return JobStatus.finished
-        return self.decodestatus.get(status)
+        return self.decode_status.get(status)
 
     @staticmethod
     def kill_job(job_id):
