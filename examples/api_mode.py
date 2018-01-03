@@ -1,13 +1,14 @@
 from __future__ import print_function
 import sherpa
 import time
+import threading
 
 parameters = [sherpa.Choice(name="param_a",
                             range=[1, 2, 3]),
               sherpa.Continuous(name="param_b",
                                 range=[0, 1])]
 
-algorithm = sherpa.RandomSearch(max_num_trials=50)
+algorithm = sherpa.RandomSearch(max_num_trials=10)
 stopping_rule = sherpa.MedianStoppingRule(min_iterations=2,
                                           min_trials=5)
 study = sherpa.Study(parameters=parameters,
@@ -18,12 +19,17 @@ study = sherpa.Study(parameters=parameters,
 
 num_iterations = 10
 
+# get trials from study by iterating or study.get_suggestion()
 for trial in study:
     print("Trial {}:\t{}".format(trial.id, trial.parameters))
 
     # Simulate model training
     for i in range(num_iterations):
-        pseudo_objective = 1/float(i+1) * trial.parameters['param_b']
+        
+        # access parameters via trial.parameters and id via trial.id
+        pseudo_objective = trial.parameters['param_a'] / float(i + 1) * trial.parameters['param_b']
+        
+        # add observations once or multiple times
         study.add_observation(trial=trial,
                               iteration=i+1,
                               objective=pseudo_objective)
@@ -34,7 +40,8 @@ for trial in study:
             break
             
     study.finalize(trial=trial,
-                   status='COMPLETED')
+                   status='COMPLETED',
+                   context={'path': "abc{}".format(trial.id)})
 
 
 

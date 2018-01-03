@@ -48,11 +48,17 @@ class Study(object):
         self.results = pandas.DataFrame()
         self.num_trials = 0
 
-        self.results_channel = multiprocessing.Queue()
-        self.stopping_channel = multiprocessing.Queue()
         self.ids_to_stop = set()
+        
         if dashboard_port:
-            self.run_web_server(dashboard_port)
+            # self.results_channel = multiprocessing.Value(pandas.DataFrame, self.results)
+            self.mgr = multiprocessing.Manager()
+            self.results_channel = self.mgr.Namespace()
+            self.results_channel.df = self.results
+            self.stopping_channel = multiprocessing.Queue()
+            self.dashboard_process = self.run_web_server(dashboard_port)
+        else:
+            self.dashboard_process = None
 
     def add_observation(self, trial, iteration, objective, context={}):
         """
@@ -82,8 +88,9 @@ class Study(object):
         row = collections.OrderedDict([(key, [value]) for key, value in row])
         self.results = self.results.append(pandas.DataFrame.from_dict(row),
                                            ignore_index=True)
-        # TODO: better to remove item first if something is on there
-        self.results_channel.put(self.results)
+
+        if self.dashboard_process:
+            self.results_channel.df = self.results
 
     def finalize(self, trial, status='COMPLETED'):
         """
@@ -104,8 +111,9 @@ class Study(object):
         # Set status and append
         best_row['Status'] = status
         self.results = self.results.append(best_row, ignore_index=True)
-        # TODO: better to remove item first if something is on there
-        self.results_channel.put(self.results)
+
+        if self.dashboard_process:
+            self.results_channel.df = self.results
 
     def get_suggestion(self):
         """
@@ -129,8 +137,9 @@ class Study(object):
             (bool) decision.
         """
         assert isinstance(trial, Trial), "Trial must be sherpa.Trial"
-        while not self.stopping_channel.empty():
-            self.ids_to_stop.add(self.stopping_channel.get())
+        if self.dashboard_process:
+            while not self.stopping_channel.empty():
+                self.ids_to_stop.add(self.stopping_channel.get())
         # logger.debug(self.ids_to_stop)
         if trial.id in self.ids_to_stop:
             return True
@@ -140,23 +149,7 @@ class Study(object):
                                                         self.lower_is_better)
         else:
             return False
-
-    def __iter__(self):
-        """
-        Allow to iterate over a study.
-        """
-        return self
-
-    def __next__(self):
-        """
-        Use study as a generator.
-        """
-        t = self.get_suggestion()
-        if t is None:
-            raise StopIteration
-        else:
-            return t
-
+        
     def run_web_server(self, port):
         """
         Runs the web server.
@@ -176,7 +169,26 @@ class Study(object):
                                        kwargs={'port': port, 'debug': True, 'use_reloader': False, 'host': '', 'threaded': True})
         proc.daemon = True
         proc.start()
-        self.flask_process = proc
+        return proc
+
+    def __iter__(self):
+        """
+        Allow to iterate over a study.
+        """
+        return self
+
+    def __next__(self):
+        """
+        Use study as a generator.
+        """
+        t = self.get_suggestion()
+        if t is None:
+            raise StopIteration
+        else:
+            return t
+        
+    def next(self):
+        return self.__next__()
 
 
 class Runner(object):

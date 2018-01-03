@@ -16,9 +16,9 @@ class SherpaApp(Flask):
         self.stopping_channel = stopping_channel
 
     def get_results(self):
-        while not self.results_channel.empty():
-            self.results = self.results_channel.get()
-        return self.results
+        # while not self.results_channel.empty():
+        #     self.results = self.results_channel.get()
+        return self.results_channel.df
 
 
 app = SherpaApp(__name__)
