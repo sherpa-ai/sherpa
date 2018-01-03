@@ -27,7 +27,7 @@ for trial in study:
         study.add_observation(trial=trial,
                               iteration=i+1,
                               objective=pseudo_objective)
-        # time.sleep(1)
+        time.sleep(1)
 
         if study.should_trial_stop(trial=trial):
             print("Stopping Trial {} after {} iterations.".format(trial.id, i+1))

@@ -98,7 +98,9 @@ def test_study():
     assert s.results.equals(expected_df)
 
 
-def test_database(test_dir, test_trial):
+def test_database():
+    test_dir = tempfile.mkdtemp(dir=".")
+    test_trial = get_test_trial()
     testlogger.debug(test_dir)
     with sherpa.Database(test_dir) as db:
         db.enqueue_trial(test_trial)
@@ -338,4 +340,5 @@ def test_median_stopping_rule():
 
 
 if __name__ == '__main__':
-    test_sge_scheduler()
+    # test_sge_scheduler()
+    test_database()

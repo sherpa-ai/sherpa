@@ -173,7 +173,7 @@ class Study(object):
         app.set_results_channel(self.results_channel)
         app.set_stopping_channel(self.stopping_channel)
         proc = multiprocessing.Process(target=app.run,
-                                       kwargs={'port': port, 'debug': True, 'use_reloader': False})
+                                       kwargs={'port': port, 'debug': True, 'use_reloader': False, 'host': '', 'threaded': True})
         proc.daemon = True
         proc.start()
         self.flask_process = proc
@@ -290,11 +290,11 @@ class Runner(object):
 
             self.submit_new_trials()
 
-            logger.info(self.study.results)
+            # logger.info(self.study.results)
             time.sleep(1)
 
 
-def optimize(filename, study, output_dir, scheduler, max_concurrent):
+def optimize(filename, study, output_dir, scheduler, max_concurrent, db_port=27010):
     """
     Runs a Study via the Runner class.
 
@@ -307,7 +307,7 @@ def optimize(filename, study, output_dir, scheduler, max_concurrent):
         max_concurrent (int): the number of trials that will be evaluated in
             parallel.
     """
-    with Database(output_dir) as db:
+    with Database(output_dir, port=db_port) as db:
         runner = Runner(study=study,
                         scheduler=scheduler,
                         database=db,

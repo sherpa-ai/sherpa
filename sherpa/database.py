@@ -1,6 +1,12 @@
 import pymongo
 from pymongo import MongoClient
 import subprocess
+try:
+    from subprocess import DEVNULL # py3k
+except ImportError:
+    import os
+    DEVNULL = open(os.devnull, 'wb')
+import sherpa
 
 
 class Database(object):
@@ -14,12 +20,13 @@ class Database(object):
         dbpath (str): the path where Mongo-DB stores its files.
         port (int): the port on which the Mongo-DB should run.
     """
-    def __init__(self, dir):
-        self.client = MongoClient()
+    def __init__(self, dir, port=27010):
+        self.client = MongoClient(port=port)
         self.db = self.client.sherpa
         self.collected_results = []
         self.mongo_process = None
         self.dir = dir
+        self.port = port
 
     def close(self):
         print('Closing MongoDB!')
@@ -29,8 +36,12 @@ class Database(object):
         """
         Runs the DB in a sub-process.
         """
-        self.mongo_process = subprocess.Popen(['mongod', '--dbpath', self.dir],
-                                              stdout=subprocess.DEVNULL)
+        cmd = ['mongod', '--dbpath', self.dir]
+        if self.port:
+            cmd.append('--port')
+            cmd.append(str(self.port))
+        self.mongo_process = subprocess.Popen(cmd,
+                                              stdout=DEVNULL)
 
     def get_new_results(self):
         """
@@ -75,8 +86,8 @@ class Client(object):
     # Arguments:
         port (int): port that database is running on.
     """
-    def __init__(self, port=27017, **kwargs):
-        self.client = MongoClient('localhost', port, **kwargs)
+    def __init__(self, host='localhost', port=27010, **kwargs):
+        self.client = MongoClient(host, port, **kwargs)
         self.db = self.client.sherpa
 
     def get_trial(self):
@@ -101,7 +112,7 @@ class Client(object):
             {"used": False},
             { '$set': {'used': True}}
         )
-        return Trial(id=t.get('id'), parameters=t.get('parameters'))
+        return sherpa.Trial(id=t.get('id'), parameters=t.get('parameters'))
 
     def send_metrics(self, trial, iteration, objective, context={}):
         """
