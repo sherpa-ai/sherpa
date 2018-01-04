@@ -40,8 +40,7 @@ for trial in study:
             break
             
     study.finalize(trial=trial,
-                   status='COMPLETED',
-                   context={'path': "abc{}".format(trial.id)})
+                   status='COMPLETED')
 
 
 
