@@ -138,17 +138,26 @@ def test_sge_scheduler():
 
     s = sherpa.schedulers.SGEScheduler(environment=env,
                                        submit_options=sge_options,
-                                       dir=test_dir)
+                                       output_dir=test_dir)
 
     job_id = s.submit_job("python {}/test.py".format(test_dir))
 
-    assert s.get_status(job_id) != 'finished'
+    try:
+        assert s.get_status(job_id) == sherpa.schedulers.JobStatus.running
 
-    time.sleep(10)
+        time.sleep(10)
+        testlogger.debug(s.get_status(job_id))
+        assert s.get_status(job_id) == sherpa.schedulers.JobStatus.finished
 
-    assert s.get_status(job_id) == 'finished'
+        job_id = s.submit_job("python {}/test.py".format(test_dir))
+        time.sleep(1)
+        s.kill_job(job_id)
+        time.sleep(1)
+        testlogger.debug(s.get_status(job_id))
+        assert s.get_status(job_id) == sherpa.schedulers.JobStatus.finished
 
-    shutil.rmtree(test_dir)
+    finally:
+        shutil.rmtree(test_dir)
 
 
 def test_local_scheduler(test_dir):
