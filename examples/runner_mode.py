@@ -19,22 +19,24 @@ study = sherpa.Study(parameters=parameters,
                      lower_is_better=True,
                      dashboard_port=8999)
 
-# scheduler = sherpa.schedulers.SGEScheduler(submit_options="-N example -P arcus.p -q arcus.q -l hostname='arcus-1'",
-#                                            environment="/home/lhertel/profiles/main.profile",
-#                                            output_dir=tempdir)
-scheduler = sherpa.schedulers.LocalScheduler()
+scheduler = sherpa.schedulers.SGEScheduler(submit_options="-N example -P arcus.p -q arcus.q -l hostname='arcus-1'", environment="/home/lhertel/profiles/main.profile",
+                                           output_dir=tempdir)
+hostname = 'nimbus.ics.uci.edu'
+db_port = 28282
+# scheduler = sherpa.schedulers.LocalScheduler()
 
-
+### The *training script*
 testscript = """import sherpa
 import time
 
-client = sherpa.Client()
+client = sherpa.Client(host='nimbus.ics.uci.edu', port=28282)
 trial = client.get_trial()
+
 # Simulate model training
 num_iterations = 10
 for i in range(num_iterations):
-    pseudo_objective = 1 / float(i + 1) * trial.parameters['param_b']
-    time.sleep(2)
+    pseudo_objective = trial.parameters['param_a'] / float(i + 1) * trial.parameters['param_b']
+    time.sleep(1)
     client.send_metrics(trial=trial, iteration=i+1,
                         objective=pseudo_objective)
     # print("Trial {} Iteration {}.".format(trial.id, i+1))
@@ -49,6 +51,7 @@ results = sherpa.optimize(filename=filename,
                           study=study,
                           output_dir=tempdir,
                           scheduler=scheduler,
-                          max_concurrent=2)
+                          max_concurrent=2,
+                          db_port=db_port)
 
 print(results)

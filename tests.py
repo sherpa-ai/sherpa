@@ -98,7 +98,9 @@ def test_study():
     assert s.results.equals(expected_df)
 
 
-def test_database(test_dir, test_trial):
+def test_database():
+    test_dir = tempfile.mkdtemp(dir=".")
+    test_trial = get_test_trial()
     testlogger.debug(test_dir)
     with sherpa.Database(test_dir) as db:
         db.enqueue_trial(test_trial)
@@ -143,6 +145,7 @@ def test_sge_scheduler():
     job_id = s.submit_job("python {}/test.py".format(test_dir))
 
     try:
+        time.sleep(2)
         assert s.get_status(job_id) == sherpa.schedulers.JobStatus.running
 
         time.sleep(10)
@@ -152,7 +155,9 @@ def test_sge_scheduler():
         job_id = s.submit_job("python {}/test.py".format(test_dir))
         time.sleep(1)
         s.kill_job(job_id)
-        time.sleep(1)
+
+        time.sleep(3)
+
         testlogger.debug(s.get_status(job_id))
         assert s.get_status(job_id) == sherpa.schedulers.JobStatus.finished
 
@@ -337,4 +342,5 @@ def test_median_stopping_rule():
 
 
 if __name__ == '__main__':
-    test_local_scheduler()
+    # test_sge_scheduler()
+    test_database()
