@@ -311,7 +311,8 @@ class Runner(object):
 
 def optimize(filename, study, output_dir, scheduler, max_concurrent, db_port=27010):
     """
-    Runs a Study via the Runner class.
+    Runs a Study with a scheduler and automatically runs a database in the
+    background.
 
     # Arguments:
         filename (str): the name of the file which is called to evaluate
@@ -332,11 +333,9 @@ def optimize(filename, study, output_dir, scheduler, max_concurrent, db_port=270
     return study.results
 
 
-
-
 class Parameter(object):
     """
-    Base class for a parameter.
+    Defines a hyperparameter with a name, type and associated range.
     """
     @staticmethod
     def from_dict(config):

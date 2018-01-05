@@ -21,10 +21,8 @@ class JobStatus(Enum):
 
 class Scheduler(object):
     """
-    Abstract interface to a job scheduler.
-
-    The job scheduler gives an API to submit jobs and retrieve statuses of all
-    jobs.
+    The job scheduler gives an API to submit jobs, retrieve statuses of all
+    jobs and kill a job.
     """
     def __init__(self):
         pass
