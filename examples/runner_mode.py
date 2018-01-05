@@ -11,8 +11,8 @@ parameters = [sherpa.Choice(name="param_a",
               sherpa.Continuous(name="param_b",
                                 range=[0, 1])]
 
-algorithm = sherpa.RandomSearch(max_num_trials=10)
-stopping_rule = sherpa.MedianStoppingRule(min_iterations=2,
+algorithm = sherpa.algorithms.RandomSearch(max_num_trials=10)
+stopping_rule = sherpa.algorithms.MedianStoppingRule(min_iterations=2,
                                           min_trials=5)
 study = sherpa.Study(parameters=parameters,
                      algorithm=algorithm,

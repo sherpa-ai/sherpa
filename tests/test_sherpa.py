@@ -79,7 +79,8 @@ def test_study():
     t = s.get_suggestion()
     assert t.id == 1
     assert t.parameters == {'a': 1, 'b': 2}
-    mock_algorithm.get_suggestion.assert_called_with(s.parameters, s.results)
+    mock_algorithm.get_suggestion.assert_called_with(s.parameters, s.results,
+                                                     s.lower_is_better)
 
     s.add_observation(trial=t, iteration=1, objective=0.1,
                       context={'other_metrics': 0.2})
@@ -311,31 +312,3 @@ def test_runner_submit_new_trials():
                                      mock.call("python test.py")])
     assert len(r.active_trials) == 3
     assert len(r.all_trials) == 3
-
-
-def test_median_stopping_rule():
-    results_df = pandas.DataFrame(collections.OrderedDict(
-        [('Trial-ID', [1]*3 + [2]*3 + [3]*3),
-         ('Status', ['INTERMEDIATE']*9),
-         ('Iteration', [1, 2, 3]*3),
-         ('a', [1, 1, 1]*3),
-         ('b', [2, 2, 2]*3),
-         ('Objective', [0.1]*3 + [0.2]*3 + [0.3]*3)]
-    ))
-
-    stopper = sherpa.algorithms.MedianStoppingRule(min_iterations=2,
-                                        min_trials=1)
-
-    t = get_test_trial(id=3)
-
-    assert stopper.should_trial_stop(trial=t, results=results_df, lower_is_better=True)
-
-    stopper = sherpa.algorithms.MedianStoppingRule(min_iterations=4,
-                                                   min_trials=1)
-    assert not stopper.should_trial_stop(trial=t, results=results_df, lower_is_better=True)
-
-    stopper = sherpa.algorithms.MedianStoppingRule(min_iterations=2,
-                                                   min_trials=4)
-    assert not stopper.should_trial_stop(trial=t, results=results_df, lower_is_better=True)
-
-

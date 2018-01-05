@@ -120,7 +120,8 @@ class Study(object):
         # Returns:
             (dict) a parameter suggestion.
         """
-        p = self.algorithm.get_suggestion(self.parameters, self.results)
+        p = self.algorithm.get_suggestion(self.parameters, self.results,
+                                          self.lower_is_better)
         if not p:
             return None
         else:
