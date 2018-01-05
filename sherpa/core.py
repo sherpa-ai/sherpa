@@ -227,8 +227,11 @@ class Runner(object):
         the results-table.
         """
         results = self.database.get_new_results()
-        if results != {} and self.all_trials == {}:
-            logger.warning("There may be another MongoDB instance running on this port")
+        if results != [] and self.all_trials == {}:
+            logger.debug(results)
+            raise ValueError("Found unexpected results. Check that client has"
+                             " correct host/port or try a different port.")
+
         for r in results:
             try:
                 new_trial = r.get('trial_id') not in set(self.study.results['Trial-ID'])
@@ -263,8 +266,14 @@ class Runner(object):
             status = self.scheduler.get_status(self.all_trials[tid].get('job_id'))
             if status in [JobStatus.finished, JobStatus.failed, JobStatus.killed]:
                 self.update_results()
-                self.study.finalize(trial=self.all_trials[tid].get('trial'),
-                                    status=self.trial_status[status])
+                try:
+                    self.study.finalize(trial=self.all_trials[tid].get('trial'),
+                                        status=self.trial_status[status])
+                except ValueError as e:
+                    print(e.message, e.args)
+                    print("Relevant results not found in database. Check that"
+                          "Client has correct host/port and is submitting"
+                          "metrics.")
                 self.active_trials.pop(i)
 
     def stop_bad_performers(self):
@@ -324,7 +333,7 @@ def optimize(filename, study, output_dir, scheduler, max_concurrent, db_port=270
         max_concurrent (int): the number of trials that will be evaluated in
             parallel.
     """
-    with Database(output_dir, port=db_port) as db:
+    with Database(db_dir=output_dir, port=db_port) as db:
         runner = Runner(study=study,
                         scheduler=scheduler,
                         database=db,

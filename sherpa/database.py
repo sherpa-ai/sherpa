@@ -1,6 +1,7 @@
 import logging
 from pymongo import MongoClient
 import subprocess
+import time
 try:
     from subprocess import DEVNULL # py3k
 except ImportError:
@@ -24,12 +25,12 @@ class Database(object):
         dbpath (str): the path where Mongo-DB stores its files.
         port (int): the port on which the Mongo-DB should run.
     """
-    def __init__(self, dir, port=27010):
+    def __init__(self, db_dir, port=27010):
         self.client = MongoClient(port=port)
         self.db = self.client.sherpa
         self.collected_results = []
         self.mongo_process = None
-        self.dir = dir
+        self.dir = db_dir
         self.port = port
 
     def close(self):
@@ -40,18 +41,23 @@ class Database(object):
         """
         Runs the DB in a sub-process.
         """
-        dblogger.debug("Starting MongoDB!")
-        cmd = ['mongod', '--dbpath', self.dir]
-        if self.port:
-            cmd.append('--port')
-            cmd.append(str(self.port))
-        self.mongo_process = subprocess.Popen(cmd,
-                                              stdout=DEVNULL)
+        dblogger.debug("Starting MongoDB in {}!".format(self.dir))
+        cmd = ['mongod', '--dbpath', self.dir, '--port', str(self.port)]
+        self.mongo_process = subprocess.Popen(cmd, stdout=DEVNULL)
+        time.sleep(1)
+        self.check_db_status()
+
+    def check_db_status(self):
+        status = self.mongo_process.poll()
+        dblogger.debug(status)
+        if status:
+            raise EnvironmentError("Database exited with code {}".format(status))
 
     def get_new_results(self):
         """
         Checks database for new results.
         """
+        self.check_db_status()
         new_results = []
         for entry in self.db.results.find():
             result = entry
@@ -65,6 +71,7 @@ class Database(object):
         """
         Puts a new trial in the queue for workers to pop off.
         """
+        self.check_db_status()
         trial = {'id': trial.id,
                  'parameters': trial.parameters,
                  'used': False}

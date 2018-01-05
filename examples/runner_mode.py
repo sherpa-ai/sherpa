@@ -29,7 +29,7 @@ scheduler = sherpa.schedulers.LocalScheduler()
 testscript = """import sherpa
 import time
 
-# client = sherpa.Client(host='nimbus.ics.uci.edu', port=28282)
+# client = sherpa.Client(host='nimbus.ics.uci.edu', port=27010)
 client = sherpa.Client(host='localhost')
 trial = client.get_trial()
 

@@ -1,7 +1,6 @@
 from __future__ import print_function
 import sherpa
 import time
-import threading
 
 parameters = [sherpa.Choice(name="param_a",
                             range=[1, 2, 3]),
@@ -33,7 +32,8 @@ for trial in study:
         # add observations once or multiple times
         study.add_observation(trial=trial,
                               iteration=i+1,
-                              objective=pseudo_objective)
+                              objective=pseudo_objective,
+                              context={'pseudo_acc': 1-pseudo_objective})
         # time.sleep(1)
 
         if study.should_trial_stop(trial=trial):
