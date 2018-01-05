@@ -19,17 +19,18 @@ study = sherpa.Study(parameters=parameters,
                      lower_is_better=True,
                      dashboard_port=8999)
 
-scheduler = sherpa.schedulers.SGEScheduler(submit_options="-N example -P arcus.p -q arcus.q -l hostname='arcus-1'", environment="/home/lhertel/profiles/main.profile",
-                                           output_dir=tempdir)
-hostname = 'nimbus.ics.uci.edu'
-db_port = 28282
-# scheduler = sherpa.schedulers.LocalScheduler()
+# scheduler = sherpa.schedulers.SGEScheduler(submit_options="-N example -P arcus.p -q arcus.q -l hostname='arcus-1'", environment="/home/lhertel/profiles/main.profile",
+#                                            output_dir=tempdir)
+# hostname = 'nimbus.ics.uci.edu'
+db_port = 27010
+scheduler = sherpa.schedulers.LocalScheduler()
 
 ### The *training script*
 testscript = """import sherpa
 import time
 
-client = sherpa.Client(host='nimbus.ics.uci.edu', port=28282)
+# client = sherpa.Client(host='nimbus.ics.uci.edu', port=28282)
+client = sherpa.Client(host='localhost')
 trial = client.get_trial()
 
 # Simulate model training

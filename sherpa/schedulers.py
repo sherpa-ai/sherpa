@@ -98,6 +98,7 @@ class SGEScheduler(Scheduler):
         self.submit_options = submit_options
         self.environment = environment
         self.output_dir = output_dir
+        self.killed_jobs = set()
         self.drmaa = __import__('drmaa')
         self.decode_status = {
             self.drmaa.JobState.UNDETERMINED: JobStatus.other,
@@ -189,7 +190,10 @@ class SGEScheduler(Scheduler):
                 status = s.jobStatus(str(job_id))
             except self.drmaa.errors.InvalidJobException:
                 return JobStatus.finished
-        return self.decode_status.get(status)
+        s = self.decode_status.get(status)
+        if s == JobStatus.finished and job_id in self.killed_jobs:
+            s = JobStatus.killed
+        return s
 
     def kill_job(self, job_id):
         """
@@ -201,8 +205,6 @@ class SGEScheduler(Scheduler):
         logger.info("Killing job {}".format(job_id))
         with self.drmaa.Session() as s:
             s.control(job_id, self.drmaa.JobControlAction.TERMINATE)
-        return
-
-# # SGE codes
-# # TODO: make Sherpa enumerable with states and code into that
+        # TODO: what happens when job doesn't exist - then we don't want to add
+        self.killed_jobs.add(job_id)
 

@@ -1,7 +1,4 @@
 import re
-import sherpa
-from sherpa.hyperparameters import DistributionHyperparameter as Hyperparameter
-from sherpa.schedulers import LocalScheduler,SGEScheduler
 
 
 # from keras
@@ -27,14 +24,12 @@ In order to get SHERPA running clone the repository from GitLab by
 calling ```git clone git@gitlab.ics.uci.edu:uci-igb/sherpa.git``` from the
 command line and adding the directory to the Python path (e.g.
 ```export PYTHONPATH=$PYTHONPATH:/user/local/sherpa/```). In order to get the
-necessary dependencies you can run ```python setup.py``` from the SHERPA folder.
+necessary dependencies you can run ```python setup.py install``` from the SHERPA folder.
 
-### Dependencies
-+ Numpy 1.13.1
-+ Pandas 0.19.2
-+ Drmaa 0.7.8
+### Optional Dependencies
++ Drmaa 0.7.8 (for SGE)
 + Keras (for examples)
-+ GPU Lock (for examples)
++ GPU Lock (for examples and recommended for SGE)
 
 ## Getting Started
 For a first step navigate to ```sherpa/examples``` and run
@@ -154,25 +149,25 @@ Below is a list of functions that are needed to set up a SHERPA optimization.
 
 text = static_text
 
-text += "#### sherpa.hyperparameters.DistributionHyperparameter"
-text += process_function_docstring(Hyperparameter.__doc__)
-text += "\n"
-text += "#### sherpa.optimize"
-text += process_function_docstring(sherpa.optimize.__doc__)
-text += "\n"
-text += "#### sherpa.schedulers.LocalScheduler"
-text += process_function_docstring(sherpa.schedulers.LocalScheduler.__doc__)
-text += "\n"
-text += "#### sherpa.schedulers.SGEScheduler"
-text += process_function_docstring(sherpa.schedulers.SGEScheduler.__doc__)
-
-text += "\n"
-text += "\n"
-text += "### Supported Algorithms"
-text += "\n"
-text += "#### sherpa.algorithms.RandomSearch"
-text += process_function_docstring(sherpa.algorithms.RandomSearch.__doc__)
-text += "\n"
+# text += "#### sherpa.hyperparameters.DistributionHyperparameter"
+# text += process_function_docstring(Hyperparameter.__doc__)
+# text += "\n"
+# text += "#### sherpa.optimize"
+# text += process_function_docstring(sherpa.optimize.__doc__)
+# text += "\n"
+# text += "#### sherpa.schedulers.LocalScheduler"
+# text += process_function_docstring(sherpa.schedulers.LocalScheduler.__doc__)
+# text += "\n"
+# text += "#### sherpa.schedulers.SGEScheduler"
+# text += process_function_docstring(sherpa.schedulers.SGEScheduler.__doc__)
+#
+# text += "\n"
+# text += "\n"
+# text += "### Supported Algorithms"
+# text += "\n"
+# text += "#### sherpa.algorithms.RandomSearch"
+# text += process_function_docstring(sherpa.algorithms.RandomSearch.__doc__)
+# text += "\n"
 
 
 with open('README.md', 'w') as f:

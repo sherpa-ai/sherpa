@@ -8,7 +8,7 @@ parameters = [sherpa.Choice(name="param_a",
               sherpa.Continuous(name="param_b",
                                 range=[0, 1])]
 
-algorithm = sherpa.RandomSearch(max_num_trials=10)
+algorithm = sherpa.RandomSearch(max_num_trials=50)
 stopping_rule = sherpa.MedianStoppingRule(min_iterations=2,
                                           min_trials=5)
 study = sherpa.Study(parameters=parameters,
@@ -33,14 +33,16 @@ for trial in study:
         study.add_observation(trial=trial,
                               iteration=i+1,
                               objective=pseudo_objective)
-        time.sleep(1)
+        # time.sleep(1)
 
         if study.should_trial_stop(trial=trial):
             print("Stopping Trial {} after {} iterations.".format(trial.id, i+1))
+            study.finalize(trial=trial,
+                           status='STOPPED')
             break
-            
-    study.finalize(trial=trial,
-                   status='COMPLETED')
+    else:
+        study.finalize(trial=trial,
+                       status='COMPLETED')
 
 
 

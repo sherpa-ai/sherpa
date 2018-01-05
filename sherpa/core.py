@@ -216,6 +216,9 @@ class Runner(object):
         self.study = study
         self.active_trials = []  # ids of trials that are active
         self.all_trials = {}  # maps trial id to Trial object, process ID
+        self.trial_status = {JobStatus.finished: 'COMPLETED',
+                             JobStatus.killed: 'STOPPED',
+                             JobStatus.failed: 'FAILED'}
 
     def update_results(self):
         """
@@ -260,7 +263,7 @@ class Runner(object):
             if status in [JobStatus.finished, JobStatus.failed, JobStatus.killed]:
                 self.update_results()
                 self.study.finalize(trial=self.all_trials[tid].get('trial'),
-                                    status='COMPLETED')
+                                    status=self.trial_status[status])
                 self.active_trials.pop(i)
 
     def stop_bad_performers(self):
@@ -280,7 +283,7 @@ class Runner(object):
                 break
 
             logger.info("Submitting Trial {} with parameters"
-                         "{}".format(next_trial.id, next_trial.parameters))
+                         " {}".format(next_trial.id, next_trial.parameters))
 
             self.database.enqueue_trial(next_trial)
             pid = self.scheduler.submit_job(command=self.command)

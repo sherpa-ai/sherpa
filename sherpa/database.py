@@ -1,4 +1,4 @@
-import pymongo
+import logging
 from pymongo import MongoClient
 import subprocess
 try:
@@ -7,6 +7,10 @@ except ImportError:
     import os
     DEVNULL = open(os.devnull, 'wb')
 import sherpa
+
+
+logging.basicConfig(level=logging.DEBUG)
+dblogger = logging.getLogger(__name__)
 
 
 class Database(object):
@@ -36,6 +40,7 @@ class Database(object):
         """
         Runs the DB in a sub-process.
         """
+        dblogger.debug("Starting MongoDB!")
         cmd = ['mongod', '--dbpath', self.dir]
         if self.port:
             cmd.append('--port')
@@ -64,16 +69,12 @@ class Database(object):
                  'parameters': trial.parameters,
                  'used': False}
         t_id = self.db.trials.insert_one(trial).inserted_id
-        print(t_id)
 
     def __enter__(self):
         self.start()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-
-    def __del__(self):
         self.close()
 
 
@@ -101,17 +102,12 @@ class Client(object):
         # Returns:
             (sherpa.Trial)
         """
-        # g = (entry for entry in self.db.trials.find({'used': False}))
-        # try:
-        #     t = next(g)
-        # except StopIteration:
-        #     print("No Trial available")
-        #     raise
-        # self.db.trials.update_one({'_id': t.get('_id')}, {'$set': {'used': True}})
         t = self.db.trials.find_one_and_update(
             {"used": False},
-            { '$set': {'used': True}}
+            {'$set': {'used': True}}
         )
+        if not t:
+            raise RuntimeError("No Trial Found!")
         return sherpa.Trial(id=t.get('id'), parameters=t.get('parameters'))
 
     def send_metrics(self, trial, iteration, objective, context={}):
