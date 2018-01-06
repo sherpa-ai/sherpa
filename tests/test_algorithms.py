@@ -81,3 +81,19 @@ def test_local_search():
 
         assert (best_params['param_a'] == p['param_a']
                 or best_params['param_b'] == p['param_b'])
+
+
+def test_grid_search():
+    parameters = sherpa.Parameter.grid({'a': [1, 2],
+                                        'b': ['a', 'b']})
+
+    alg = sherpa.algorithms.GridSearch()
+
+    suggestion = alg.get_suggestion(parameters)
+    seen = set()
+
+    while suggestion:
+        seen.add((suggestion['a'], suggestion['b']))
+        suggestion = alg.get_suggestion(parameters)
+
+    assert seen == {(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')}

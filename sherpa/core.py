@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+import os
 import numpy
 import pandas
 import collections
@@ -38,6 +39,7 @@ class Study(object):
         stopping_rule (sherpa.stopping_rules.StoppingRule): rule for stopping
             trials prematurely.
         lower_is_better (bool): whether lower objective values are better.
+        dashboard_port (int): port to run the dashboard web-server on.
 
     """
     def __init__(self, parameters, algorithm, lower_is_better,
@@ -154,6 +156,15 @@ class Study(object):
                                                         self.lower_is_better)
         else:
             return False
+
+    def get_best_result(self):
+        # Get best result so far
+        best_idx = (self.results.loc[:, 'Objective'].argmin() if self.lower_is_better
+                    else self.results.loc[:, 'Objective'].argmax())
+
+        best_result = self.results.loc[best_idx, :].to_dict()
+        best_result.pop('Status')
+        return best_result
         
     def run_web_server(self, port):
         """
@@ -266,11 +277,11 @@ class Runner(object):
         """
         Update active trials, finalize any completed/stopped/failed trials
         """
-        logger.debug("Updating trials")
+        # logger.debug("Updating trials")
         for i in range(len(self.active_trials)-1, -1, -1):
             tid = self.active_trials[i]
             status = self.scheduler.get_status(self.all_trials[tid].get('job_id'))
-            logger.debug("Trial with ID {} has status {}".format(tid, status))
+            # logger.debug("Trial with ID {} has status {}".format(tid, status))
             if status in [JobStatus.finished, JobStatus.failed,
                           JobStatus.killed, JobStatus.other]:
                 self.update_results()
@@ -326,12 +337,22 @@ class Runner(object):
             time.sleep(1)
 
 
-def optimize(filename, study, output_dir, scheduler, max_concurrent, db_port=27010):
+def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
+             scheduler, max_concurrent=1, db_port=27010, stopping_rule=None,
+             dashboard_port=None):
     """
     Runs a Study with a scheduler and automatically runs a database in the
     background.
 
     # Arguments:
+        algorithm (sherpa.algorithms.Algorithm): takes results table and returns
+            parameter set.
+        results (pandas.DataFrame): contains results from this study.
+        parameters (list[sherpa.Parameter]): parameters being optimized.
+        stopping_rule (sherpa.stopping_rules.StoppingRule): rule for stopping
+            trials prematurely.
+        lower_is_better (bool): whether lower objective values are better.
+        dashboard_port (int): port to run the dashboard web-server on.
         filename (str): the name of the file which is called to evaluate
             configurations
         study (sherpa.Study): the Study to be run.
@@ -340,6 +361,14 @@ def optimize(filename, study, output_dir, scheduler, max_concurrent, db_port=270
         max_concurrent (int): the number of trials that will be evaluated in
             parallel.
     """
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    study = Study(parameters=parameters,
+                  algorithm=algorithm,
+                  lower_is_better=lower_is_better,
+                  stopping_rule=stopping_rule,
+                  dashboard_port=dashboard_port)
     with Database(db_dir=output_dir, port=db_port) as db:
         runner = Runner(study=study,
                         scheduler=scheduler,
@@ -347,7 +376,7 @@ def optimize(filename, study, output_dir, scheduler, max_concurrent, db_port=270
                         max_concurrent=max_concurrent,
                         command=' '.join(['python', filename]))
         runner.run_loop()
-    return study.results
+    return study.get_best_result()
 
 
 class Parameter(object):
@@ -356,6 +385,20 @@ class Parameter(object):
     """
     @staticmethod
     def from_dict(config):
+        """
+        Returns a parameter object according to the given dictionary config.
+
+        # Arguments:
+            config (dict): parameter config of the format
+                {'name': '<the-name>',
+                 'type': '<continuous/discrete/choice>',
+                 'range': [value1, value2, ... ],
+                 'scale': 'log' to sample continuous/discrete from log-scale}
+
+        # Returns:
+            (sherpa.Parameter)
+
+        """
         if config.get('type') == 'continuous':
             return Continuous(name=config.get('name'),
                               range=config.get('range'),
@@ -370,6 +413,28 @@ class Parameter(object):
         else:
             raise ValueError("Got unexpected value for type: {}".format(
                 config.get('type')))
+
+    @staticmethod
+    def grid(parameter_grid):
+        """
+        Creates a list of parameters given a parameter grid.
+
+        # Arguments:
+            parameter_grid (dict): dictionary of the form
+                {'parameter_a': [aValue1, aValue2, ...],
+                 'parameter_b': [bValue1, bValue2, ...],
+                 ...}
+
+        # Returns:
+            (list[sherpa.Parameter])
+        """
+        plist = []
+        for pname, prange in parameter_grid.items():
+            p = Parameter.from_dict({'name': pname,
+                                     'type': 'choice',
+                                     'range': prange})
+            plist.append(p)
+        return plist
 
 
 class Continuous(Parameter):

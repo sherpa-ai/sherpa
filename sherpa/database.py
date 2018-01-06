@@ -2,6 +2,7 @@ import logging
 from pymongo import MongoClient
 import subprocess
 import time
+import os
 try:
     from subprocess import DEVNULL # py3k
 except ImportError:
@@ -42,9 +43,12 @@ class Database(object):
         Runs the DB in a sub-process.
         """
         dblogger.debug("Starting MongoDB in {}!".format(self.dir))
-        cmd = ['mongod', '--dbpath', self.dir, '--port', str(self.port)]
+        cmd = ['mongod',
+               '--dbpath', self.dir,
+               '--port', str(self.port),
+               '--logpath', os.path.join(self.dir, "log.txt")]
         try:
-            self.mongo_process = subprocess.Popen(cmd, stdout=DEVNULL)
+            self.mongo_process = subprocess.Popen(cmd)
         except FileNotFoundError as e:
             raise FileNotFoundError(str(e) + "\nCheck that MongoDB is installed and in PATH.")
         time.sleep(1)

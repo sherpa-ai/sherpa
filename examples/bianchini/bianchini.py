@@ -1,16 +1,9 @@
 # Train simple network on 2D data.
 # Author: Peter Sadowski
 from __future__ import print_function
-import sys, os
+import os
 import numpy as np
-import argparse
-import ast
-
-import glob
-from collections import defaultdict
-
 import sherpa
-from sherpa.hyperparameters import DistributionHyperparameter as Hyperparameter
 
 os.environ['KERAS_BACKEND'] = 'tensorflow'
 
@@ -51,21 +44,7 @@ from keras.models import Model
 from keras.layers import Dense, Input
 from keras.optimizers import SGD
 
-#print(sys.argv)
-parser = argparse.ArgumentParser()
-parser.add_argument('--act', type=str)
-parser.add_argument('--lrinit', type=float)
-parser.add_argument('--momentum', type=float)
-parser.add_argument('--lrdecay', type=float)
-parser.add_argument('--arch', type=ast.literal_eval)
-parser.add_argument('--epochs', type=int)
-# Args used by scheduler.
-parser.add_argument('--index', type=int)
-parser.add_argument('--verbose', default=2, type=int) # Use verbose=2 for parallel keras jobs. 
-parser.add_argument('--metricsfile', type=str)
-parser.add_argument('--modelfile', type=str)
-args = parser.parse_args()
-#print(args) 
+
  
 def dataset_bianchini(batchsize, k=1):
     '''
@@ -84,7 +63,7 @@ def dataset_bianchini(batchsize, k=1):
         Y = (np.apply_along_axis(f, axis=1, arr=X) > 0.0).astype('float32')
         yield {'input':X}, {'output':Y}
 
-def define_model(args):
+def define_model(params):
     '''
     Return compiled model using hyperparameters specified in args.
     ''' 
@@ -92,19 +71,19 @@ def define_model(args):
     nout   = 1
     units  = 10
     nhlay  = 2
-    act    = args.act
+    act    = params['act']
     init   = 'glorot_normal'
     input  = Input(shape=(nin,), dtype='float32', name='input')
     x      = input
-    for units in args.arch:
+    for units in params['arch']:
         x  = Dense(units, kernel_initializer=init, activation=act)(x)
     output = Dense(nout, kernel_initializer=init, activation='sigmoid', name='output')(x)
     model  = Model(inputs=input, outputs=output)
 
     # Learning Algorithm
-    lrinit    = args.lrinit
-    momentum  = args.momentum
-    lrdecay   = args.lrdecay 
+    lrinit    = params['lrinit']
+    momentum  = params['momentum']
+    lrdecay   = params['lrdecay']
     loss      = {'output':'binary_crossentropy'}
     metrics   = {'output':'accuracy'}
     loss_weights = {'output':1.0}
@@ -112,9 +91,10 @@ def define_model(args):
     model.compile(optimizer=optimizer, loss=loss, metrics=metrics, loss_weights=loss_weights)
     return model
 
-def main(args):
+
+def main(client, trial):
     # Create new model.
-    model   = define_model(args)
+    model   = define_model(trial.parameters)
 
     # Define dataset.
     gtrain = dataset_bianchini(batchsize=100, k=3)
@@ -122,24 +102,30 @@ def main(args):
     
     # Train model. 
     initial_epoch = 0
+
+    send_call = lambda epoch, logs: client.send_metrics(trial=trial,
+                                                           iteration=epoch,
+                                                           objective=logs['val_loss'],
+                                                           context={'val_accuracy': logs['val_acc']})
+    callbacks = [keras.callbacks.LambdaCallback(on_epoch_end=send_call)]
+
     history = model.fit_generator(gtrain, 
                         steps_per_epoch=100,
                         validation_data = gvalid, 
                         validation_steps = 10,
                         initial_epoch = initial_epoch,
-                        epochs = args.epochs + initial_epoch,
-                        verbose = args.verbose)
-
-    # Send metrics to sherpa.
-    metrics = history.history
-    sherpa.send_metrics(index=args.index, metrics=metrics, metricsfile=args.metricsfile)
+                        callbacks=callbacks,
+                        epochs = trial.parameters['epochs'] + initial_epoch)
     
-    if 'modelfile' in args:
+    if 'modelfile' in trial.parameters:
         # Save model file.
-        model.save(args.modelfile)
+        model.save(trial.parameters['modelfile'])
         
     return
 
 if __name__=='__main__':
-    main(args)
+    # client = sherpa.Client(host='nimbus.ics.uci.edu', port=27010)
+    client = sherpa.Client(host='localhost', port=27005)
+    trial = client.get_trial()
+    main(client, trial)
 

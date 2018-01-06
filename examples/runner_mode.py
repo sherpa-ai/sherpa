@@ -14,10 +14,6 @@ parameters = [sherpa.Choice(name="param_a",
 algorithm = sherpa.algorithms.RandomSearch(max_num_trials=10)
 stopping_rule = sherpa.algorithms.MedianStoppingRule(min_iterations=2,
                                           min_trials=5)
-study = sherpa.Study(parameters=parameters,
-                     algorithm=algorithm,
-                     lower_is_better=True,
-                     dashboard_port=8999)
 
 # scheduler = sherpa.schedulers.SGEScheduler(submit_options="-N example -P arcus.p -q arcus.q -l hostname='arcus-1'", environment="/home/lhertel/profiles/main.profile",
 #                                            output_dir=tempdir)
@@ -48,8 +44,11 @@ filename = os.path.join(tempdir, "test.py")
 with open(filename, 'w') as f:
     f.write(testscript)
 
-results = sherpa.optimize(filename=filename,
-                          study=study,
+results = sherpa.optimize(parameters=parameters,
+                          algorithm=algorithm,
+                          lower_is_better=True,
+                          dashboard_port=8999,
+                          filename=filename,
                           output_dir=tempdir,
                           scheduler=scheduler,
                           max_concurrent=2,

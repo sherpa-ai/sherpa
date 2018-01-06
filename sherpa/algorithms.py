@@ -39,7 +39,7 @@ class RandomSearch(Algorithm):
         self.max_num_trials = max_num_trials
         self.count = 0
 
-    def get_suggestion(self, parameters, results, lower_is_better):
+    def get_suggestion(self, parameters, results=None, lower_is_better=True):
         if self.count >= self.max_num_trials:
             return None
         else:
@@ -52,14 +52,17 @@ class GridSearch(Algorithm):
         self.count = 0
         self.grid = None
 
-    def get_suggestion(self, parameters, results, lower_is_better):
+    def get_suggestion(self, parameters, results=None, lower_is_better=True):
         assert all(isinstance(p, Choice) for p in parameters), "Only Choice Parameters can be used with GridSearch"
         if self.count == 0:
             param_dict = {p.name: p.range for p in parameters}
             self.grid = list(sklearn.model_selection.ParameterGrid(param_dict))
-        params = self.grid[self.count]
-        self.count += 1
-        return params
+        if self.count == len(self.grid):
+            return None
+        else:
+            params = self.grid[self.count]
+            self.count += 1
+            return params
 
 
 class LocalSearch(Algorithm):
@@ -171,6 +174,11 @@ class MedianStoppingRule(StoppingRule):
 
 
 def get_sample_results_and_params():
+    """
+    Call as
+    parameters, results, lower_is_better = get_sample_results_and_params()
+    to get a sample set of parameters, results and lower_is_better variable.
+    """
     here = os.path.abspath(os.path.dirname(__file__))
     results = pandas.read_csv(os.path.join(here, "sample_results.csv"), index_col=0)
     parameters = [Choice(name="param_a",
