@@ -43,13 +43,15 @@ class Database(object):
         """
         dblogger.debug("Starting MongoDB in {}!".format(self.dir))
         cmd = ['mongod', '--dbpath', self.dir, '--port', str(self.port)]
-        self.mongo_process = subprocess.Popen(cmd, stdout=DEVNULL)
+        try:
+            self.mongo_process = subprocess.Popen(cmd, stdout=DEVNULL)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(str(e) + "\nCheck that MongoDB is installed and in PATH.")
         time.sleep(1)
         self.check_db_status()
 
     def check_db_status(self):
         status = self.mongo_process.poll()
-        dblogger.debug(status)
         if status:
             raise EnvironmentError("Database exited with code {}".format(status))
 
@@ -92,6 +94,8 @@ class Client(object):
     This function is called from worker scripts only.
 
     # Arguments:
+        host (str): the host that runs the database. Only needed if DB is not
+            running on same machine.
         port (int): port that database is running on.
     """
     def __init__(self, host='localhost', port=27010, **kwargs):

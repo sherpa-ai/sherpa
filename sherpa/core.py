@@ -5,6 +5,7 @@ import collections
 import time
 import logging
 import multiprocessing
+import warnings
 from .database import Database
 from .schedulers import JobStatus
 
@@ -100,8 +101,11 @@ class Study(object):
         assert isinstance(trial, Trial), "Trial must be sherpa.Trial"
         assert status in ['COMPLETED', 'FAILED', 'STOPPED']
 
-        rows = self.results.loc[self.results['Trial-ID'] == trial.id]
-        if len(rows) == 0:
+        try:
+            rows = self.results.loc[self.results['Trial-ID'] == trial.id]
+            if len(rows) == 0:
+                raise KeyError
+        except KeyError:
             raise ValueError("Trial {} does not exist or did not submit metrics.".format(trial.id))
         # Find best row as minimum or maximum objective
         best_idx = (rows['Objective'].idxmin() if self.lower_is_better
@@ -219,7 +223,8 @@ class Runner(object):
         self.all_trials = {}  # maps trial id to Trial object, process ID
         self.trial_status = {JobStatus.finished: 'COMPLETED',
                              JobStatus.killed: 'STOPPED',
-                             JobStatus.failed: 'FAILED'}
+                             JobStatus.failed: 'FAILED',
+                             JobStatus.other: 'FAILED'}
 
     def update_results(self):
         """
@@ -261,19 +266,21 @@ class Runner(object):
         """
         Update active trials, finalize any completed/stopped/failed trials
         """
+        logger.debug("Updating trials")
         for i in range(len(self.active_trials)-1, -1, -1):
             tid = self.active_trials[i]
             status = self.scheduler.get_status(self.all_trials[tid].get('job_id'))
-            if status in [JobStatus.finished, JobStatus.failed, JobStatus.killed]:
+            logger.debug("Trial with ID {} has status {}".format(tid, status))
+            if status in [JobStatus.finished, JobStatus.failed,
+                          JobStatus.killed, JobStatus.other]:
                 self.update_results()
                 try:
                     self.study.finalize(trial=self.all_trials[tid].get('trial'),
                                         status=self.trial_status[status])
                 except ValueError as e:
-                    print(e.message, e.args)
-                    print("Relevant results not found in database. Check that"
-                          "Client has correct host/port and is submitting"
-                          "metrics.")
+                    warnings.warn(str(e) + "\nRelevant results not found in database. Check that"
+                                  " Client has correct host/port and is submitting"
+                                  " metrics.", RuntimeWarning)
                 self.active_trials.pop(i)
 
     def stop_bad_performers(self):

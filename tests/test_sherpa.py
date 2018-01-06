@@ -104,11 +104,14 @@ def test_study():
 def test_database(test_dir):
     test_trial = get_test_trial()
     testlogger.debug(test_dir)
-    with sherpa.Database(test_dir, port=27010) as db:
+    db_port = 27011
+    with sherpa.Database(test_dir, port=db_port) as db:
         testlogger.debug("Enqueuing...")
         db.enqueue_trial(test_trial)
 
-        client = sherpa.Client(port=27010, connectTimeoutMS=2000)
+        client = sherpa.Client(port=db_port,
+                               connectTimeoutMS=100,
+                               serverSelectionTimeoutMS=1000)
 
         testlogger.debug("Getting Trial...")
         t = client.get_trial()
@@ -127,8 +130,14 @@ def test_database(test_dir):
                                 'parameters': {'a': 1, 'b': 2},
                                 'trial_id': 1}]
 
-    with pytest.raises(RuntimeError):
-        client.get_trial()
+        # test that Sherpa raises correct error if MongoDB exits
+        db2 = sherpa.Database(test_dir, port=db_port)
+        with pytest.raises(OSError):
+            db2.start()
+
+    # with pytest.raises(RuntimeError):
+    # with pytest.raises(pymongo.errors.ServerSelectionTimeoutError):
+    #     client.get_trial()
 
 
 def test_sge_scheduler():
