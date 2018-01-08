@@ -46,7 +46,7 @@ var rawdata = [
 ];
 
 
-var completedTrials = rawdata.filter(function(d) { return d.Status == 'COMPLETED'; });
+var completedTrials = rawdata.filter(function(d) { return d.Status != 'INTERMEDIATE'; });
 var intermediateTrials = rawdata.filter(function(d) { return d.Status == 'INTERMEDIATE'; });
 
 // slickgrid needs each data element to have an id
@@ -170,7 +170,7 @@ var p = [];
 
 for(var i = 0; i<ids.length; i++) {
   p[i] = svg.append("path")
-          .datum(intermediateTrials.filter(function(d) { return d.ID == ids[i];}))
+          .datum(intermediateTrials.filter(function(d) { return d.TrialID == ids[i];}))
           .attr("class", "line")
           .attr("d", line);
           id2idx.set(ids[i], i);
@@ -231,7 +231,7 @@ gridUpdate(completedTrials);
 parcoords.on("brush", function(d) {
 gridUpdate(d);
 
-brushedIds = d3.map(d, function(dat){return dat.ID;})
+brushedIds = d3.map(d, function(dat){return dat.TrialID;})
 // set opacity to zero for unselected lines
 for(var i = 0; i<p.length; i++) {
     if(!brushedIds.has(ids[i])) {

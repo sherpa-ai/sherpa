@@ -245,8 +245,9 @@ class Runner(object):
         results = self.database.get_new_results()
         if results != [] and self.all_trials == {}:
             logger.debug(results)
-            raise ValueError("Found unexpected results. Check that client has"
-                             " correct host/port or try a different port.")
+            raise ValueError("Found unexpected results. Check the following\n"
+                             "(1)\toutput_dir is empty\n"
+                             "(2)\tno other database is running on this port.")
 
         for r in results:
             try:
@@ -332,6 +333,9 @@ class Runner(object):
             self.stop_bad_performers()
 
             self.submit_new_trials()
+
+            logger.info("Best results so far:\n"
+                        "{}".format(self.study.get_best_result()))
 
             # logger.info(self.study.results)
             time.sleep(1)

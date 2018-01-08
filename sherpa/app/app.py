@@ -33,8 +33,8 @@ def index():
     results = app.get_results()
     if not results.empty:
         all_ids = set(results['Trial-ID'])
-        completed_ids = set(results.loc[results['Status']=='COMPLETED', 'Trial-ID'])
-        active_ids = all_ids ^ completed_ids
+        finished_ids = set(results.loc[results['Status']!='INTERMEDIATE', 'Trial-ID'])
+        active_ids = all_ids ^ finished_ids
         active_trials = [{'id': i} for i in active_ids]
         return render_template("index.html",
                                active_trials=active_trials,

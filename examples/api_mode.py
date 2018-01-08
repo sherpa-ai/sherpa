@@ -48,3 +48,4 @@ for trial in study:
 
 
 print(study.results)
+time.sleep(500)
