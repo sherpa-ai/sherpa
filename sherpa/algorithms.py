@@ -145,13 +145,13 @@ class MedianStoppingRule(StoppingRule):
         """
         trial_rows = results.loc[results['Trial-ID'] == trial.id]
         trial_rows_sorted = trial_rows.sort_values(by='Iteration')
-        trial_obj_mean = trial_rows_sorted['Objective'].mean()
+        trial_obj_val = trial_rows_sorted['Objective'].min() if lower_is_better else trial_rows_sorted['Objective'].max()
         max_iteration = trial_rows_sorted['Iteration'].max()
         if max_iteration < self.min_iterations:
             return False
 
         trial_ids = set(results['Trial-ID'])
-        comparison_means = []
+        comparison_vals = []
 
         for tid in trial_ids:
             if tid == trial.id:
@@ -159,16 +159,16 @@ class MedianStoppingRule(StoppingRule):
             trial_rows = results.loc[results['Trial-ID'] == tid]
 
             valid_rows = trial_rows.loc[trial_rows['Iteration'] <= max_iteration]
-            obj_mean = valid_rows['Objective'].mean()
-            comparison_means.append(obj_mean)
+            obj_val = valid_rows['Objective'].min() if lower_is_better else valid_rows['Objective'].max()
+            comparison_vals.append(obj_val)
 
-        if len(comparison_means) < self.min_trials:
+        if len(comparison_vals) < self.min_trials:
             return False
 
         if lower_is_better:
-            decision = trial_obj_mean > numpy.median(comparison_means)
+            decision = trial_obj_val > numpy.median(comparison_vals)
         else:
-            decision = trial_obj_mean < numpy.median(comparison_means)
+            decision = trial_obj_val < numpy.median(comparison_vals)
 
         return decision
 
