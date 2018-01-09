@@ -7,7 +7,7 @@ import sherpa
 
 os.environ['KERAS_BACKEND'] = 'tensorflow'
 
-if False:
+if True:
     # Before importing keras, decide which gpu to use.
     try:
         # gpu_lock module located at /home/pjsadows/libs
@@ -124,8 +124,8 @@ def main(client, trial):
     return
 
 if __name__=='__main__':
-    # client = sherpa.Client(host='nimbus.ics.uci.edu', port=27010)
-    client = sherpa.Client(host='localhost', port=27005)
+    client = sherpa.Client(host='nimbus.ics.uci.edu', port=27005)
+    # client = sherpa.Client(host='localhost', port=27005)
     trial = client.get_trial()
     main(client, trial)
 

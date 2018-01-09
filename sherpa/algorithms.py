@@ -143,9 +143,15 @@ class MedianStoppingRule(StoppingRule):
         # Returns:
             (bool) decision.
         """
+        if len(results) == 0:
+            return False
+        
         trial_rows = results.loc[results['Trial-ID'] == trial.id]
         trial_rows_sorted = trial_rows.sort_values(by='Iteration')
         trial_obj_val = trial_rows_sorted['Objective'].min() if lower_is_better else trial_rows_sorted['Objective'].max()
+        if numpy.isnan(trial_obj_val):
+            return True
+
         max_iteration = trial_rows_sorted['Iteration'].max()
         if max_iteration < self.min_iterations:
             return False
@@ -166,9 +172,9 @@ class MedianStoppingRule(StoppingRule):
             return False
 
         if lower_is_better:
-            decision = trial_obj_val > numpy.median(comparison_vals)
+            decision = trial_obj_val > numpy.nanmedian(comparison_vals)
         else:
-            decision = trial_obj_val < numpy.median(comparison_vals)
+            decision = trial_obj_val < numpy.nanmedian(comparison_vals)
 
         return decision
 
