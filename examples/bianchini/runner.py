@@ -22,7 +22,7 @@ def run_example(FLAGS):
     f = './bianchini.py' # Python script to run.
     dir = './output'       # All files written to here.
 
-    if FLAGS.sge:
+    if not FLAGS.local:
         # Submit to SGE queue.
         # env = '/home/pjsadows/profiles/auto.profile'  # Script specifying environment variables.
         env = '/home/lhertel/profiles/main.profile'
@@ -48,7 +48,7 @@ def run_example(FLAGS):
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--sge', help='Use SGE', action='store_true')
+    parser.add_argument('--local', help='Run locally', action='store_true', default=False)
     parser.add_argument('--max_concurrent',
                         help='Number of concurrent processes',
                         type=int, default=1)
@@ -59,7 +59,7 @@ if __name__=='__main__':
                         help='Defines a list of cluster queues or queue instances which may be used to execute this job.',
                         default='arcus.q')
     parser.add_argument('-l', help='the given resource list.',
-                        default="hostname=\'(arcus-1)\'")
+                        default="hostname=\'(arcus-4)\'")
     FLAGS = parser.parse_args()
     run_example(FLAGS)  # Sherpa optimization.
 
