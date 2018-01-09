@@ -112,7 +112,11 @@ class Study(object):
         # Find best row as minimum or maximum objective
         best_idx = (rows['Objective'].idxmin() if self.lower_is_better
                     else rows['Objective'].idxmax())
-        best_row = rows.ix[best_idx].copy()
+        try:
+            best_row = rows.ix[best_idx].copy()
+        except TypeError:
+            warnings.warn("Could not finalize trial {}. Only NaNs encountered.".format(trial.id), RuntimeWarning)
+            return
 
         # Set status and append
         best_row['Status'] = status
@@ -334,8 +338,8 @@ class Runner(object):
 
             self.submit_new_trials()
 
-            logger.info("Best results so far:\n"
-                        "{}".format(self.study.get_best_result()))
+            # logger.info("Best results so far:\n"
+            #             "{}".format(self.study.get_best_result()))
 
             # logger.info(self.study.results)
             time.sleep(1)
