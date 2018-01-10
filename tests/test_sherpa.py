@@ -130,6 +130,12 @@ def test_database(test_dir):
                                 'parameters': {'a': 1, 'b': 2},
                                 'trial_id': 1}]
 
+        db.add_for_stopping(t.id)
+        with pytest.raises(StopIteration):
+            testlogger.debug("Stopping Trial...")
+            client.send_metrics(trial=t, iteration=2,
+                                objective=0.1, context={'other_metric': 0.2})
+
         # test that Sherpa raises correct error if MongoDB exits
         db2 = sherpa.Database(test_dir, port=db_port)
         with pytest.raises(OSError):
@@ -166,15 +172,6 @@ def test_sge_scheduler():
         testlogger.debug(s.get_status(job_id))
         assert s.get_status(job_id) == sherpa.schedulers.JobStatus.finished
 
-        job_id = s.submit_job("python {}/test.py".format(test_dir))
-        time.sleep(1)
-        s.kill_job(job_id)
-
-        time.sleep(3)
-
-        testlogger.debug(s.get_status(job_id))
-        assert s.get_status(job_id) == sherpa.schedulers.JobStatus.finished
-
     finally:
         shutil.rmtree(test_dir)
 
@@ -193,13 +190,6 @@ def test_local_scheduler(test_dir):
     time.sleep(5)
     testlogger.debug(s.get_status(job_id))
     assert s.get_status(job_id) == sherpa.schedulers.JobStatus.finished
-
-    job_id = s.submit_job("python {}/test.py".format(test_dir))
-    time.sleep(1)
-    s.kill_job(job_id)
-    time.sleep(1)
-    testlogger.debug(s.get_status(job_id))
-    assert s.get_status(job_id) == sherpa.schedulers.JobStatus.killed
 
 
 def get_test_study():

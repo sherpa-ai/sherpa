@@ -13,12 +13,12 @@ parameters = [sherpa.Choice(name="param_a",
 
 algorithm = sherpa.algorithms.RandomSearch(max_num_trials=10)
 stopping_rule = sherpa.algorithms.MedianStoppingRule(min_iterations=2,
-                                          min_trials=5)
+                                          min_trials=3)
 
 # scheduler = sherpa.schedulers.SGEScheduler(submit_options="-N example -P arcus.p -q arcus.q -l hostname='arcus-1'", environment="/home/lhertel/profiles/main.profile",
 #                                            output_dir=tempdir)
 # hostname = 'nimbus.ics.uci.edu'
-db_port = 27010
+db_port = 27000
 scheduler = sherpa.schedulers.LocalScheduler()
 
 ### The *training script*
@@ -26,7 +26,7 @@ testscript = """import sherpa
 import time
 
 # client = sherpa.Client(host='nimbus.ics.uci.edu', port=27010)
-client = sherpa.Client(host='localhost')
+client = sherpa.Client(host='localhost', port=27000)
 trial = client.get_trial()
 
 # Simulate model training

@@ -43,14 +43,14 @@ class Scheduler(object):
         """
         pass
 
-    def kill_job(self, job_id):
-        """
-        Kills a given jobs.
-
-        # Arguments:
-            job_id (str): the id of the job to be killed.
-        """
-        pass
+    # def kill_job(self, job_id):
+    #     """
+    #     Kills a given jobs.
+    #
+    #     # Arguments:
+    #         job_id (str): the id of the job to be killed.
+    #     """
+    #     pass
 
 
 class LocalScheduler(Scheduler):
@@ -77,11 +77,11 @@ class LocalScheduler(Scheduler):
         else:
             return self.decode_status.get(status, JobStatus.other)
 
-    def kill_job(self, job_id):
-        process = self.jobs.get(job_id)
-        if not process:
-            raise ValueError("Job not found.")
-        process.terminate()
+    # def kill_job(self, job_id):
+    #     process = self.jobs.get(job_id)
+    #     if not process:
+    #         raise ValueError("Job not found.")
+    #     process.terminate()
 
 
 class SGEScheduler(Scheduler):
@@ -181,7 +181,7 @@ class SGEScheduler(Scheduler):
             job_ids (list[str]): list of SGE process IDs.
 
         # Returns:
-            (list[?]) list of statuses.
+            JobStatus
         """
         with self.drmaa.Session() as s:
             try:
@@ -193,16 +193,16 @@ class SGEScheduler(Scheduler):
             s = JobStatus.killed
         return s
 
-    def kill_job(self, job_id):
-        """
-        Kills a job submitted to SGE.
-
-        # Arguments:
-            job_id (str): the SGE ID of the job.
-        """
-        logger.info("Killing job {}".format(job_id))
-        with self.drmaa.Session() as s:
-            s.control(job_id, self.drmaa.JobControlAction.TERMINATE)
-        # TODO: what happens when job doesn't exist - then we don't want to add
-        self.killed_jobs.add(job_id)
+    # def kill_job(self, job_id):
+    #     """
+    #     Kills a job submitted to SGE.
+    #
+    #     # Arguments:
+    #         job_id (str): the SGE ID of the job.
+    #     """
+    #     logger.info("Killing job {}".format(job_id))
+    #     with self.drmaa.Session() as s:
+    #         s.control(job_id, self.drmaa.JobControlAction.TERMINATE)
+    #     # TODO: what happens when job doesn't exist - then we don't want to add
+    #     self.killed_jobs.add(job_id)
 

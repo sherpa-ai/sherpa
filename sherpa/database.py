@@ -83,6 +83,10 @@ class Database(object):
                  'used': False}
         t_id = self.db.trials.insert_one(trial).inserted_id
 
+    def add_for_stopping(self, trial_id):
+        self.check_db_status()
+        t_id = self.db.stop.insert_one({'trial_id': trial_id}).inserted_id
+
     def __enter__(self):
         self.start()
         return self
@@ -142,3 +146,7 @@ class Client(object):
                   'iteration': iteration,
                   'context': context}
         self.db.results.insert_one(result)
+
+        for entry in self.db.stop.find():
+            if entry.get('trial_id') == trial.id:
+                raise StopIteration("Trial listed for stopping.")
