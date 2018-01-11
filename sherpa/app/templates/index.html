@@ -30,6 +30,24 @@ var parcoords = d3.parcoords()("#example")
     bottom: 16
   });
 
+// make map with parameter-name: parameter-type or parameter-parser
+typemap = d3.map()
+typemap.set("int", parseInt)
+typemap.set("float", parseFloat)
+typemap.set("string", String)
+
+convertermap = d3.map()
+convertermap.set("Trial-ID", parseInt)
+convertermap.set("Status", String)
+convertermap.set("Objective", parseFloat)
+{% for pname, pval in parameter_types.items() %}
+convertermap.set( "{{pname}}", typemap.get("{{pval}}") )
+{% endfor %}
+
+
+
+
+
 // ENTER DATA FROM DATABASE
 var rawdata = [
   {% for row in results %}
@@ -37,8 +55,10 @@ var rawdata = [
       {% for key in row %}
         {% if key == "Trial-ID" %}
             TrialID: {{row[key]}},
+        {% elif key == "Status" or key in parameter_types %}
+            {{key}}: convertermap.get("{{key}}")("{{row[key]}}"),
         {% else %}
-            {{key}}: "{{row[key]}}",
+            {{key}}: parseFloat("{{row[key]}}"),
         {% endif %}
       {% endfor %}
   },
@@ -58,7 +78,7 @@ intermediateTrials.forEach(function(d,i) { d.Iteration = parseInt(d.Iteration);
 
 parcoords
 .data(completedTrials)
-.hideAxis(["iteration", "id", "ID"])
+.hideAxis(["Iteration", "id", "TrialID"])
 .render()
 .reorderable()
 .brushMode("1D-axes");
@@ -133,11 +153,15 @@ xScale = d3.scale.linear()
                   d3.max(intermediateTrials, function(d) { return d.Iteration; })
               ])
              .range([xpadding, w-20]);
+   
+// Try to computer reasonably min/max
+m = d3.mean(intermediateTrials, function(d) { return d.Objective; })
+s = d3.deviation(intermediateTrials, function(d) { return d.Objective; })
 
 yScale = d3.scale.linear()
               .domain([
-                  d3.min(intermediateTrials, function(d) { return d.Objective; }),
-                  d3.max(intermediateTrials, function(d) { return d.Objective; })
+                  m - 3*s,
+                  m + 3*s
               ])
               .range([h - ypadding, 10]);
 
