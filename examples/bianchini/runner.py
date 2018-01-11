@@ -14,11 +14,12 @@ def run_example(FLAGS):
                 'momentum': [0.0],
                 'lrdecay': [0.0],
                 'arch': [[20,5], [20, 10], [10,10,10]],
-                'epochs': [10],
+                'epochs': [20],
                 }
     parameters = sherpa.Parameter.grid(hp_space)
 
     alg = sherpa.algorithms.GridSearch()
+    stopper = sherpa.algorithms.MedianStoppingRule(min_iterations=10, min_trials=5)
     f = './bianchini.py' # Python script to run.
     dir = './output'       # All files written to here.
 
@@ -34,6 +35,7 @@ def run_example(FLAGS):
 
     rval = sherpa.optimize(parameters=parameters,
                            algorithm=alg,
+                           stopping_rule=stopper,
                            output_dir=dir,
                            lower_is_better=True,
                            filename=f,

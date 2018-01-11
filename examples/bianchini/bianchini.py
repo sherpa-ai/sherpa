@@ -115,7 +115,8 @@ def main(client, trial):
                         validation_steps = 10,
                         initial_epoch = initial_epoch,
                         callbacks=callbacks,
-                        epochs = trial.parameters['epochs'] + initial_epoch)
+                        epochs = trial.parameters['epochs'] + initial_epoch,
+                        verbose=2)
     
     if 'modelfile' in trial.parameters:
         # Save model file.
@@ -127,5 +128,8 @@ if __name__=='__main__':
     client = sherpa.Client(host='nimbus.ics.uci.edu', port=27005)
     # client = sherpa.Client(host='localhost', port=27005)
     trial = client.get_trial()
-    main(client, trial)
+    try:
+        main(client, trial)
+    finally:
+        gpu_lock.free_lock(GPUIDX)
 
