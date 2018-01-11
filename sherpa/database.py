@@ -78,14 +78,14 @@ class Database(object):
         Puts a new trial in the queue for workers to pop off.
         """
         self.check_db_status()
-        trial = {'id': trial.id,
-                 'parameters': trial.parameters,
-                 'used': False}
+        trial = {'trial_id': trial.id,
+                 'parameters': trial.parameters}
         t_id = self.db.trials.insert_one(trial).inserted_id
 
     def add_for_stopping(self, trial_id):
         self.check_db_status()
-        t_id = self.db.stop.insert_one({'trial_id': trial_id}).inserted_id
+        # dblogger.debug("Adding {} to DB".format({'trial_id': trial_id}))
+        self.db.stop.insert_one({'trial_id': trial_id}).inserted_id
 
     def __enter__(self):
         self.start()
@@ -121,13 +121,16 @@ class Client(object):
         # Returns:
             (sherpa.Trial)
         """
-        t = self.db.trials.find_one_and_update(
-            {"used": False},
-            {'$set': {'used': True}}
-        )
+        trial_id = int(os.environ.get('TRIAL_ID'))
+        for _ in range(5):
+            g = (entry for entry in self.db.trials.find({'trial_id': trial_id}))
+            t = next(g)
+            if t:
+                break
+            time.sleep(10)
         if not t:
             raise RuntimeError("No Trial Found!")
-        return sherpa.Trial(id=t.get('id'), parameters=t.get('parameters'))
+        return sherpa.Trial(id=t.get('trial_id'), parameters=t.get('parameters'))
 
     def send_metrics(self, trial, iteration, objective, context={}):
         """
@@ -148,5 +151,6 @@ class Client(object):
         self.db.results.insert_one(result)
 
         for entry in self.db.stop.find():
+            print("Found entry {}".format(entry))
             if entry.get('trial_id') == trial.id:
                 raise StopIteration("Trial listed for stopping.")

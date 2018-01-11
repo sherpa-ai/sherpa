@@ -128,6 +128,7 @@ if __name__=='__main__':
     client = sherpa.Client(host='nimbus.ics.uci.edu', port=27005)
     # client = sherpa.Client(host='localhost', port=27005)
     trial = client.get_trial()
+    print("TRIAL_ID={}, obtained trial with ID={}".format(os.environ.get('TRIAL_ID'), trial.id))
     try:
         main(client, trial)
     finally:

@@ -301,7 +301,7 @@ class Runner(object):
             # logger.debug("Trial with ID {} has status {}".format(tid, status))
             if status in [JobStatus.finished, JobStatus.failed,
                           JobStatus.killed, JobStatus.other]:
-                self.update_results()
+                # self.update_results()
                 if tid in self.queued_for_stopping:
                     self.queued_for_stopping.remove(tid)
                 try:
@@ -322,7 +322,7 @@ class Runner(object):
                 # self.scheduler.kill_job(self.all_trials[tid].get('job_id'))
                 self.database.add_for_stopping(tid)
                 self.queued_for_stopping.add(tid)
-                self.update_active_trials()
+                # self.update_active_trials()
 
     def submit_new_trials(self):
         while len(self.active_trials) < self.max_concurrent:
@@ -337,7 +337,7 @@ class Runner(object):
                          " {}".format(next_trial.id, next_trial.parameters))
 
             self.database.enqueue_trial(next_trial)
-            pid = self.scheduler.submit_job(command=self.command)
+            pid = self.scheduler.submit_job(command=self.command, trial_id=next_trial.id)
             self.all_trials[next_trial.id] = {'trial': next_trial,
                                               'job_id': pid}
             self.active_trials.append(next_trial.id)

@@ -1,6 +1,5 @@
 from __future__ import print_function
 import tempfile
-import os
 import sherpa
 import sherpa.schedulers
 
@@ -12,28 +11,28 @@ parameters = [sherpa.Choice(name="param_a",
                                 range=[0, 1])]
 
 algorithm = sherpa.algorithms.RandomSearch(max_num_trials=10)
-stopping_rule = sherpa.algorithms.MedianStoppingRule(min_iterations=2,
-                                          min_trials=3)
+# stopping_rule = sherpa.algorithms.MedianStoppingRule(min_iterations=2,
+#                                           min_trials=3)
 
-# scheduler = sherpa.schedulers.SGEScheduler(submit_options="-N example -P arcus.p -q arcus.q -l hostname='arcus-1'", environment="/home/lhertel/profiles/main.profile",
-#                                            output_dir=tempdir)
-# hostname = 'nimbus.ics.uci.edu'
+scheduler = sherpa.schedulers.SGEScheduler(submit_options="-N example -P arcus.p -q arcus.q -l hostname='arcus-1'", environment="/home/lhertel/profiles/main.profile",
+                                           output_dir=tempdir)
+hostname = 'nimbus.ics.uci.edu'
 db_port = 27000
-scheduler = sherpa.schedulers.LocalScheduler()
+# scheduler = sherpa.schedulers.LocalScheduler()
 
 ### The *training script*
 testscript = """import sherpa
 import time
 
-# client = sherpa.Client(host='nimbus.ics.uci.edu', port=27010)
-client = sherpa.Client(host='localhost', port=27000)
+client = sherpa.Client(host='nimbus.ics.uci.edu', port=27000)
+# client = sherpa.Client(host='localhost', port=27000)
 trial = client.get_trial()
 
 # Simulate model training
 num_iterations = 10
 for i in range(num_iterations):
     pseudo_objective = trial.parameters['param_a'] / float(i + 1) * trial.parameters['param_b']
-    time.sleep(1)
+    time.sleep(2)
     client.send_metrics(trial=trial, iteration=i+1,
                         objective=pseudo_objective)
     # print("Trial {} Iteration {}.".format(trial.id, i+1))

@@ -62,8 +62,8 @@ class LocalScheduler(Scheduler):
         self.decode_status = {0: JobStatus.finished,
                               -15: JobStatus.killed}
 
-    def submit_job(self, command):
-        process = subprocess.Popen(command.split(' '))
+    def submit_job(self, command, trial_id):
+        process = subprocess.Popen(command.split(' '), env={'TRIAL_ID': trial_id})
         self.jobs[process.pid] = process
         return process.pid
 
@@ -110,7 +110,7 @@ class SGEScheduler(Scheduler):
             self.drmaa.JobState.DONE: JobStatus.finished,
             self.drmaa.JobState.FAILED: JobStatus.failed}
 
-    def submit_job(self, command):
+    def submit_job(self, command, trial_id):
         """
         Submit experiment to SGE.
         """
@@ -119,7 +119,7 @@ class SGEScheduler(Scheduler):
         if not os.path.isdir(outdir):
             os.mkdir(outdir)
 
-        sgeoutfile = os.path.join(outdir, '{}.out'.format(self.count))
+        sgeoutfile = os.path.join(outdir, '{}.out'.format(trial_id))
         try:
             os.remove(sgeoutfile)
         except OSError:
@@ -130,6 +130,7 @@ class SGEScheduler(Scheduler):
         if self.environment:
             job_script += 'source %s\n' % self.environment
         job_script += 'echo "Running from" ${HOSTNAME}\n'
+        job_script += 'export TRIAL_ID={}\n'.format(trial_id)
         job_script += command  # 'python file.py args...'
 
         # Submit command to SGE.
