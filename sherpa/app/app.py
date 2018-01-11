@@ -8,6 +8,10 @@ logger = logging.getLogger(__name__)
 
 
 class SherpaApp(Flask):
+    def __init__(self, *args, **kwargs):
+        Flask.__init__(self, *args, **kwargs)
+        self.parameter_types = {}
+    
     def set_results_channel(self, results_channel):
         self.results = pandas.DataFrame()
         self.results_channel = results_channel
@@ -38,10 +42,12 @@ def index():
         active_trials = [{'id': i} for i in active_ids]
         return render_template("index.html",
                                active_trials=active_trials,
+                               parameter_types=app.parameter_types,
                                results=[row.to_dict() for idx, row in results.iterrows()])
     else:
         return render_template("index.html",
                                active_trials=[],
+                               parameter_types=app.parameter_types,
                                results=[])
 
 
