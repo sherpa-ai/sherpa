@@ -120,6 +120,7 @@ class Study(object):
 
         # Set status and append
         best_row['Status'] = status
+        best_row['Iteration'] = rows['Iteration'].max()
         self.results = self.results.append(best_row, ignore_index=True)
 
         if self.dashboard_process:
@@ -183,6 +184,16 @@ class Study(object):
             stopping_channel (multiprocessing.Queue): queue to get models to stop from.
         """
         from .app.app import app
+        param_types = {}
+        for p in self.parameters:
+            if isinstance(p, Continuous) or (isinstance(p, Choice) and type(p.range[0])==float):
+                param_types[p.name] = 'float'
+            elif isinstance(p, Discrete) or (isinstance(p, Choice) and type(p.range[0])==int):
+                param_types[p.name] = 'int'
+            else:
+                param_types[p.name] = 'string'
+        app.parameter_types = param_types
+                
         app.set_results_channel(self.results_channel)
         app.set_stopping_channel(self.stopping_channel)
         proc = multiprocessing.Process(target=app.run,
@@ -235,6 +246,7 @@ class Runner(object):
         self.database = database
         self.study = study
         self.active_trials = []  # ids of trials that are active
+        self.queued_for_stopping = set()
         self.all_trials = {}  # maps trial id to Trial object, process ID
         self.trial_status = {JobStatus.finished: 'COMPLETED',
                              JobStatus.killed: 'STOPPED',
@@ -290,6 +302,8 @@ class Runner(object):
             if status in [JobStatus.finished, JobStatus.failed,
                           JobStatus.killed, JobStatus.other]:
                 self.update_results()
+                if tid in self.queued_for_stopping:
+                    self.queued_for_stopping.remove(tid)
                 try:
                     self.study.finalize(trial=self.all_trials[tid].get('trial'),
                                         status=self.trial_status[status])
@@ -301,10 +315,13 @@ class Runner(object):
 
     def stop_bad_performers(self):
         for tid in self.active_trials:
+            if tid in self.queued_for_stopping:
+                continue
             if self.study.should_trial_stop(self.all_trials[tid].get('trial')):
                 logger.info("Stopping Trial {}".format(tid))
                 # self.scheduler.kill_job(self.all_trials[tid].get('job_id'))
                 self.database.add_for_stopping(tid)
+                self.queued_for_stopping.add(tid)
                 self.update_active_trials()
 
     def submit_new_trials(self):
