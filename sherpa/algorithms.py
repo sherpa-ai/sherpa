@@ -149,7 +149,8 @@ class MedianStoppingRule(StoppingRule):
         trial_rows = results.loc[results['Trial-ID'] == trial.id]
         trial_rows_sorted = trial_rows.sort_values(by='Iteration')
         trial_obj_val = trial_rows_sorted['Objective'].min() if lower_is_better else trial_rows_sorted['Objective'].max()
-        if numpy.isnan(trial_obj_val):
+        if numpy.isnan(trial_obj_val) and not trial_rows.empty:
+            alglogger.debug("Value {} is NaN: {}, trial rows: {}".format(trial_obj_val, numpy.isnan(trial_obj_val), trial_rows))
             return True
 
         max_iteration = trial_rows_sorted['Iteration'].max()
