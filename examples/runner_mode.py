@@ -1,5 +1,6 @@
 from __future__ import print_function
 import tempfile
+import os
 import sherpa
 import sherpa.schedulers
 
@@ -24,15 +25,14 @@ db_port = 27000
 testscript = """import sherpa
 import time
 
-client = sherpa.Client(host='nimbus.ics.uci.edu', port=27000)
-# client = sherpa.Client(host='localhost', port=27000)
+client = sherpa.Client()
 trial = client.get_trial()
 
 # Simulate model training
 num_iterations = 10
 for i in range(num_iterations):
     pseudo_objective = trial.parameters['param_a'] / float(i + 1) * trial.parameters['param_b']
-    time.sleep(2)
+    time.sleep(1)
     client.send_metrics(trial=trial, iteration=i+1,
                         objective=pseudo_objective)
     # print("Trial {} Iteration {}.".format(trial.id, i+1))

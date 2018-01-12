@@ -40,9 +40,7 @@ def run_example(FLAGS):
                            lower_is_better=True,
                            filename=f,
                            scheduler=sched,
-                           max_concurrent=FLAGS.max_concurrent,
-                           db_port=27005,
-                           dashboard_port=8777)
+                           max_concurrent=FLAGS.max_concurrent)
     print()
     print('Best results:')
     print(rval)
@@ -59,9 +57,9 @@ if __name__=='__main__':
                         default='arcus.p')
     parser.add_argument('-q',
                         help='Defines a list of cluster queues or queue instances which may be used to execute this job.',
-                        default='arcus.q')
+                        default='arcus-ubuntu.q')
     parser.add_argument('-l', help='the given resource list.',
-                        default="hostname=\'(arcus-1)\'")
+                        default="hostname=\'(arcus-9)\'")
     FLAGS = parser.parse_args()
     run_example(FLAGS)  # Sherpa optimization.
 
