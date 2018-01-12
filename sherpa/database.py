@@ -106,8 +106,10 @@ class Client(object):
             running on same machine.
         port (int): port that database is running on.
     """
-    def __init__(self, host='localhost', port=27010, **kwargs):
-        self.client = MongoClient(host, port, **kwargs)
+    def __init__(self, **kwargs):
+        host = os.environ.get('SHERPA_DB_HOST') or kwargs.get('hostname') or 'localhost'
+        port = os.environ.get('SHERPA_DB_PORT') or kwargs.get('port') or 27010
+        self.client = MongoClient(host, int(port), **kwargs)
         self.db = self.client.sherpa
 
     def get_trial(self):
@@ -121,7 +123,7 @@ class Client(object):
         # Returns:
             (sherpa.Trial)
         """
-        trial_id = int(os.environ.get('TRIAL_ID'))
+        trial_id = int(os.environ.get('SHERPA_TRIAL_ID'))
         for _ in range(5):
             g = (entry for entry in self.db.trials.find({'trial_id': trial_id}))
             t = next(g)

@@ -5,8 +5,10 @@ import pandas
 import collections
 import time
 import logging
+import socket
 import multiprocessing
 import warnings
+import contextlib
 from .database import Database
 from .schedulers import JobStatus
 
@@ -43,7 +45,9 @@ class Study(object):
 
     """
     def __init__(self, parameters, algorithm, lower_is_better,
-                 stopping_rule=None, dashboard_port=None):
+                 stopping_rule=None, dashboard_port=None,
+                 disable_dashboard=False,
+                 output_dir=None):
         self.parameters = parameters
         self.algorithm = algorithm
         self.stopping_rule = stopping_rule
@@ -53,13 +57,13 @@ class Study(object):
 
         self.ids_to_stop = set()
         
-        if dashboard_port:
-            # self.results_channel = multiprocessing.Value(pandas.DataFrame, self.results)
+        if not disable_dashboard:
             self.mgr = multiprocessing.Manager()
             self.results_channel = self.mgr.Namespace()
             self.results_channel.df = self.results
             self.stopping_channel = multiprocessing.Queue()
-            self.dashboard_process = self.run_web_server(dashboard_port)
+            dashboard_port = dashboard_port or port_finder(8880, 9999)
+            self.dashboard_process = self.run_web_server(dashboard_port, output_dir)
         else:
             self.dashboard_process = None
 
@@ -152,7 +156,7 @@ class Study(object):
         if self.dashboard_process:
             while not self.stopping_channel.empty():
                 self.ids_to_stop.add(self.stopping_channel.get())
-        # logger.debug(self.ids_to_stop)
+
         if trial.id in self.ids_to_stop:
             return True
 
@@ -171,7 +175,7 @@ class Study(object):
         best_result.pop('Status')
         return best_result
         
-    def run_web_server(self, port):
+    def run_web_server(self, port, output_dir):
         """
         Runs the web server.
 
@@ -196,8 +200,17 @@ class Study(object):
                 
         app.set_results_channel(self.results_channel)
         app.set_stopping_channel(self.stopping_channel)
+        
+        # TODO: doesn't seem to have any effect
+        if output_dir:
+            handler = logging.handlers.RotatingFileHandler(os.path.join(output_dir, 'app.log'), maxBytes=1024 * 1024)
+            handler.setLevel(logging.DEBUG)
+            app.logger.addHandler(handler)
+            
+        
         proc = multiprocessing.Process(target=app.run,
                                        kwargs={'port': port, 'debug': True, 'use_reloader': False, 'host': '', 'threaded': True})
+        logging.info("\n" + "-"*50 + "\n" + "SHERPA Dashboard running on {}:{}\n".format(socket.gethostname(), port) + "-"*50)
         proc.daemon = True
         proc.start()
         return proc
@@ -332,12 +345,19 @@ class Runner(object):
             if not next_trial:
                 self.done = True
                 break
-
-            logger.info("Submitting Trial {} with parameters"
-                         " {}".format(next_trial.id, next_trial.parameters))
+            
+            submit_msg = "\n" + "-"*50 + "\n" + "Submitting Trial {}:\n".format(next_trial.id)
+            for pname, pval in next_trial.parameters.items():
+                submit_msg += "\t{0:15}={1:>26}\n".format(pname, pval)
+            submit_msg += "-"*50 + "\n"
+            logger.info(submit_msg)
 
             self.database.enqueue_trial(next_trial)
-            pid = self.scheduler.submit_job(command=self.command, trial_id=next_trial.id)
+            pid = self.scheduler.submit_job(command=self.command,
+                                            env={'SHERPA_TRIAL_ID': next_trial.id,
+                                                 'SHERPA_DB_HOST': socket.gethostname(),
+                                                 'SHERPA_DB_PORT': self.database.port},
+                                            job_name='trial_' + str(next_trial.id))
             self.all_trials[next_trial.id] = {'trial': next_trial,
                                               'job_id': pid}
             self.active_trials.append(next_trial.id)
@@ -364,7 +384,7 @@ class Runner(object):
 
 
 def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
-             scheduler, max_concurrent=1, db_port=27010, stopping_rule=None,
+             scheduler, max_concurrent=1, db_port=None, stopping_rule=None,
              dashboard_port=None):
     """
     Runs a Study with a scheduler and automatically runs a database in the
@@ -394,7 +414,10 @@ def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
                   algorithm=algorithm,
                   lower_is_better=lower_is_better,
                   stopping_rule=stopping_rule,
-                  dashboard_port=dashboard_port)
+                  dashboard_port=dashboard_port,
+                  output_dir=output_dir)
+    if not db_port:
+        db_port = port_finder(27000, 28000)
     with Database(db_dir=output_dir, port=db_port) as db:
         runner = Runner(study=study,
                         scheduler=scheduler,
@@ -403,6 +426,26 @@ def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
                         command=' '.join(['python', filename]))
         runner.run_loop()
     return study.get_best_result()
+
+
+def port_finder(start, end):
+    def check_socket(host, port):
+        with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
+            if sock.connect_ex((host, port)) == 0:
+                return False
+            else:
+                return True
+    try:
+        hostname = socket.gethostname()
+        for port in range(start, end):
+            if check_socket(hostname, port):
+                return port
+
+    except socket.gaierror:
+        raise('Hostname could not be resolved. Exiting')
+        
+    except socket.error:
+        raise("Couldn't connect to server")
 
 
 class Parameter(object):
