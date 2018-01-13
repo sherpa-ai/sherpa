@@ -9,15 +9,15 @@ import os
 import sys
 from shutil import rmtree
 import argparse
-
+>
 from setuptools import find_packages, setup, Command
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--parallel', help='Install packages required'
-                                       'by Parallel-mode.',
-                    action='store_true', default=False)
-args = parser.parse_args()
+# parser = argparse.ArgumentParser()
+# parser.add_argument('--parallel', help='Install packages required'
+#                                        'by Parallel-mode.',
+#                     action='store_true', default=False)
+# args = parser.parse_args()
 
 # Package meta-data.
 NAME = 'sherpa'
@@ -31,13 +31,12 @@ REQUIRED = [
     'pymongo>=3.5.1',
     'numpy>=1.13.1',
     'sklearn',
-    'flask>=0.12.2'
+    'flask>=0.12.2',
+    'scipy>=1.0.0'
 ]
 
 PARALLEL = ['pymongo>=3.5.1', 'drmaa>=0.7.7']
-
-if args.parallel:
-    REQUIRED += PARALLEL
+REQUIRED += PARALLEL
 
 here = os.path.abspath(os.path.dirname(__file__))
 
@@ -114,7 +113,6 @@ setup(
     },
 )
 
-if args.parallel:
-    print("DRMAA path needs to be set e.g.:"
-          "export DRMAA_LIBRARY_PATH=/usr/lib/libdrmaa.so.1.0\n"
-          "See https://pypi.python.org/pypi/drmaa for details.")
+print("DRMAA path needs to be set e.g.:"
+      "export DRMAA_LIBRARY_PATH=/usr/lib/libdrmaa.so.1.0\n"
+      "See https://pypi.python.org/pypi/drmaa for details.")

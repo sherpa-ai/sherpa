@@ -5,6 +5,7 @@ import pandas
 import collections
 import time
 import logging
+from logging.handlers import RotatingFileHandler
 import socket
 import multiprocessing
 import warnings
@@ -203,7 +204,7 @@ class Study(object):
         
         # TODO: doesn't seem to have any effect
         if output_dir:
-            handler = logging.handlers.RotatingFileHandler(os.path.join(output_dir, 'app.log'), maxBytes=1024 * 1024)
+            handler = RotatingFileHandler(os.path.join(output_dir, 'app.log'), maxBytes=1024 * 1024)
             handler.setLevel(logging.DEBUG)
             app.logger.addHandler(handler)
             
@@ -348,7 +349,7 @@ class Runner(object):
             
             submit_msg = "\n" + "-"*50 + "\n" + "Submitting Trial {}:\n".format(next_trial.id)
             for pname, pval in next_trial.parameters.items():
-                submit_msg += "\t{0:15}={1:>26}\n".format(pname, pval)
+                submit_msg += "\t{0:15}={1:>26}\n".format(str(pname), str(pval))
             submit_msg += "-"*50 + "\n"
             logger.info(submit_msg)
 

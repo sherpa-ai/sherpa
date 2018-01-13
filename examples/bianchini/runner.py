@@ -19,14 +19,14 @@ def run_example(FLAGS):
     parameters = sherpa.Parameter.grid(hp_space)
 
     alg = sherpa.algorithms.GridSearch()
-    stopper = sherpa.algorithms.MedianStoppingRule(min_iterations=10, min_trials=5)
+    stopping_rule = sherpa.algorithms.MedianStoppingRule(min_iterations=10, min_trials=5)
     f = './bianchini.py' # Python script to run.
     dir = './output'       # All files written to here.
 
     if not FLAGS.local:
         # Submit to SGE queue.
         # env = '/home/pjsadows/profiles/auto.profile'  # Script specifying environment variables.
-        env = '/home/lhertel/profiles/main.profile'
+        env = FLAGS.env
         opt = '-N example -P {} -q {} -l {}'.format(FLAGS.P, FLAGS.q, FLAGS.l)
         sched = SGEScheduler(environment=env, submit_options=opt, output_dir=dir)
     else:
@@ -35,7 +35,7 @@ def run_example(FLAGS):
 
     rval = sherpa.optimize(parameters=parameters,
                            algorithm=alg,
-                           stopping_rule=stopper,
+                           stopping_rule=stopping_rule,
                            output_dir=dir,
                            lower_is_better=True,
                            filename=f,
@@ -60,6 +60,8 @@ if __name__=='__main__':
                         default='arcus-ubuntu.q')
     parser.add_argument('-l', help='the given resource list.',
                         default="hostname=\'(arcus-9)\'")
+    parser.add_argument('-env', help='Your environment path.',
+                        default='/home/lhertel/profiles/python3env.profile', type=str)
     FLAGS = parser.parse_args()
     run_example(FLAGS)  # Sherpa optimization.
 
