@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="mdl-card mdl-shadow--2dp" style="width: auto;">
+    <div class="mdl-card__title">Experiments</div>
+    <div id="example" class="parcoords" style="height:50%;"></div>
+</div>
+
+<div class="mdl-card mdl-shadow--2dp", id="gridbox">
+    <div id="grid"></div>
+</div>
+
+
+<div class="mdl-card mdl-shadow--2dp", id="progressbox">
+    <div class="mdl-card__title", style="position: absolute; height: 10%;">Progress</div>
+    <div id="progress", style="position: absolute; height: 90%; width: 100%; bottom: 0px;"></div>
+</div>
+
+
+
+<script id="brushing">
+var parcoords = d3.parcoords()("#example")
+  .alpha(0.1)
+  .mode("queue") // progressive rendering
+  .height(d3.max([document.getElementById('example').clientHeight, 220]))
+  .margin({
+    top: 36,
+    left: 0,
+    right: 0,
+    bottom: 16
+  });
+
+// make map with parameter-name: parameter-type or parameter-parser
+typemap = d3.map()
+typemap.set("int", parseInt)
+typemap.set("float", parseFloat)
+typemap.set("string", String)
+
+convertermap = d3.map()
+convertermap.set("Trial-ID", parseInt)
+convertermap.set("Status", String)
+convertermap.set("Objective", parseFloat)
+{% for pname, pval in parameter_types.items() %}
+convertermap.set( "{{pname}}", typemap.get("{{pval}}") )
+{% endfor %}
+
+
+
+
+
+// ENTER DATA FROM DATABASE
+var rawdata = [
+  {% for row in results %}
+  {
+      {% for key in row %}
+        {% if key == "Trial-ID" %}
+            TrialID: {{row[key]}},
+        {% elif key == "Status" or key in parameter_types %}
+            {{key}}: convertermap.get("{{key}}")("{{row[key]}}"),
+        {% else %}
+            {{key}}: parseFloat("{{row[key]}}"),
+        {% endif %}
+      {% endfor %}
+  },
+  {% endfor %}
+];
+
+
+var completedTrials = rawdata.filter(function(d) { return d.Status != 'INTERMEDIATE'; });
+var intermediateTrials = rawdata.filter(function(d) { return d.Status == 'INTERMEDIATE'; });
+
+// slickgrid needs each data element to have an id
+completedTrials.forEach(function(d,i) { d.id = d.id || i;});
+
+intermediateTrials.forEach(function(d,i) { d.Iteration = parseInt(d.Iteration);
+                              d.Objective = parseFloat(d.Objective);
+                              d.ID = parseInt(d['TrialID']); });
+
+parcoords
+.data(completedTrials)
+.hideAxis(["Iteration", "id", "TrialID"])
+.render()
+.reorderable()
+.brushMode("1D-axes");
+
+// setting up grid
+var column_keys = d3.keys(completedTrials[0]);
+column_keys.pop("id");
+var columns = column_keys.map(function(key,i) {
+return {
+  id: key,
+  name: key,
+  field: key,
+  sortable: true
+}
+});
+
+var options = {
+enableCellNavigation: true,
+enableColumnReorder: false,
+multiColumnSort: false
+};
+
+var dataView = new Slick.Data.DataView();
+var grid = new Slick.Grid("#grid", dataView, columns, options);
+var pager = new Slick.Controls.Pager(dataView, grid, $("#pager"));
+
+// wire up model events to drive the grid
+dataView.onRowCountChanged.subscribe(function (e, args) {
+grid.updateRowCount();
+grid.render();
+});
+
+dataView.onRowsChanged.subscribe(function (e, args) {
+grid.invalidateRows(args.rows);
+grid.render();
+});
+
+// column sorting
+var sortcol = column_keys[0];
+var sortdir = 1;
+
+function comparer(a, b) {
+var x = a[sortcol], y = b[sortcol];
+return (x == y ? 0 : (x > y ? 1 : -1));
+}
+
+// click header to sort grid column
+grid.onSort.subscribe(function (e, args) {
+sortdir = args.sortAsc ? 1 : -1;
+sortcol = args.sortCol.field;
+
+if ($.browser.msie && $.browser.version <= 8) {
+  dataView.fastSort(sortcol, args.sortAsc);
+} else {
+  dataView.sort(comparer, args.sortAsc);
+}
+});
+
+// Line chart
+//Width and height
+var w = document.getElementById('progress').clientWidth;
+var h = document.getElementById('progress').clientHeight;
+var xpadding = 60;
+var ypadding = 40;
+
+var xScale, yScale, xAxis, yAxis, line;  //Empty, for now
+
+//Create scale functions
+xScale = d3.scale.linear()
+             .domain([
+                  d3.min(intermediateTrials, function(d) { return d.Iteration; }),
+                  d3.max(intermediateTrials, function(d) { return d.Iteration; })
+              ])
+             .range([xpadding, w-20]);
+   
+// Try to computer reasonably min/max
+m = d3.mean(intermediateTrials, function(d) { return d.Objective; })
+s = d3.deviation(intermediateTrials, function(d) { return d.Objective; })
+
+yScale = d3.scale.linear()
+              .domain([
+                  m - 3*s,
+                  m + 3*s
+              ])
+              .range([h - ypadding, 10]);
+
+//Define axes
+xAxis = d3.svg.axis()
+         .orient("bottom")
+         .scale(xScale);
+
+//Define Y axis
+yAxis = d3.svg.axis()
+         .orient("left")
+         .scale(yScale);
+
+//Define line generator
+line = d3.svg.line()
+          // .defined(function(d) { return d.Objective >= 0; })
+          .x(function(d) { return xScale(d.Iteration); })
+          .y(function(d) { return yScale(d.Objective); });
+
+//Create SVG element
+var svg = d3.select("#progress")
+          .append("svg")
+          .attr("width", w)
+          .attr("height", h);
+
+//Create line
+ids = d3.map(intermediateTrials, function(d){return d.ID;}).keys()
+id2idx = d3.map()
+var p = [];
+
+for(var i = 0; i<ids.length; i++) {
+  p[i] = svg.append("path")
+          .datum(intermediateTrials.filter(function(d) { return d.TrialID == ids[i];}))
+          .attr("class", "line")
+          .attr("d", line);
+          id2idx.set(ids[i], i);
+}
+
+//Create axes
+svg.append("g")
+  .attr("class", "axis")
+  .attr("transform", "translate(0," + (h - ypadding) + ")")
+  .call(xAxis);
+
+svg.append("g")
+  .attr("class", "axis")
+  .attr("transform", "translate(" + xpadding + ",0)")
+  .call(yAxis);
+
+// now add titles to the axes
+svg.append("text")
+ .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
+ .attr("transform", "translate("+ (ypadding/2) +","+(h/2)+")rotate(-90)")  // text is drawn off the screen top left, move down and out and rotate
+ .text("Objective");
+
+svg.append("text")
+ .attr("text-anchor", "middle")  // this makes it easy to centre the text as the transform is applied to the anchor
+ .attr("transform", "translate("+ (w/2) +","+(h-(xpadding/4))+")")  // centre below axis
+ .text("Iteration");
+
+
+// highlight row in chart
+grid.onMouseEnter.subscribe(function(e,args) {
+var i = grid.getCellFromEvent(e).row;
+var d = parcoords.brushed() || completedTrials;
+parcoords.highlight([d[i]]);
+//console.log(d[i])
+//console.log(parseInt(d[i].TrialID));
+p[id2idx.get(parseInt(d[i].TrialID))].style({"opacity": 1., "stroke-width": 3});
+});
+
+
+grid.onMouseLeave.subscribe(function(e,args) {
+var i = grid.getCellFromEvent(e).row;
+var d = parcoords.brushed() || completedTrials;
+parcoords.unhighlight();
+p[id2idx.get(parseInt(d[i].TrialID))].style({"opacity": 0.3, "stroke-width": 1.5});
+});
+
+{% for t in active_trials %}
+libutton{{t.id}} = d3.select("#stoptrial{{t.id}}");
+libutton{{t.id}}.on('mouseover', function() { p[id2idx.get(parseInt({{t.id}}))].style({"opacity": 1., "stroke-width": 3}); })
+libutton{{t.id}}.on('mouseout', function() { p[id2idx.get(parseInt({{t.id}}))].style({"opacity": 0.3, "stroke-width": 1.5}); })
+{% endfor %}
+
+
+// fill grid with data
+gridUpdate(completedTrials);
+
+// update grid on brush
+parcoords.on("brush", function(d) {
+gridUpdate(d);
+
+brushedIds = d3.map(d, function(dat){return dat.TrialID;})
+// set opacity to zero for unselected lines
+for(var i = 0; i<p.length; i++) {
+    if(!brushedIds.has(ids[i])) {
+        p[i].style("opacity", 0);
+    } else {
+        p[i].style("opacity", 0.3);
+    }
+
+}
+});
+
+function gridUpdate(completedTrials) {
+dataView.beginUpdate();
+dataView.setItems(completedTrials);
+dataView.endUpdate();
+
+
+};
+</script>
+{% endblock %}

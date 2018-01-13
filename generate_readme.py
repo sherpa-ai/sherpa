@@ -1,4 +1,23 @@
+import re
+import sherpa
 
+
+# from keras
+def process_function_docstring(docstring):
+    docstring = re.sub(r'\n    # (.*)\n',
+                       r'\n    __\1__\n\n',
+                       docstring)
+    docstring = re.sub(r'    ([^\s\\\(]+) (.*):(.*)\n',
+                       r'    - __\1__ _\2_:\3\n',
+                       docstring)
+
+    docstring = docstring.replace('    ' * 6, '\t\t')
+    docstring = docstring.replace('    ' * 4, '\t')
+    docstring = docstring.replace('    ', '')
+    return docstring
+
+
+text = """
 # SHERPA
 
 ## Installation
@@ -32,7 +51,7 @@ You should have an environment-profile that sets path variables and potentially 
 
 ## SGE
 SGE required submit options. In Sherpa, those are defined as a string via the `submit_options` argument in the scheduler. To run jobs on the Arcus machines, typical submit options would be: 
-```-N myScript -P arcus.p -q arcus.q -l hostname='(arcus-1|arcus-2|arcus-3)'```.
+```-N myScript -P arcus.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'```.
 The `-N` option defines the name. To run from Arcus 5 to 9 you would set `-q arcus-ubuntu.q` and `hostname` with the relevant machines you want to run on. The SHERPA runner script can run from any Arcus machine.
 
 ## Example
@@ -43,3 +62,32 @@ python runner.py --env <path/to/your/environment>
 ```
 
 
+"""
+
+# text += "### Parameters"
+# text += process_function_docstring(sherpa.Parameter.__doc__)
+# text += "\n"
+#
+# text += "### Algorithm"
+# text += process_function_docstring(sherpa.algorithms.Algorithm.__doc__)
+# text += "\n"
+#
+# text += "### Stopping Rules"
+# text += process_function_docstring(sherpa.algorithms.StoppingRule.__doc__)
+# text += "\n"
+#
+# text += "### Combining these into a Study"
+# text += process_function_docstring(sherpa.Study.__doc__)
+# text += "\n"
+#
+# text += "### Scheduler"
+# text += process_function_docstring(sherpa.schedulers.Scheduler.__doc__)
+# text += "\n"
+#
+# text += "### Putting it all together"
+# text += process_function_docstring(sherpa.optimize.__doc__)
+# text += "\n"
+
+
+with open('README.md', 'w') as f:
+    f.write(text)

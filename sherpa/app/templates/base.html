@@ -1,0 +1,166 @@
+<html>
+    <head>
+        <title>SHERPA Dashboard</title>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+        <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.blue_grey-lime.min.css" />
+        <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+        <!-- SlickGrid -->
+        <link rel="stylesheet" href="/static/lib/slickgrid/slick.grid.css" type="text/css"/>
+        <link rel="stylesheet" href="/static/lib/slickgrid/jquery-ui-1.8.16.custom.css" type="text/css"/>
+        <link rel="stylesheet" href="/static/lib/slickgrid/examples.css" type="text/css"/>
+        <link rel="stylesheet" href="/static/lib/slickgrid/slick.pager.css" type="text/css"/>
+        <script src="/static/lib/slickgrid/jquery-1.7.min.js"></script>
+        <script src="/static/lib/slickgrid/jquery.event.drag-2.0.min.js"></script>
+        <script src="/static/lib/slickgrid/slick.core.js"></script>
+        <script src="/static/lib/slickgrid/slick.grid.js"></script>
+        <script src="/static/lib/slickgrid/slick.pager.js"></script>
+        <script src="/static/lib/slickgrid/slick.dataview.js"></script>
+        <!-- End SlickGrid -->
+        <link rel="stylesheet" type="text/css" href="/static/lib/d3.parcoords.css">
+        <link rel="stylesheet" type="text/css" href="/static/lib/style.css">
+        <link rel="stylesheet" type="text/css" href="/static/dialog-polyfill-master/dialog-polyfill.css">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+        .mdl-card {
+          margin: 10px;
+        }
+        page-content {
+            overflow: auto;
+        }
+        #gridbox {
+          position: absolute;
+          bottom: 0;
+          height: 37%;
+          width: 60%;
+        }
+        #grid {
+          height: 100%;
+          width: 100%;
+        }
+        #progressbox {
+          position: absolute;
+          right: 0px;
+          bottom: 0px;
+          height: 37%;
+          width: 38%;
+          padding: 5px;
+        }
+        .slick-row:hover {
+          font-weight: bold;
+          color: #069;
+        }
+        text {
+          font: 10px sans-serif;
+        }
+        .line {
+        	fill: none;
+        	stroke: teal;
+        	stroke-width: 1.5;
+            opacity: 0.3;
+        }
+        .axis path,
+        .axis line {
+          fill: none;
+          stroke: #000;
+          shape-rendering: crispEdges;
+          stroke-width: 1.5px;
+        }
+        </style>
+        <script src="/static/lib/d3.min.js"></script>
+        <script src="/static/lib/d3.parcoords.js"></script>
+        <script src="/static/lib/underscore.js"></script>
+        <script src="/static/lib/divgrid.js"></script>
+        <script src="/static/dialog-polyfill-master/dialog-polyfill.js"></script>
+    </head>
+    <body>
+
+
+
+        <!-- Always shows a header, even in smaller screens. -->
+        <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
+          <header class="mdl-layout__header">
+            <div class="mdl-layout__header-row">
+              <!-- Title -->
+              <span class="mdl-layout-title">SHERPA</span>
+              <!-- Add spacer, to align navigation to the right -->
+              <div class="mdl-layout-spacer"></div>
+              <!-- Navigation. We hide it in small screens. -->
+              <nav class="mdl-navigation mdl-layout--large-screen-only">
+
+                <!-- Stopping button -->
+                <button id="stop-trial-button" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect mdl-button--accent">
+                  Stop A Trial
+                </button>
+
+                <!-- Dropdown for Stopping -->
+                 <ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu mdl-js-ripple-effect"
+                     for="stop-trial-button">
+                   {% for t in active_trials %}
+                   <li class="mdl-menu__item" id="stoptrial{{t.id}}">Trial {{t.id}}</li>
+                   {% endfor %}
+                 </ul>
+
+                <!-- Warning Dialogs -->
+                {% for t in active_trials %}
+                 <dialog class="mdl-dialog" id="dialog{{t.id}}">
+                     <h4 class="mdl-dialog__title">Stop Trial</h4>
+                     <div class="mdl-dialog__content">
+                       <p>
+                         Are you sure you want to stop trial {{t.id}}?
+                       </p>
+                     </div>
+                     <div class="mdl-dialog__actions">
+                       <button type="button" class="mdl-button" onclick="location.href='/stop/{{t.id}}';">Stop Trial</button>
+                       <button type="button" class="mdl-button close">Cancel</button>
+                     </div>
+                   </dialog>
+                   <script>
+                     var dialog{{t.id}} = document.querySelector('#dialog{{t.id}}');
+                     var showDialogButton{{t.id}} = document.querySelector('#stoptrial{{t.id}}');
+                     if (! dialog{{t.id}}.showModal) {
+                       dialogPolyfill.registerDialog(dialog{{t.id}});
+                     }
+                     showDialogButton{{t.id}}.addEventListener('click', function() {
+                       dialog{{t.id}}.showModal();
+                     });
+                     dialog{{t.id}}.querySelector('.close').addEventListener('click', function() {
+                       dialog{{t.id}}.close();
+                     });
+                 </script>
+                 {% endfor %}
+
+
+              </nav>
+            </div>
+          </header>
+          <div class="mdl-layout__drawer">
+            <span class="mdl-layout-title">SHERPA</span>
+            <div class="mdl-card__title">Parallel Coordinates (Top)</div>
+            <div class="mdl-card__supporting-text">
+                This parallel coordinates plot visualizes trials as lines. By following
+                each line along the axes its parameters can be traced. Brushing over an
+                axis will filter the trials.
+            </div>
+            <div class="mdl-card__title">Table (Bottom Left)</div>
+            <div class="mdl-card__supporting-text">
+                The table shows every trial including its parameters, the numnber
+                of iterations it has run for and the current best result.
+            </div>
+            <div class="mdl-card__title">Progress Plot (Bottom Right)</div>
+            <div class="mdl-card__supporting-text">
+                The progress plot shows the learning curve for each trial as
+                the iteration number against the recorded objective value.
+            </div>
+          </div>
+          <main class="mdl-layout__content">
+            <div class="page-content">
+                <!-- Your content goes here -->
+
+
+                {% block content %}{% endblock %}
+
+            </div>
+          </main>
+        </div>
+    </body>
+</html>

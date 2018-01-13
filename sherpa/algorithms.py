@@ -1,252 +1,198 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from .hyperparameters import DistributionHyperparameter as Hyperparameter
-from .resultstable import ResultsTable
-from .samplers import RandomSampler, IterateSampler, GridSearch
-import math
-import numpy as np
-import abc
+import os
+import numpy
+import logging
+import pandas
+from .core import Choice, Continuous
+import sklearn.model_selection
 
-class AbstractAlgorithm(object):
-    @abc.abstractmethod
-    def next(self, results_table):
-        ''' 
-        Abstract method implemented by Algorithms. Algorithm can assume
-        that a hp combo that is emitted will be run by the mainloop --- 
-        I.E. the mainloop/scheduler are responsible for scheduling 
-        and error handling. 
-        
-        Input:
-            results_table = Object of type ResultsTable.
-        Output:
-            'wait' = Tells MainLoop to wait for some time, so that pending 
-                     results can finish.
-            OR
-            'stop' = Tells MainLoop that algorithm is done.
-            OR
-            hp, epochs = Tuple, with 'hp' a dict of hyperparameters to train, 
-                         and for 'epochs' epochs.
-            OR 
-            index, epochs = Tuple, with index a int key for identifying model 
-                            instance in results_table to continue training.
 
-        Ideas:
-        - Should we let Algorithm change hyperparameters of existing models?
-        '''
-        raise NotImplementedError()
+logging.basicConfig(level=logging.DEBUG)
+alglogger = logging.getLogger(__name__)
 
-class Iterate(AbstractAlgorithm):
-    '''
-    Simply iterate over all combinations in discrete hp space, then stop.
 
-    TODO: Implement option to iterate over specific hp combinations, 
-          rather than all. But maybe easier to do this in terms of constraints?
-    '''
-    def __init__(self, hp_ranges=None, hp_iter=None):
-        '''
-        Inputs:
-          hp_ranges = Dictionary mapping hp names to lists of values.
-          hp_iter   = List of dictionaries mapping hp names to values, 
-                      which allows us to iterate over combinations.
-        '''
-        if hp_ranges is not None:
-            if hp_iter is not None:
-                raise NotImplementedError('TODO: combine hp_ranges with hp_iter in Iterate algorithm.')
-            if isinstance(hp_ranges, dict):
-                assert all([type(v) == list for v in hp_ranges.values()]), 'All dict values should be lists: {}'.format(hp_ranges)
-                self.hp_ranges = [Hyperparameter.fromlist(name, choices) for (name,choices) in hp_ranges.items()]
-            else:
-                self.hp_ranges = hp_ranges
-            # TODO: do we need to keep hp_ranges as a instance object?
-            self.sampler = GridSearch(self.hp_ranges) # Iterate over all combinations of hp.
-            self.nsamples = np.prod(np.array([len(h) for h in hp_ranges.values()]))  
-        elif hp_iter is not None:
-            assert isinstance(hp_iter, list)
-            self.sampler = IterateSampler(hp_iter)
-            self.nsamples = len(hp_iter) 
-        else:
-            raise ValueError('Iterate algorithm expects either hp_ranges or hp_iter.')
-        print('Iterate Algorithm: Iterating over {} hp combinations.'.format(self.nsamples))
-
-    def next(self, results_table):
-        '''
-        Examine current results and produce next experiment.
-        Valid return values:
-        1) 'wait': Signal to main loop that we are waiting.
-        2) 'stop': Signal to main loop that we are finished.
-        3) hp: Tells main loop to start this experiment.
-        '''
-        assert isinstance(results_table, ResultsTable)
-        try:
-            return self.sampler.next()
-        except StopIteration:
-            return 'stop'
-        
-
-class RandomSearch(AbstractAlgorithm):
+class Algorithm(object):
     """
-    Random Search over hyperparameter space.
-
-    # Arguments
-        samples (int): Number of trials to evaluate.
-        hp_ranges (list): List of Hyperparameter objects.
+    Abstract algorithm that returns next parameters conditional on parameter
+    ranges and previous results.
     """
-    def __init__(self, samples, hp_ranges):
-        self.samples = samples
-        self.count   = 0
-        if isinstance(hp_ranges, dict):
-            self.hp_ranges = [Hyperparameter.fromlist(name, choices) in name, choices in hp_ranges.items()]
-        else:
-            self.hp_ranges   = hp_ranges
-        self.sampler   = RandomSampler(hp_ranges)
+    def get_suggestion(self, parameters, results, lower_is_better):
+        """
+        Returns a suggestion for parameter values based on results.
 
-        print('Sampling %d random hp combinations from %d dimensions.' % (
-            samples, len(hp_ranges)))
+        # Arguments:
+            parameters (list[sherpa.Parameter]): the parameters.
+            results (pandas.DataFrame): all results so far.
 
-    def next(self, results_table):
-        '''
-        Examine current results and produce next experiment.
-        Valid return values:
-        1) hp: Tells main loop to start this experiment.
-        2) 'wait': Signal to main loop that we are waiting.
-        3) 'stop': Signal to main loop that we are finished.
-        '''
-        assert isinstance(results_table, ResultsTable)
-        idxs = results_table.get_expids() # Pandas df
-        if len(idxs) == self.samples:
-            return 'stop'
+        # Returns:
+            (dict) of parameter values.
+        """
+        raise NotImplementedError("Algorithm class is not usable itself.")
+
+
+class RandomSearch(Algorithm):
+    """
+    Regular Random Search.
+
+    Expects to set a number of trials to yield.
+    """
+    def __init__(self, max_num_trials):
+        self.max_num_trials = max_num_trials
+        self.count = 0
+
+    def get_suggestion(self, parameters, results=None, lower_is_better=True):
+        if self.count >= self.max_num_trials:
+            return None
         else:
             self.count += 1
-            return self.sampler.next()
+            return {p.name: p.sample() for p in parameters}
 
-class LocalSearch(AbstractAlgorithm):
-    '''
-    Greedily try to improve best result by changing one hyperparameter at a time. 
 
-    TODO: Generalize this to real-valued parameters.
-    '''
-    def __init__(self, hp_ranges, hp_init=None):
-        '''
-        Inputs:
-          hp_ranges = Dictionary mapping hp names to lists of values.
-          hp_init   = Run this first if not in results table. Otherwise randomly select. 
-        '''
-        assert all([type(v) == list for v in hp_ranges.values()]), 'All dict values should be lists of possible values: {}'.format(hp_ranges)
-        self.hp_ranges = hp_ranges
-        self.hp_init = hp_init # None if hp_init not specified.
-        # Specify a RandomSampler for beginning. 
-        temp = [Hyperparameter.fromlist(name, choices) for (name,choices) in hp_ranges.items()]
-        self.randomsampler = RandomSampler(temp)
+class GridSearch(Algorithm):
+    def __init__(self):
+        self.count = 0
+        self.grid = None
 
-    def next(self, results_table):
-        '''
-        Examine current results and produce next experiment.
-        Valid return values:
-        1) 'wait': Signal to main loop that we are waiting.
-        2) 'stop': Signal to main loop that we are finished.
-        3) hp: Tells main loop to start this experiment.
-        '''
-        assert isinstance(results_table, ResultsTable)
-        if self.hp_init is not None and len(results_table.get_matches(self.hp_init)) == 0:
-            # Start this point first.
-            print('Starting with {}'.format(self.hp_init))
-            return self.hp_init
-       
-        # If ResultsTable is empty, suggest random. 
-        if len(results_table.get_expids()) == 0:
-            return self.randomsampler.next()
-            
-        # Try to find best result so far.
-        try:
-            hp_best = results_table.get_best(ignore_pending=True)
-            # TODO: Handle ties. Right now it just grabs one at random.
-        except ValueError:
-            # No finished results yet. Select random point.
-            return self.randomsampler.next()
- 
-        # Try to improve best result.
-        for key in self.hp_ranges.keys():
-            vals = self.hp_ranges[key]
-            for val in vals:
-                # Create new hyperparameter dict with all the same except val.
-                hp_next = hp_best.copy()
-                hp_next[key] = val
-                if len(results_table.get_matches(hp=hp_next)) == 0:
-                    # Haven't tried this hp combination yet.
-                    return hp_next
-
-        # Nothing to submit right now.
-        if len(results_table.get_pending()) > 0:
-            return 'wait'
+    def get_suggestion(self, parameters, results=None, lower_is_better=True):
+        assert all(isinstance(p, Choice) for p in parameters), "Only Choice Parameters can be used with GridSearch"
+        if self.count == 0:
+            param_dict = {p.name: p.range for p in parameters}
+            self.grid = list(sklearn.model_selection.ParameterGrid(param_dict))
+        if self.count == len(self.grid):
+            return None
         else:
-            return 'stop'  
+            params = self.grid[self.count]
+            self.count += 1
+            return params
 
-class Hyperhack(AbstractAlgorithm):
-    '''
-    Successive halving variant. 
-    Peter 2017
-    '''
-    def __init__(self, samples, epochs_per_stage, stages, sampler=RandomSampler, survival=0.5, hp_ranges={},  constraints=[]):
-        self.samples     = samples # Initial number of samples.
-        self.survival    = survival # Value in [0,1], population is reduced to this amount at each stage.
-        self.epochs_per_stage = epochs_per_stage
-        self.stages      = stages
-        self.hp_ranges   = hp_ranges
-        #if sampler is None:
-        #    sampler = RandomSampler
-        self.sampler = sampler(hp_ranges) # Initial sampling method for hyperparameters.
-        
-        # State of the algorithm.
-        self.stage = 0
-        self.population = []
-        # Initialize population with hp combinations from generator that fit constraints.
-        if len(constraints) == 0:
-            self.population = [(('1_%d'%i), self.sampler.next()) for i in range(samples)] # Only one run.
-        else:
-            count = 0
-            while count < samples:
-                sample = self.sampler.next()
-                sat = True
-                for constraint in constraints:
-                    sat = sat and constraint(sample)
-                if sat:
-                    self.population.append((count, sample))
-                    count += 1
 
-    def next(self, results_table):
-        '''
-        Examine current results and produce next experiment.
-        Valid return values:
-        1) index, hp, epochs: Tells main loop to start this experiment.
-        2) 'wait': Signal to main loop that we are waiting.
-        3) 'stop': Signal to main loop that we are finished.
+class LocalSearch(Algorithm):
+    """
+    Local Search by Peter with perturbation modified
+    """
+    def __init__(self, num_random_seeds=10, seed_configurations=[]):
+        # num_random_seeds + len(seed_configurations) needs to be larger than max_concurrent
+        self.num_random_seeds = num_random_seeds
+        self.seed_configurations = seed_configurations
+        self.count = 0
+        self.random_sampler = RandomSearch(self.num_random_seeds)
 
-        TODO: 
-        1) The algorithm might want access to more information, e.g. the model and the full history.
-           Therefore, I think the results table should include the modelfile and historyfile.
-
-        '''
-        if self.stage == 0 and len(self.population) == self.samples:
-            print('\nStage %d/%d: %d samples, %d epochs per stage.' % (
-                self.stage, self.stages, len(self.population),
-                self.epochs_per_stage))
-
-        if len(self.population) == 0:
-            pending = results_table.get_pending()
-            if len(pending) > 0:
-                return 'wait' # Don't start next stage until everyone finishes previous stage.
-            self.stage += 1
-            if self.stage >= self.stages:
-                return 'stop'
+    def get_suggestion(self, parameters, results, lower_is_better):
+        self.count += 1
+        if self.count <= len(self.seed_configurations) + self.num_random_seeds:
+            if len(self.seed_configurations) >= self.count:
+                return self.seed_configurations[self.count-1]
             else:
-                k   = int(math.ceil(self.samples * self.survival**self.stage)) # Survivor number.
-                indices = results_table.get_k_lowest(k) # Only 1 run.
-                self.population = [(index, None) for index in indices] # Use empty hp to indicate restart training.
-                print('\nStage %d/%d: %d survivors, %d epochs per stage.' % (self.stage, self.stages, k, self.epochs_per_stage))
-                # Display best so far.
-                best = results_table.get_best()
-                print('Best loss:%0.4f epochs:%d index:%s hp:%s' % (best['Loss'], best['Epochs'], best['ID'], best['HP']))
+                return self.random_sampler.get_suggestion(parameters, results,
+                                                          lower_is_better)
 
-        index, hp = self.population.pop(0)
-        return index, hp, self.epochs_per_stage
+        # Get best result so far
+        try:
+            best_idx = (results.loc[:, 'Objective'].argmin() if lower_is_better
+                        else results.loc[:, 'Objective'].argmax())
+        except ValueError:
+            return self.random_sampler.get_suggestion(parameters,
+                                                      results, lower_is_better)
+
+        parameter_names = [p.name for p in parameters]
+        best_params = results.loc[best_idx,
+                                  parameter_names].to_dict()
+        new_params = best_params
+        # randomly choose one of the parameters and perturb it
+        # while parameter in existing results
+        # choose one dimension randomly and resample it
+        alglogger.debug(new_params)
+        while results.loc[:, parameter_names].isin({key: [value] for key, value in new_params.items()}).apply(all, axis=1).any():
+            new_params = best_params.copy()
+            p = numpy.random.choice(list(parameters))
+            new_params[p.name] = p.sample()
+            alglogger.debug(new_params)
+
+        return new_params
+
+
+class StoppingRule(object):
+    """
+    Abstract class to evaluate whether a trial should stop conditional on all
+    results so far.
+    """
+    def should_trial_stop(self, trial, results, lower_is_better):
+        """
+        # Arguments:
+            trial (sherpa.Trial): trial to be stopped.
+            results (pandas.DataFrame): all results so far.
+            lower_is_better (bool): whether lower objective values are better.
+
+        # Returns:
+            (bool) decision.
+        """
+        raise NotImplementedError("StoppingRule class is not usable itself.")
+
+
+class MedianStoppingRule(StoppingRule):
+    def __init__(self, min_iterations=0, min_trials=1):
+        self.min_iterations = min_iterations
+        self.min_trials = min_trials
+
+    def should_trial_stop(self, trial, results, lower_is_better):
+        """
+        # Arguments:
+            trial (sherpa.Trial): trial to be stopped.
+            results (pandas.DataFrame): all results so far.
+            lower_is_better (bool): whether lower objective values are better.
+
+        # Returns:
+            (bool) decision.
+        """
+        if len(results) == 0:
+            return False
+        
+        trial_rows = results.loc[results['Trial-ID'] == trial.id]
+        trial_rows_sorted = trial_rows.sort_values(by='Iteration')
+        trial_obj_val = trial_rows_sorted['Objective'].min() if lower_is_better else trial_rows_sorted['Objective'].max()
+        if numpy.isnan(trial_obj_val) and not trial_rows.empty:
+            alglogger.debug("Value {} is NaN: {}, trial rows: {}".format(trial_obj_val, numpy.isnan(trial_obj_val), trial_rows))
+            return True
+
+        max_iteration = trial_rows_sorted['Iteration'].max()
+        if max_iteration < self.min_iterations:
+            return False
+
+        trial_ids = set(results['Trial-ID'])
+        comparison_vals = []
+
+        for tid in trial_ids:
+            if tid == trial.id:
+                continue
+            trial_rows = results.loc[results['Trial-ID'] == tid]
+
+            valid_rows = trial_rows.loc[trial_rows['Iteration'] <= max_iteration]
+            obj_val = valid_rows['Objective'].min() if lower_is_better else valid_rows['Objective'].max()
+            comparison_vals.append(obj_val)
+
+        if len(comparison_vals) < self.min_trials:
+            return False
+
+        if lower_is_better:
+            decision = trial_obj_val > numpy.nanmedian(comparison_vals)
+        else:
+            decision = trial_obj_val < numpy.nanmedian(comparison_vals)
+
+        return decision
+
+
+def get_sample_results_and_params():
+    """
+    Call as
+    parameters, results, lower_is_better = get_sample_results_and_params()
+    to get a sample set of parameters, results and lower_is_better variable.
+    """
+    here = os.path.abspath(os.path.dirname(__file__))
+    results = pandas.read_csv(os.path.join(here, "sample_results.csv"), index_col=0)
+    parameters = [Choice(name="param_a",
+                         range=[1, 2, 3]),
+                  Continuous(name="param_b",
+                         range=[0, 1])]
+    lower_is_better = True
+    # return {'results': results, 'parameters': parameters,
+    #         'lower_is_better': lower_is_better}
+    return parameters, results, lower_is_better
