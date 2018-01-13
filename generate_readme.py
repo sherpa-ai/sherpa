@@ -54,6 +54,13 @@ SGE required submit options. In Sherpa, those are defined as a string via the `s
 ```-N myScript -P arcus.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-3)\'```.
 The `-N` option defines the name. To run from Arcus 5 to 9 you would set `-q arcus-ubuntu.q` and `hostname` with the relevant machines you want to run on. The SHERPA runner script can run from any Arcus machine.
 
+## Example
+You can run an example by doing:
+```
+cd /your/path/sherpa/examples/bianchini/
+python runner.py --env <path/to/your/environment>
+```
+
 
 """
 

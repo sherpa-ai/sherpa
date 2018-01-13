@@ -108,7 +108,9 @@ class Client(object):
     """
     def __init__(self, **kwargs):
         host = os.environ.get('SHERPA_DB_HOST') or kwargs.get('hostname') or 'localhost'
-        port = os.environ.get('SHERPA_DB_PORT') or kwargs.get('port') or 27010
+        port = (os.environ.get('SHERPA_DB_PORT') or
+                (kwargs.pop('port') if 'port' in kwargs else None) or
+                27010)
         self.client = MongoClient(host, int(port), **kwargs)
         self.db = self.client.sherpa
 

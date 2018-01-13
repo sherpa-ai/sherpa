@@ -7,6 +7,7 @@ import sherpa.schedulers
 import pandas
 import collections
 import pymongo
+import socket
 try:
     import unittest.mock as mock
 except ImportError:
@@ -114,6 +115,7 @@ def test_database(test_dir):
                                serverSelectionTimeoutMS=1000)
 
         testlogger.debug("Getting Trial...")
+        os.environ['SHERPA_TRIAL_ID'] = '1'
         t = client.get_trial()
         assert t.id == 1
         assert t.parameters == {'a': 1, 'b': 2}
@@ -147,22 +149,29 @@ def test_database(test_dir):
 
 
 def test_sge_scheduler():
-    if not os.environ.get("HOSTNAME") == "nimbus":
+    host = socket.gethostname()
+    if (not host == "nimbus") and (not host.startswith('arcus')):
         return
 
     test_dir = tempfile.mkdtemp(dir=".")
+    
+    trial_script = "import time, os\n"
+    trial_script += "assert os.environ.get('SHERPA_TRIAL_ID') == '3'\n"
+    trial_script += "assert os.environ.get('SHERPA_HOST') == {}\n".format(host)
+    trial_script += "time.sleep(5)\n"
 
     with open(os.path.join(test_dir, "test.py"), 'w') as f:
-        f.write("import time\ntime.sleep(5)")
+        f.write(trial_script)
 
-    env = '/home/lhertel/profiles/main.profile'
-    sge_options = '-N sherpaSchedTest -P arcus.p -q arcus.q -l hostname=\'(arcus-1|arcus-2|arcus-8|arcus-9)\''
+    env = '/home/lhertel/profiles/python3env.profile'
+    sge_options = '-N sherpaSchedTest -P arcus.p -q arcus-ubuntu.q -l hostname=\'(arcus-5)\''
 
     s = sherpa.schedulers.SGEScheduler(environment=env,
                                        submit_options=sge_options,
                                        output_dir=test_dir)
 
-    job_id = s.submit_job("python {}/test.py".format(test_dir))
+    job_id = s.submit_job("python {}/test.py".format(test_dir),
+                          env={'SHERPA_TRIAL_ID': 3, 'SHERPA_HOST': host})
 
     try:
         time.sleep(2)
@@ -177,13 +186,16 @@ def test_sge_scheduler():
 
 
 def test_local_scheduler(test_dir):
+    trial_script = "import time, os\n"
+    trial_script += "time.sleep(3)\n"
+    trial_script += "assert os.environ.get('SHERPA_TRIAL_ID') == '3'\n"
 
     with open(os.path.join(test_dir, "test.py"), 'w') as f:
-        f.write("import time\ntime.sleep(3)")
+        f.write(trial_script)
 
     s = sherpa.schedulers.LocalScheduler()
 
-    job_id = s.submit_job("python {}/test.py".format(test_dir))
+    job_id = s.submit_job("python {}/test.py".format(test_dir), env={'SHERPA_TRIAL_ID': 3})
 
     assert s.get_status(job_id) == sherpa.schedulers.JobStatus.running
 
@@ -280,14 +292,11 @@ def test_runner_stop_bad_performers():
     r.update_active_trials = mock.MagicMock()
     r.study.should_trial_stop.return_value = True
     r.stop_bad_performers()
-    r.scheduler.kill_job.assert_called_with('111')
+    r.database.add_for_stopping.assert_called_with(t.id)
 
     # test that trial is not stopped
     r.study.should_trial_stop.return_value = False
     r.stop_bad_performers()
-
-    # make sure trial is only killed in one case
-    r.update_active_trials.assert_called_once()
 
 
 def test_runner_submit_new_trials():
