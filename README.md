@@ -24,7 +24,20 @@ module load sge
 Install dependencies:
 ```
 cd /your/path/sherpa
-python setup.py install --parallel
+pip install -e .
+```
+
+or
+
+```
+pip install pandas
+pip install pymongo
+pip install numpy
+pip install scipy
+pip install sklearn
+pip install flask
+pip install drmaa
+pip install enum34  # if on < Python 3.4
 ```
 
 ## Environment
