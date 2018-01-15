@@ -52,16 +52,15 @@ if __name__=='__main__':
     parser.add_argument('--max_concurrent',
                         help='Number of concurrent processes',
                         type=int, default=1)
-    parser.add_argument('-P',
+    parser.add_argument('--P',
                         help="Specifies the project to which this  job  is  assigned.",
                         default='arcus.p')
-    parser.add_argument('-q',
+    parser.add_argument('--q',
                         help='Defines a list of cluster queues or queue instances which may be used to execute this job.',
                         default='arcus-ubuntu.q')
-    parser.add_argument('-l', help='the given resource list.',
+    parser.add_argument('--l', help='the given resource list.',
                         default="hostname=\'(arcus-9)\'")
-    parser.add_argument('-env', help='Your environment path.',
+    parser.add_argument('--env', help='Your environment path.',
                         default='/home/lhertel/profiles/python3env.profile', type=str)
     FLAGS = parser.parse_args()
     run_example(FLAGS)  # Sherpa optimization.
-
