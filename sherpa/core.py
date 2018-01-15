@@ -55,6 +55,7 @@ class Study(object):
         self.lower_is_better = lower_is_better
         self.results = pandas.DataFrame()
         self.num_trials = 0
+        self.trial_queue = collections.deque()
 
         self.ids_to_stop = set()
         
@@ -136,6 +137,9 @@ class Study(object):
         # Returns:
             (dict) a parameter suggestion.
         """
+        if len(self.trial_queue) != 0:
+            return self.trial_queue.popleft()
+        
         p = self.algorithm.get_suggestion(self.parameters, self.results,
                                           self.lower_is_better)
         if not p:
@@ -166,6 +170,13 @@ class Study(object):
                                                         self.lower_is_better)
         else:
             return False
+        
+    def add_trial(self, trial):
+        """
+        Adds trial into queue for next suggestion.
+        """
+        self.trial_queue.append(trial)
+        
 
     def get_best_result(self):
         # Get best result so far
@@ -324,8 +335,9 @@ class Runner(object):
                 except ValueError as e:
                     warnings.warn(str(e) + "\nRelevant results not found in database. Check that"
                                   " Client has correct host/port and is submitting"
-                                  " metrics.", RuntimeWarning)
+                                  " metrics. Resubmitting Trial.", RuntimeWarning)
                 self.active_trials.pop(i)
+                self.study.add_trial(self.all_trials[tid].get('trial'))
 
     def stop_bad_performers(self):
         for tid in self.active_trials:
@@ -379,7 +391,7 @@ class Runner(object):
             #             "{}".format(self.study.get_best_result()))
 
             # logger.info(self.study.results)
-            time.sleep(1)
+            time.sleep(5)
 
 
 def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
