@@ -1,4 +1,3 @@
-
 # SHERPA
 
 ## Installation
@@ -23,9 +22,21 @@ module load sge
 
 Install dependencies:
 ```
-cd /your/path/sherpa
-python setup.py install --parallel
+pip install pandas
+pip install pymongo
+pip install numpy
+pip install scipy
+pip install sklearn
+pip install flask
+pip install drmaa
+pip install enum34  # if on < Python 3.4
 ```
+or
+```
+cd /your/path/sherpa
+pip install -e .
+```
+
 
 ## Environment
 You should have an environment-profile that sets path variables and potentially loads a Python Virtual environment. All variable settings above should go into that profile. Note that an SGE job will not load your `.bashrc` so all necessary settings need to be in your profile.
