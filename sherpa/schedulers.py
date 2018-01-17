@@ -27,7 +27,7 @@ class Scheduler(object):
     def __init__(self):
         pass
 
-    def submit_job(self, command):
+    def submit_job(self, command, env={}, job_name=''):
         """
         Submits a command to the scheduler.
 
@@ -62,7 +62,8 @@ class LocalScheduler(Scheduler):
         self.decode_status = {0: JobStatus.finished,
                               -15: JobStatus.killed}
 
-    def submit_job(self, command, env={}):
+    def submit_job(self, command, env={}, job_name=''):
+        env.update(os.environ.copy())
         process = subprocess.Popen(command.split(' '), env=env)
         self.jobs[process.pid] = process
         return process.pid

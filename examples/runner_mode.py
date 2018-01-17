@@ -25,9 +25,9 @@ algorithm = sherpa.algorithms.RandomSearch(max_num_trials=10)
 # stopping_rule = sherpa.algorithms.MedianStoppingRule(min_iterations=2,
 #                                           min_trials=3)
 
-scheduler = sherpa.schedulers.SGEScheduler(submit_options="-N example -P arcus.p -q {} -l hostname='{}'".format(sge_q, host), environment=FLAGS.env, output_dir=tempdir)
+# scheduler = sherpa.schedulers.SGEScheduler(submit_options="-N example -P arcus.p -q {} -l hostname='{}'".format(sge_q, host), environment=FLAGS.env, output_dir=tempdir)
 
-# scheduler = sherpa.schedulers.LocalScheduler()
+scheduler = sherpa.schedulers.LocalScheduler()
 
 ### The *training script*
 testscript = """import sherpa
@@ -57,6 +57,7 @@ results = sherpa.optimize(parameters=parameters,
                           filename=filename,
                           output_dir=tempdir,
                           scheduler=scheduler,
-                          max_concurrent=2)
+                          max_concurrent=2,
+                          verbose=1)
 
 print(results)

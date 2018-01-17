@@ -15,6 +15,7 @@ from .schedulers import JobStatus
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+logging.getLogger('werkzeug').setLevel(level=logging.WARNING)
 
 
 class Trial(object):
@@ -216,7 +217,7 @@ class Study(object):
         """
         if not output_dir:
             assert self.output_dir, "If no output-directory is specified, a directory needs to be passed as argument"
-        self.results.to_csv(self.output_dir or output_dir, index=False)
+        self.results.to_csv(os.path.join(self.output_dir or output_dir, 'results.csv'), index=False)
 
     def get_best_result(self):
         """
@@ -226,8 +227,8 @@ class Study(object):
             pandas.DataFrame
         """
         # Get best result so far
-        best_idx = (self.results.loc[:, 'Objective'].argmin() if self.lower_is_better
-                    else self.results.loc[:, 'Objective'].argmax())
+        best_idx = (self.results.loc[:, 'Objective'].idxmin() if self.lower_is_better
+                    else self.results.loc[:, 'Objective'].idxmax())
 
         best_result = self.results.loc[best_idx, :].to_dict()
         best_result.pop('Status')
@@ -259,15 +260,13 @@ class Study(object):
         app.set_results_channel(self._results_channel)
         app.set_stopping_channel(self._stopping_channel)
         
-        # TODO: doesn't seem to have any effect
-        if self.output_dir:
-            handler = RotatingFileHandler(os.path.join(self.output_dir, 'app.log'), maxBytes=1024 * 1024)
-            handler.setLevel(logging.DEBUG)
-            app.logger.addHandler(handler)
-        
         proc = multiprocessing.Process(target=app.run,
                                        kwargs={'port': port, 'debug': True, 'use_reloader': False, 'host': '', 'threaded': True})
-        logging.info("\n" + "-"*50 + "\n" + "SHERPA Dashboard running on http://{}:{}\n".format(socket.gethostbyname(socket.gethostname()), port) + "-"*50)
+        msg = "\n" + "-"*55 + "\n"
+        msg += "SHERPA Dashboard running on http://{}:{}".format(socket.gethostbyname(socket.gethostname()), port)
+        msg += "\n" + "-"*55
+        logger.info(msg)
+        
         proc.daemon = True
         proc.start()
         return proc
@@ -309,9 +308,10 @@ class Runner(object):
         database (sherpa.database.Database): the database.
     """
     def __init__(self, study, scheduler, database, max_concurrent,
-                 command):
+                 command, resubmit_failed_trials=False):
         self.max_concurrent = max_concurrent
         self.command = command
+        self.resubmit_failed_trials = resubmit_failed_trials
         self.done = False
         self.scheduler = scheduler
         self.database = database
@@ -382,9 +382,11 @@ class Runner(object):
                 except ValueError as e:
                     warnings.warn(str(e) + "\nRelevant results not found in database. Check that"
                                   " Client has correct host/port and is submitting"
-                                  " metrics. Resubmitting Trial.", RuntimeWarning)
+                                  " metrics.", RuntimeWarning)
+                    if self.resubmit_failed_trials:
+                        logger.info("Resubmitting Trial {}.".format(tid))
+                        self.study.add_trial(self.all_trials[tid].get('trial'))
                 self.active_trials.pop(i)
-                self.study.add_trial(self.all_trials[tid].get('trial'))
 
     def stop_bad_performers(self):
         """
@@ -411,17 +413,17 @@ class Runner(object):
                 self.done = True
                 break
             
-            submit_msg = "\n" + "-"*50 + "\n" + "Submitting Trial {}:\n".format(next_trial.id)
+            submit_msg = "\n" + "-"*55 + "\n" + "Submitting Trial {}:\n".format(next_trial.id)
             for pname, pval in next_trial.parameters.items():
-                submit_msg += "\t{0:15}={1:>26}\n".format(str(pname), str(pval))
-            submit_msg += "-"*50 + "\n"
-            logger.info(submit_msg)
+                submit_msg += "\t{0:15}={1:>31}\n".format(str(pname), str(pval))
+            submit_msg += "-"*55 + "\n"
+            logger.debug(submit_msg)
 
             self.database.enqueue_trial(next_trial)
             pid = self.scheduler.submit_job(command=self.command,
-                                            env={'SHERPA_TRIAL_ID': next_trial.id,
+                                            env={'SHERPA_TRIAL_ID': str(next_trial.id),
                                                  'SHERPA_DB_HOST': socket.gethostname(),
-                                                 'SHERPA_DB_PORT': self.database.port},
+                                                 'SHERPA_DB_PORT': str(self.database.port)},
                                             job_name='trial_' + str(next_trial.id))
             self.all_trials[next_trial.id] = {'trial': next_trial,
                                               'job_id': pid}
@@ -450,7 +452,7 @@ class Runner(object):
 
 def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
              scheduler, max_concurrent=1, db_port=None, stopping_rule=None,
-             dashboard_port=None):
+             dashboard_port=None, resubmit_failed_trials=False, verbose=1):
     """
     Runs a Study with a scheduler and automatically runs a database in the
     background.
@@ -471,9 +473,14 @@ def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
         scheduler (sherpa.Scheduler): a scheduler.
         max_concurrent (int): the number of trials that will be evaluated in
             parallel.
+        resubmit_failed_trials (bool): whether 
     """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+        
+    if verbose == 0:
+        logger.setLevel(level=logging.INFO)
+        logging.getLogger('dblogger').setLevel(level=logging.WARNING)
 
     study = Study(parameters=parameters,
                   algorithm=algorithm,
@@ -488,7 +495,8 @@ def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
                         scheduler=scheduler,
                         database=db,
                         max_concurrent=max_concurrent,
-                        command=' '.join(['python', filename]))
+                        command=' '.join(['python', filename]),
+                        resubmit_failed_trials=resubmit_failed_trials)
         runner.run_loop()
     return study.get_best_result()
 
