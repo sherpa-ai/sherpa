@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class Trial(object):
     """
-    A Trial object characterizes one set of parameters and an ID.
+    Represents one parameter-configuration here referred to as one trial.
 
     # Attributes
         id (int): the Trial ID.
@@ -32,7 +32,10 @@ class Trial(object):
 
 class Study(object):
     """
-    A Study defines an entire optimization and its results.
+    An interface to a parameter-optimization.
+    
+    Includes functionality to get new suggested trials and add observations
+    for those.
 
     # Attributes:
         algorithm (sherpa.algorithms.Algorithm): takes results table and returns
@@ -43,6 +46,8 @@ class Study(object):
             trials prematurely.
         lower_is_better (bool): whether lower objective values are better.
         dashboard_port (int): port to run the dashboard web-server on.
+        disable_dashboard (bool): whether to not run the dashboard.
+        output_dir (str): directory to store web-app output and results-CSV.
 
     """
     def __init__(self, parameters, algorithm, lower_is_better,
@@ -55,22 +60,25 @@ class Study(object):
         self.lower_is_better = lower_is_better
         self.results = pandas.DataFrame()
         self.num_trials = 0
-        self.trial_queue = collections.deque()
+        self._trial_queue = collections.deque()
+        self.output_dir = output_dir
 
-        self.ids_to_stop = set()
+        self._ids_to_stop = set()
         
         if not disable_dashboard:
-            self.mgr = multiprocessing.Manager()
-            self.results_channel = self.mgr.Namespace()
-            self.results_channel.df = self.results
-            self.stopping_channel = multiprocessing.Queue()
+            self._mgr = multiprocessing.Manager()
+            self._results_channel = self._mgr.Namespace()
+            self._results_channel.df = self.results
+            self._stopping_channel = multiprocessing.Queue()
             dashboard_port = dashboard_port or port_finder(8880, 9999)
-            self.dashboard_process = self.run_web_server(dashboard_port, output_dir)
+            self.dashboard_process = self.run_web_server(dashboard_port)
         else:
             self.dashboard_process = None
 
     def add_observation(self, trial, iteration, objective, context={}):
         """
+        Add a single observation of the objective value for a given trial.
+        
         # Arguments:
             trial (sherpa.Trial): trial for which an observation is to be added.
             iteration (int): iteration number e.g. epoch.
@@ -99,12 +107,16 @@ class Study(object):
                                            ignore_index=True)
 
         if self.dashboard_process:
-            self.results_channel.df = self.results
+            self._results_channel.df = self.results
 
     def finalize(self, trial, status='COMPLETED'):
         """
+        Once a trial will not add any more observations it
+        should be finalized with this function.
+        
         # Arguments:
             trial (sherpa.Trial): trial that is completed.
+            status (str): one of 'COMPLETED', 'FAILED', 'STOPPED'.
         """
         assert isinstance(trial, Trial), "Trial must be sherpa.Trial"
         assert status in ['COMPLETED', 'FAILED', 'STOPPED']
@@ -130,15 +142,20 @@ class Study(object):
         self.results = self.results.append(best_row, ignore_index=True)
 
         if self.dashboard_process:
-            self.results_channel.df = self.results
+            self._results_channel.df = self.results
 
     def get_suggestion(self):
         """
+        Obtain a new suggested trial.
+        
+        This function wraps the algorithm that was passed to the
+        study.
+        
         # Returns:
             (dict) a parameter suggestion.
         """
-        if len(self.trial_queue) != 0:
-            return self.trial_queue.popleft()
+        if len(self._trial_queue) != 0:
+            return self._trial_queue.popleft()
         
         p = self.algorithm.get_suggestion(self.parameters, self.results,
                                           self.lower_is_better)
@@ -151,6 +168,11 @@ class Study(object):
 
     def should_trial_stop(self, trial):
         """
+        Determines whether given trial should stop.
+        
+        This function wraps the stopping rule provided to the
+        study.
+        
         # Arguments:
             trial (sherpa.Trial): trial to be evaluated.
 
@@ -159,10 +181,10 @@ class Study(object):
         """
         assert isinstance(trial, Trial), "Trial must be sherpa.Trial"
         if self.dashboard_process:
-            while not self.stopping_channel.empty():
-                self.ids_to_stop.add(self.stopping_channel.get())
+            while not self._stopping_channel.empty():
+                self._ids_to_stop.add(self._stopping_channel.get())
 
-        if trial.id in self.ids_to_stop:
+        if trial.id in self._ids_to_stop:
             return True
 
         if self.stopping_rule:
@@ -173,12 +195,36 @@ class Study(object):
         
     def add_trial(self, trial):
         """
-        Adds trial into queue for next suggestion.
-        """
-        self.trial_queue.append(trial)
+        Adds a trial into queue for next suggestion.
         
+        Trials added via this method forego the suggestions
+        made by the algorithm and are returned by the
+        `get_suggestion` method on a first in first out
+        basis.
+        
+        # Arguments:
+            trial (sherpa.Trial): the trial to be enqueued.
+        """
+        self._trial_queue.append(trial)
+        
+    def to_csv(self, output_dir=None):
+        """
+        Stores results to CSV.
+        
+        # Arguments:
+            output_dir (str): directory to store CSV to.
+        """
+        if not output_dir:
+            assert self.output_dir, "If no output-directory is specified, a directory needs to be passed as argument"
+        self.results.to_csv(self.output_dir or output_dir, index=False)
 
     def get_best_result(self):
+        """
+        Retrieve the best result so far.
+        
+        # Returns:
+            pandas.DataFrame
+        """
         # Get best result so far
         best_idx = (self.results.loc[:, 'Objective'].argmin() if self.lower_is_better
                     else self.results.loc[:, 'Objective'].argmax())
@@ -187,9 +233,9 @@ class Study(object):
         best_result.pop('Status')
         return best_result
         
-    def run_web_server(self, port, output_dir):
+    def run_web_server(self, port):
         """
-        Runs the web server.
+        Runs the SHERPA dashboard.
 
         # Arguments:
             port (int): Port for web app.
@@ -210,15 +256,14 @@ class Study(object):
                 param_types[p.name] = 'string'
         app.parameter_types = param_types
                 
-        app.set_results_channel(self.results_channel)
-        app.set_stopping_channel(self.stopping_channel)
+        app.set_results_channel(self._results_channel)
+        app.set_stopping_channel(self._stopping_channel)
         
         # TODO: doesn't seem to have any effect
-        if output_dir:
-            handler = RotatingFileHandler(os.path.join(output_dir, 'app.log'), maxBytes=1024 * 1024)
+        if self.output_dir:
+            handler = RotatingFileHandler(os.path.join(self.output_dir, 'app.log'), maxBytes=1024 * 1024)
             handler.setLevel(logging.DEBUG)
             app.logger.addHandler(handler)
-            
         
         proc = multiprocessing.Process(target=app.run,
                                        kwargs={'port': port, 'debug': True, 'use_reloader': False, 'host': '', 'threaded': True})
@@ -235,7 +280,7 @@ class Study(object):
 
     def __next__(self):
         """
-        Use study as a generator.
+        Allows to write `for trial in study:`.
         """
         t = self.get_suggestion()
         if t is None:
@@ -249,13 +294,14 @@ class Study(object):
 
 class Runner(object):
     """
-    A class that runs a study with a scheduler and database.
+    Encapsulates all functionality needed to run a Study in parallel.
 
     Responsibilities:
-    -Get rows from Mongo DB and check if anything new needs to be added to table
-    -Update active trials, finalize any completed/stopped/failed trials
-    -Check what trials should be stopped and tell scheduler to stop those
-    -Check if new trials need to be submitted, get parameters and submit
+    
+    -Get rows from Mongo DB and check if anything new needs to be added to table.
+    -Update active trials, finalize any completed/stopped/failed trials.
+    -Check what trials should be stopped and tell database to send stop signal.
+    -Check if new trials need to be submitted, get parameters and submit as a job.
 
     # Attributes:
         study (sherpa.Study): the study that is run.
@@ -317,7 +363,7 @@ class Runner(object):
 
     def update_active_trials(self):
         """
-        Update active trials, finalize any completed/stopped/failed trials
+        Update active trials, finalize any completed/stopped/failed trials.
         """
         # logger.debug("Updating trials")
         for i in range(len(self.active_trials)-1, -1, -1):
@@ -332,6 +378,7 @@ class Runner(object):
                 try:
                     self.study.finalize(trial=self.all_trials[tid].get('trial'),
                                         status=self.trial_status[status])
+                    self.study.to_csv()
                 except ValueError as e:
                     warnings.warn(str(e) + "\nRelevant results not found in database. Check that"
                                   " Client has correct host/port and is submitting"
@@ -340,6 +387,10 @@ class Runner(object):
                 self.study.add_trial(self.all_trials[tid].get('trial'))
 
     def stop_bad_performers(self):
+        """
+        Check whether any of the running trials should stop and add them for
+        stopping if necessary.
+        """
         for tid in self.active_trials:
             if tid in self.queued_for_stopping:
                 continue
@@ -349,6 +400,9 @@ class Runner(object):
                 self.queued_for_stopping.add(tid)
 
     def submit_new_trials(self):
+        """
+        Get new trial and submit it to the job scheduler.
+        """
         while len(self.active_trials) < self.max_concurrent:
             next_trial = self.study.get_suggestion()
 
@@ -375,7 +429,7 @@ class Runner(object):
 
     def run_loop(self):
         """
-        Run the optimization.
+        Run the optimization loop.
         """
         logger.debug("Running Loop")
         while not self.done or len(self.active_trials) != 0:
@@ -440,6 +494,13 @@ def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
 
 
 def port_finder(start, end):
+    """
+    Helper function to find free port in range.
+    
+    # Arguments:
+        start (int): start point of port range.
+        end (int): end point of port range.
+    """
     def check_socket(host, port):
         with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
             if sock.connect_ex((host, port)) == 0:
@@ -463,6 +524,12 @@ class Parameter(object):
     """
     Defines a hyperparameter with a name, type and associated range.
     """
+    def __init__(self, name, range):
+        assert isinstance(name, str), "Parameter-Name needs to be a string."
+        assert isinstance(range, list), "Parameter-Range needs to be a list."
+        self.name = name
+        self.range = range
+        
     @staticmethod
     def from_dict(config):
         """
@@ -522,8 +589,7 @@ class Continuous(Parameter):
     Continuous parameter class.
     """
     def __init__(self, name, range, scale='linear'):
-        self.name = name
-        self.range = range
+        super(Continuous, self).__init__(name, range)
         self.scale = scale
 
     def sample(self):
@@ -539,8 +605,7 @@ class Discrete(Parameter):
     Discrete parameter class.
     """
     def __init__(self, name, range, scale):
-        self.name = name
-        self.range = range
+        super(Discrete, self).__init__(name, range)
         self.scale = scale
 
     def sample(self):
@@ -556,8 +621,7 @@ class Choice(Parameter):
     Choice parameter class.
     """
     def __init__(self, name, range):
-        self.name = name
-        self.range = range
+        super(Choice, self).__init__(name, range)
 
     def sample(self):
         i = numpy.random.randint(low=0, high=len(self.range))

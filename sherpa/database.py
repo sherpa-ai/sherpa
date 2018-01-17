@@ -125,6 +125,7 @@ class Client(object):
         # Returns:
             (sherpa.Trial)
         """
+        assert os.environ.get('SHERPA_TRIAL_ID'), "Environment-variable SHERPA_TRIAL_ID not found. Scheduler needs to set this variable in the environment when submitting a job"
         trial_id = int(os.environ.get('SHERPA_TRIAL_ID'))
         for _ in range(5):
             g = (entry for entry in self.db.trials.find({'trial_id': trial_id}))

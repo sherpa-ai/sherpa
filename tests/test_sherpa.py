@@ -1,6 +1,6 @@
 import os
 import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pytest
 import sherpa
 import sherpa.schedulers
@@ -105,11 +105,13 @@ def test_study():
 def test_database(test_dir):
     test_trial = get_test_trial()
     testlogger.debug(test_dir)
-    db_port = 27011
+    db_port = sherpa.port_finder(27000, 28000)
     with sherpa.Database(test_dir, port=db_port) as db:
+        time.sleep(2)
         testlogger.debug("Enqueuing...")
         db.enqueue_trial(test_trial)
-
+        
+        testlogger.debug("Starting Client...")
         client = sherpa.Client(port=db_port,
                                connectTimeoutMS=100,
                                serverSelectionTimeoutMS=1000)
@@ -195,7 +197,7 @@ def test_local_scheduler(test_dir):
 
     s = sherpa.schedulers.LocalScheduler()
 
-    job_id = s.submit_job("python {}/test.py".format(test_dir), env={'SHERPA_TRIAL_ID': 3})
+    job_id = s.submit_job("python {}/test.py".format(test_dir), env={'SHERPA_TRIAL_ID': '3'})
 
     assert s.get_status(job_id) == sherpa.schedulers.JobStatus.running
 
