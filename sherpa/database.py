@@ -42,7 +42,7 @@ class Database(object):
         """
         Runs the DB in a sub-process.
         """
-        dblogger.debug("Starting MongoDB in {}!".format(self.dir))
+        dblogger.debug("Starting MongoDB in {}".format(self.dir))
         cmd = ['mongod',
                '--dbpath', self.dir,
                '--port', str(self.port),
