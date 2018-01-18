@@ -48,6 +48,18 @@ class RandomSearch(Algorithm):
 
 
 class GridSearch(Algorithm):
+    """
+    Regular Grid Search. Expects Choice parameters.
+    
+    Example:
+    ```
+    hp_space = {'act': ['tanh', 'relu'],
+                'lrinit': [0.1, 0.01],
+                }
+    parameters = sherpa.Parameter.grid(hp_space)
+    alg = sherpa.algorithms.GridSearch()
+    ```
+    """
     def __init__(self):
         self.count = 0
         self.grid = None
@@ -129,6 +141,25 @@ class StoppingRule(object):
 
 
 class MedianStoppingRule(StoppingRule):
+    """
+    Median Stopping-Rule similar to Golovin et al.
+    "Google Vizier: A Service for Black-Box Optimization".
+    
+    # Description:
+    For a Trial `t`, the best objective value is found.
+
+    Then the best objective value for every other trial is found.
+
+    Finally, the best-objective for the trial is compared to
+    the median of the best-objectives of all other trials.
+
+    If trial `t`'s best objective is worse than that median, it is
+    stopped.
+
+    If `t` has not reached the minimum iterations or there are not
+    yet the requested number of comparison trials, `t` is not
+    stopped.
+    """
     def __init__(self, min_iterations=0, min_trials=1):
         self.min_iterations = min_iterations
         self.min_trials = min_trials
@@ -147,23 +178,25 @@ class MedianStoppingRule(StoppingRule):
             return False
         
         trial_rows = results.loc[results['Trial-ID'] == trial.id]
-        trial_rows_sorted = trial_rows.sort_values(by='Iteration')
-        trial_obj_val = trial_rows_sorted['Objective'].min() if lower_is_better else trial_rows_sorted['Objective'].max()
+        
+        max_iteration = trial_rows['Iteration'].max()
+        if max_iteration < self.min_iterations:
+            return False
+        
+        trial_obj_val = trial_rows['Objective'].min() if lower_is_better else trial_rows['Objective'].max()
         if numpy.isnan(trial_obj_val) and not trial_rows.empty:
             alglogger.debug("Value {} is NaN: {}, trial rows: {}".format(trial_obj_val, numpy.isnan(trial_obj_val), trial_rows))
             return True
 
-        max_iteration = trial_rows_sorted['Iteration'].max()
-        if max_iteration < self.min_iterations:
-            return False
-
-        trial_ids = set(results['Trial-ID'])
+        other_trial_ids = set(results['Trial-ID']) - {trial.id}
         comparison_vals = []
 
-        for tid in trial_ids:
-            if tid == trial.id:
-                continue
+        for tid in other_trial_ids:
             trial_rows = results.loc[results['Trial-ID'] == tid]
+            
+            max_iteration = trial_rows['Iteration'].max()
+            if max_iteration < self.min_iterations:
+                continue
 
             valid_rows = trial_rows.loc[trial_rows['Iteration'] <= max_iteration]
             obj_val = valid_rows['Objective'].min() if lower_is_better else valid_rows['Objective'].max()

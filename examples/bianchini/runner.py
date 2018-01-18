@@ -57,9 +57,9 @@ if __name__=='__main__':
                         default='arcus.p')
     parser.add_argument('--q',
                         help='Defines a list of cluster queues or queue instances which may be used to execute this job.',
-                        default='arcus-ubuntu.q')
+                        default='arcus.q')
     parser.add_argument('--l', help='the given resource list.',
-                        default="hostname=\'(arcus-9)\'")
+                        default="hostname=\'(arcus-2)\'")
     parser.add_argument('--env', help='Your environment path.',
                         default='/home/lhertel/profiles/python3env.profile', type=str)
     FLAGS = parser.parse_args()

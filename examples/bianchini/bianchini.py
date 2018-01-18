@@ -126,8 +126,8 @@ def main(client, trial):
 
 if __name__=='__main__':
     client = sherpa.Client()
-    trial = client.get_trial()
     try:
+        trial = client.get_trial()
         main(client, trial)
     finally:
         gpu_lock.free_lock(GPUIDX)

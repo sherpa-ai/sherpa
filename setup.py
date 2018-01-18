@@ -31,6 +31,7 @@ REQUIRED = [
     'numpy>=1.13.1',
     'sklearn',
     'flask>=0.12.2',
+    'enum34',
     'scipy>=1.0.0'
 ]
 

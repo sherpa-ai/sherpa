@@ -3,6 +3,16 @@ import tempfile
 import os
 import sherpa
 import sherpa.schedulers
+import argparse
+import socket
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--env', help='Your environment path.',
+                    default='/home/lhertel/profiles/python3env.profile', type=str)
+FLAGS = parser.parse_args()
+# figuring out host and queue
+host = socket.gethostname()
+sge_q = 'arcus.q' if (host.startswith('arcus-1') or host.startswith('arcus-2') or host.startswith('arcus-3') or host.startswith('arcus-4')) else 'arcus-ubuntu.q'
 
 tempdir = tempfile.mkdtemp(dir=".")
 
@@ -15,11 +25,9 @@ algorithm = sherpa.algorithms.RandomSearch(max_num_trials=10)
 # stopping_rule = sherpa.algorithms.MedianStoppingRule(min_iterations=2,
 #                                           min_trials=3)
 
-scheduler = sherpa.schedulers.SGEScheduler(submit_options="-N example -P arcus.p -q arcus.q -l hostname='arcus-1'", environment="/home/lhertel/profiles/main.profile",
-                                           output_dir=tempdir)
-hostname = 'nimbus.ics.uci.edu'
-db_port = 27000
-# scheduler = sherpa.schedulers.LocalScheduler()
+# scheduler = sherpa.schedulers.SGEScheduler(submit_options="-N example -P arcus.p -q {} -l hostname='{}'".format(sge_q, host), environment=FLAGS.env, output_dir=tempdir)
+
+scheduler = sherpa.schedulers.LocalScheduler()
 
 ### The *training script*
 testscript = """import sherpa
@@ -46,11 +54,10 @@ with open(filename, 'w') as f:
 results = sherpa.optimize(parameters=parameters,
                           algorithm=algorithm,
                           lower_is_better=True,
-                          dashboard_port=8999,
                           filename=filename,
                           output_dir=tempdir,
                           scheduler=scheduler,
                           max_concurrent=2,
-                          db_port=db_port)
+                          verbose=1)
 
 print(results)
