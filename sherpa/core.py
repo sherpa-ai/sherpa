@@ -380,9 +380,13 @@ class Runner(object):
                                         status=self.trial_status[status])
                     self.study.to_csv()
                 except ValueError as e:
-                    warnings.warn(str(e) + "\nRelevant results not found in database. Check that"
-                                  " Client has correct host/port and is submitting"
-                                  " metrics.", RuntimeWarning)
+                    warn_msg = str(e)
+                    warn_msg += ("\nRelevant results not found in database."
+                                 " Check that Client has correct host/port, is"
+                                 " submitting metrics and did not crash."
+                                 " Trial script output is in: ")
+                    warn_msg += os.path.join(study.output_dir, 'sge', 'trial_{}.out'.format(tid))
+                    warnings.warn(warn_msg, RuntimeWarning)
                     if self.resubmit_failed_trials:
                         logger.info("Resubmitting Trial {}.".format(tid))
                         self.study.add_trial(self.all_trials[tid].get('trial'))

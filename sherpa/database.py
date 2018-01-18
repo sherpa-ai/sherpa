@@ -3,6 +3,7 @@ from pymongo import MongoClient
 import subprocess
 import time
 import os
+import socket
 try:
     from subprocess import DEVNULL # py3k
 except ImportError:
@@ -42,7 +43,7 @@ class Database(object):
         """
         Runs the DB in a sub-process.
         """
-        dblogger.debug("Starting MongoDB in {}".format(self.dir))
+        dblogger.debug("Starting MongoDB...\nDIR:\t{}\nADDRESS:\t{}:{}".format(self.dir, socket.gethostname(), self.port))
         cmd = ['mongod',
                '--dbpath', self.dir,
                '--port', str(self.port),
@@ -106,15 +107,13 @@ class Client(object):
             running on same machine.
         port (int): port that database is running on.
     """
-    def __init__(self, **kwargs):
-        host = os.environ.get('SHERPA_DB_HOST') or kwargs.get('hostname') or 'localhost'
-        port = (os.environ.get('SHERPA_DB_PORT') or
-                (kwargs.pop('port') if 'port' in kwargs else None) or
-                27010)
-        self.client = MongoClient(host, int(port), **kwargs)
+    def __init__(self, host=None, port=None, **mongo_client_args):
+        host = host or os.environ.get('SHERPA_DB_HOST') or 'localhost'
+        port = port or os.environ.get('SHERPA_DB_PORT') or 27010
+        self.client = MongoClient(host, int(port), **mongo_client_args)
         self.db = self.client.sherpa
 
-    def get_trial(self):
+    def get_trial(self, id=None):
         """
         Returns the next trial from a Sherpa Study.
 
@@ -125,8 +124,8 @@ class Client(object):
         # Returns:
             (sherpa.Trial)
         """
-        assert os.environ.get('SHERPA_TRIAL_ID'), "Environment-variable SHERPA_TRIAL_ID not found. Scheduler needs to set this variable in the environment when submitting a job"
-        trial_id = int(os.environ.get('SHERPA_TRIAL_ID'))
+        assert id or os.environ.get('SHERPA_TRIAL_ID'), "Environment-variable SHERPA_TRIAL_ID not found. Scheduler needs to set this variable in the environment when submitting a job"
+        trial_id = int(id or os.environ.get('SHERPA_TRIAL_ID'))
         for _ in range(5):
             g = (entry for entry in self.db.trials.find({'trial_id': trial_id}))
             t = next(g)
