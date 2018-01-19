@@ -99,7 +99,7 @@ for i in range(num_iterations):
     # print("Trial {} Iteration {}.".format(trial.id, i+1))
 # print("Trial {} finished.".format(trial.id))
 ```
-During training you use `send_metrics` every iteration to return objective
+During training `send_metrics` is used every iteration to return objective
 values to SHERPA.
 
 
@@ -113,7 +113,7 @@ parameters = [sherpa.Choice(name="param_a",
               sherpa.Continuous(name="param_b",
                                 range=[0, 1])]
 ```
-Once you decided on your parameters and their ranges you can choose an optimization
+Once you decided on the parameters and their ranges you can choose an optimization
 algorithm:
 ```
 algorithm = sherpa.algorithms.RandomSearch(max_num_trials=10)
@@ -122,7 +122,7 @@ Different schedulers allow to run an optimization on one machine or a cluster:
 ```
 scheduler = sherpa.schedulers.LocalScheduler()
 ```
-Once everything is set up you run it:
+The optimization is run via:
 ```
 results = sherpa.optimize(parameters=parameters,
                           algorithm=algorithm,
