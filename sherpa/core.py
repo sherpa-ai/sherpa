@@ -385,7 +385,7 @@ class Runner(object):
                                  " Check that Client has correct host/port, is"
                                  " submitting metrics and did not crash."
                                  " Trial script output is in: ")
-                    warn_msg += os.path.join(study.output_dir, 'sge', 'trial_{}.out'.format(tid))
+                    warn_msg += os.path.join(self.study.output_dir, 'sge', 'trial_{}.out'.format(tid))
                     warnings.warn(warn_msg, RuntimeWarning)
                     if self.resubmit_failed_trials:
                         logger.info("Resubmitting Trial {}.".format(tid))

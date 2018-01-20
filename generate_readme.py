@@ -35,7 +35,7 @@ export PYTHONPATH=$PYTHONPATH:/extra/pjsadows0/libs/shared/gpu_lock/
 
 Add MongoDB, DRMAA and SGE to your profile:
 ```
-source /auto/igb-libs/linux/centos/6.x/x86_64/profiles/general
+module load mongodb/2.6
 export DRMAA_LIBRARY_PATH=/opt/sge/lib/lx-amd64/libdrmaa.so
 module load sge
 ```
