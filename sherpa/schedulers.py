@@ -43,28 +43,21 @@ class Scheduler(object):
         """
         pass
 
-    # def kill_job(self, job_id):
-    #     """
-    #     Kills a given jobs.
-    #
-    #     # Arguments:
-    #         job_id (str): the id of the job to be killed.
-    #     """
-    #     pass
-
 
 class LocalScheduler(Scheduler):
     """
     Runs jobs locally as a subprocess.
     """
-    def __init__(self):
+    def __init__(self, submit_options=''):
         self.jobs = {}
+        self.submit_options = submit_options
         self.decode_status = {0: JobStatus.finished,
                               -15: JobStatus.killed}
 
     def submit_job(self, command, env={}, job_name=''):
         env.update(os.environ.copy())
-        process = subprocess.Popen(command.split(' '), env=env)
+        optns = self.submit_options.split(' ') if self.submit_options else []
+        process = subprocess.Popen(optns + command.split(' '), env=env)
         self.jobs[process.pid] = process
         return process.pid
 
@@ -77,12 +70,6 @@ class LocalScheduler(Scheduler):
             return JobStatus.running
         else:
             return self.decode_status.get(status, JobStatus.other)
-
-    # def kill_job(self, job_id):
-    #     process = self.jobs.get(job_id)
-    #     if not process:
-    #         raise ValueError("Job not found.")
-    #     process.terminate()
 
 
 class SGEScheduler(Scheduler):
@@ -196,17 +183,4 @@ class SGEScheduler(Scheduler):
         if s == JobStatus.finished and job_id in self.killed_jobs:
             s = JobStatus.killed
         return s
-
-    # def kill_job(self, job_id):
-    #     """
-    #     Kills a job submitted to SGE.
-    #
-    #     # Arguments:
-    #         job_id (str): the SGE ID of the job.
-    #     """
-    #     logger.info("Killing job {}".format(job_id))
-    #     with self.drmaa.Session() as s:
-    #         s.control(job_id, self.drmaa.JobControlAction.TERMINATE)
-    #     # TODO: what happens when job doesn't exist - then we don't want to add
-    #     self.killed_jobs.add(job_id)
 
