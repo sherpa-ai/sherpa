@@ -20,8 +20,8 @@ class Database(object):
     """
     Manages a Mongo-DB for storing metrics and delivering parameters to trials.
 
-    The Mongo-DB contains one database that serves as a queue of future trials,
-    and one to store results active and finished trials.
+    The Mongo-DB contains one database that serves as a queue of future trials
+    and one to store results of active and finished trials.
 
     # Attributes:
         dbpath (str): the path where Mongo-DB stores its files.
@@ -56,6 +56,9 @@ class Database(object):
         self.check_db_status()
 
     def check_db_status(self):
+        """
+        Checks whether database is still running.
+        """
         status = self.mongo_process.poll()
         if status:
             raise EnvironmentError("Database exited with code {}".format(status))
@@ -63,6 +66,9 @@ class Database(object):
     def get_new_results(self):
         """
         Checks database for new results.
+
+        # Returns:
+            (list[dict]) where each dict is one row from the DB.
         """
         self.check_db_status()
         new_results = []
@@ -76,7 +82,7 @@ class Database(object):
 
     def enqueue_trial(self, trial):
         """
-        Puts a new trial in the queue for workers to pop off.
+        Puts a new trial in the queue for trial scripts to get.
         """
         self.check_db_status()
         trial = {'trial_id': trial.id,
@@ -84,6 +90,15 @@ class Database(object):
         t_id = self.db.trials.insert_one(trial).inserted_id
 
     def add_for_stopping(self, trial_id):
+        """
+        Adds a trial for stopping.
+
+        In the trial-script this will raise an exception causing the trial to
+        stop.
+
+        # Arguments:
+            trial_id (int): the ID of the trial to stop.
+        """
         self.check_db_status()
         # dblogger.debug("Adding {} to DB".format({'trial_id': trial_id}))
         self.db.stop.insert_one({'trial_id': trial_id}).inserted_id
@@ -100,14 +115,22 @@ class Client(object):
     """
     Registers a session with a Sherpa Study via the port of the database.
 
-    This function is called from worker scripts only.
+    This function is called from trial-scripts only.
 
-    # Arguments:
-        host (str): the host that runs the database. Only needed if DB is not
-            running on same machine.
-        port (int): port that database is running on.
+    # Attributes:
+        host (str): the host that runs the database. Passed host, host set via
+            environment variable or 'localhost' in that order.
+        port (int): port that database is running on. Passed port, port set via
+            environment variable or 27010 in that order.
     """
     def __init__(self, host=None, port=None, **mongo_client_args):
+        """
+        # Arguments:
+        host (str): the host that runs the database. Generally not needed since
+            the scheduler passes the DB-host as an environment variable.
+        port (int): port that database is running on. Generally not needed since
+            the scheduler passes the DB-port as an environment variable.
+        """
         host = host or os.environ.get('SHERPA_DB_HOST') or 'localhost'
         port = port or os.environ.get('SHERPA_DB_PORT') or 27010
         self.client = MongoClient(host, int(port), **mongo_client_args)

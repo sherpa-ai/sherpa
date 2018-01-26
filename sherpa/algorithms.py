@@ -158,7 +158,7 @@ class MedianStoppingRule(StoppingRule):
 
     If `t` has not reached the minimum iterations or there are not
     yet the requested number of comparison trials, `t` is not
-    stopped.
+    stopped. If `t` is all nan's it is stopped by default.
     """
     def __init__(self, min_iterations=0, min_trials=1):
         self.min_iterations = min_iterations
@@ -184,6 +184,7 @@ class MedianStoppingRule(StoppingRule):
             return False
         
         trial_obj_val = trial_rows['Objective'].min() if lower_is_better else trial_rows['Objective'].max()
+
         if numpy.isnan(trial_obj_val) and not trial_rows.empty:
             alglogger.debug("Value {} is NaN: {}, trial rows: {}".format(trial_obj_val, numpy.isnan(trial_obj_val), trial_rows))
             return True
@@ -215,9 +216,14 @@ class MedianStoppingRule(StoppingRule):
 
 def get_sample_results_and_params():
     """
-    Call as
-    parameters, results, lower_is_better = get_sample_results_and_params()
+    Call as:
+
+    ```
+        parameters, results, lower_is_better = get_sample_results_and_params()
+    ```
+
     to get a sample set of parameters, results and lower_is_better variable.
+    Useful for algorithm development.
     """
     here = os.path.abspath(os.path.dirname(__file__))
     results = pandas.read_csv(os.path.join(here, "sample_results.csv"), index_col=0)
@@ -226,6 +232,4 @@ def get_sample_results_and_params():
                   Continuous(name="param_b",
                          range=[0, 1])]
     lower_is_better = True
-    # return {'results': results, 'parameters': parameters,
-    #         'lower_is_better': lower_is_better}
     return parameters, results, lower_is_better
