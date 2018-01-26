@@ -1,3 +1,4 @@
+
 # SHERPA
 
 ## Installation
@@ -15,8 +16,8 @@ export PYTHONPATH=$PYTHONPATH:/extra/pjsadows0/libs/shared/gpu_lock/
 
 Add MongoDB, DRMAA and SGE to your profile:
 ```
-export DRMAA_LIBRARY_PATH=/opt/sge/lib/lx-amd64/libdrmaa.so
 module load mongodb/2.6
+export DRMAA_LIBRARY_PATH=/opt/sge/lib/lx-amd64/libdrmaa.so
 module load sge
 ```
 
@@ -43,9 +44,9 @@ pip install enum34  # if on < Python 3.4
 You should have an environment-profile that sets path variables and potentially loads a Python Virtual environment. All variable settings above should go into that profile. Note that an SGE job will not load your `.bashrc` so all necessary settings need to be in your profile.
 
 ## SGE
-SGE required submit options. In Sherpa, those are defined as a string via the `submit_options` argument in the scheduler. To run jobs on the Arcus machines, typical submit options would be: 
-```-N myScript -P arcus.p -q arcus.q -l hostname='(arcus-1|arcus-2|arcus-3)'```.
-The `-N` option defines the name. To run from Arcus 5 to 9 you would set `-q arcus-ubuntu.q` and `hostname` with the relevant machines you want to run on. The SHERPA runner script can run from any Arcus machine.
+SGE requires submit options. In Sherpa, those are defined as a string via the `submit_options` argument in the scheduler. To run jobs on the Arcus machines, typical submit options would be: 
+```-N myScript -P arcus.p -q arcus_gpu.q -l hostname='(arcus-1|arcus-2|arcus-3)'```.
+The `-N` option defines the name. The SHERPA runner script can run from any Arcus machine.
 
 ## Example
 You can run an example by doing:
@@ -59,28 +60,26 @@ An optimization in SHERPA consists of a trial-script and a runner-script.
 
 ### Trial-script 
 The trial-script trains your machine learning model with a given
-parameter-configuration and sends metrics to SHERPA.
+parameter-configuration and sends metrics to SHERPA. To get a trial:
 ```
 import sherpa
-import time
 
 client = sherpa.Client()
 trial = client.get_trial()
 ```
-THE script gets its parameter-configuration from the Sherpa Client.
+The trial contains the parameter configuration for your training:
 ```
 # Model training
 num_iterations = 10
 for i in range(num_iterations):
     pseudo_objective = trial.parameters['param_a'] / float(i + 1) * trial.parameters['param_b']
-    time.sleep(1)
     client.send_metrics(trial=trial, iteration=i+1,
                         objective=pseudo_objective)
     # print("Trial {} Iteration {}.".format(trial.id, i+1))
 # print("Trial {} finished.".format(trial.id))
 ```
-During training you use `send_metrics` every iteration to return objective
-values to SHERPA.
+During training `send_metrics` is used every iteration to return objective
+values to SHERPA
 
 
 ### Runner-script
@@ -93,16 +92,16 @@ parameters = [sherpa.Choice(name="param_a",
               sherpa.Continuous(name="param_b",
                                 range=[0, 1])]
 ```
-Once you decided on your parameters and their ranges you can choose an optimization
+Once you decided on the parameters and their ranges you can choose an optimization
 algorithm:
 ```
 algorithm = sherpa.algorithms.RandomSearch(max_num_trials=10)
 ```
-Different schedulers allow to run an optimization on one machine or a cluster:
+Schedulers allow to run an optimization on one machine or a cluster:
 ```
 scheduler = sherpa.schedulers.LocalScheduler()
 ```
-Once everything is set up you run it:
+The optimization is run via:
 ```
 results = sherpa.optimize(parameters=parameters,
                           algorithm=algorithm,
@@ -115,3 +114,4 @@ results = sherpa.optimize(parameters=parameters,
 ```
 The code for this example can be run as `python ./examples/runner_mode.py` from
 the SHERPA root.
+
