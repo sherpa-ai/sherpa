@@ -219,7 +219,7 @@ def get_sample_results_and_params():
     Call as:
 
     ```
-        parameters, results, lower_is_better = get_sample_results_and_params()
+        parameters, results, lower_is_better = sherpa.algorithms.get_sample_results_and_params()
     ```
 
     to get a sample set of parameters, results and lower_is_better variable.
