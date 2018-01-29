@@ -240,7 +240,10 @@ class Study(object):
         # Get best result so far
         best_idx = (self.results.loc[:, 'Objective'].idxmin() if self.lower_is_better
                     else self.results.loc[:, 'Objective'].idxmax())
-
+        if not numpy.isfinite(best_idx):
+            # Can happen if there are no valid results, best_idx=nan when results are nan. 
+            logger.warning('Empty results file! Returning empty dictionary.')
+            return {}
         best_result = self.results.loc[best_idx, :].to_dict()
         best_result.pop('Status')
         return best_result
@@ -511,7 +514,7 @@ def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
                   output_dir=output_dir)
 
     if not db_port:
-        db_port = port_finder(27000, 28000)
+        db_port = port_finder(27001, 27050)
 
     with Database(db_dir=output_dir, port=db_port) as db:
         runner = Runner(study=study,
