@@ -511,7 +511,7 @@ def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
                   output_dir=output_dir)
 
     if not db_port:
-        db_port = port_finder(27000, 28000)
+        db_port = port_finder(27001, 27050)
 
     with Database(db_dir=output_dir, port=db_port) as db:
         runner = Runner(study=study,
