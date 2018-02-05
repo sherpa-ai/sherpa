@@ -54,7 +54,7 @@ if __name__=='__main__':
                         type=int, default=1)
     parser.add_argument('--P',
                         help="Specifies the project to which this  job  is  assigned.",
-                        default='arcus.p')
+                        default='arcus_cpu.p')
     parser.add_argument('--q',
                         help='Defines a list of cluster queues or queue instances which may be used to execute this job.',
                         default='arcus.q')
