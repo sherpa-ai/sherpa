@@ -155,6 +155,5 @@ class Client(object):
         self.db.results.insert_one(result)
 
         for entry in self.db.stop.find():
-            print("Found entry {}".format(entry))
             if entry.get('trial_id') == trial.id:
                 raise StopIteration("Trial listed for stopping.")
