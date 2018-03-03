@@ -635,7 +635,7 @@ class Discrete(Parameter):
     """
     Discrete parameter class.
     """
-    def __init__(self, name, range, scale):
+    def __init__(self, name, range, scale='linear'):
         super(Discrete, self).__init__(name, range)
         self.scale = scale
 
