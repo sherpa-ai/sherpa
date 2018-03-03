@@ -1,4 +1,6 @@
 import logging
+import numpy
+import pymongo
 from pymongo import MongoClient
 import subprocess
 import time
@@ -87,7 +89,16 @@ class Database(object):
         self.check_db_status()
         trial = {'trial_id': trial.id,
                  'parameters': trial.parameters}
-        t_id = self.db.trials.insert_one(trial).inserted_id
+        try:
+            t_id = self.db.trials.insert_one(trial).inserted_id
+        except pymongo.errors.InvalidDocument:
+            new_params = {}
+            for k, v in trial['parameters'].items():
+                if isinstance(v, numpy.int64):
+                    v = int(v)
+                new_params[k] = v
+            trial['parameters'] = new_params
+            t_id = self.db.trials.insert_one(trial).inserted_id
 
     def add_for_stopping(self, trial_id):
         """
