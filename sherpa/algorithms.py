@@ -2,6 +2,9 @@ import os
 import numpy
 import logging
 import pandas
+import scipy.stats
+import scipy.optimize
+import sklearn.gaussian_process
 from .core import Choice, Continuous
 import sklearn.model_selection
 
@@ -35,12 +38,12 @@ class RandomSearch(Algorithm):
 
     Expects to set a number of trials to yield.
     """
-    def __init__(self, max_num_trials):
+    def __init__(self, max_num_trials=None):
         self.max_num_trials = max_num_trials
         self.count = 0
 
     def get_suggestion(self, parameters, results=None, lower_is_better=True):
-        if self.count >= self.max_num_trials:
+        if self.max_num_trials and self.count >= self.max_num_trials:
             return None
         else:
             self.count += 1
@@ -224,6 +227,11 @@ def get_sample_results_and_params():
 
     to get a sample set of parameters, results and lower_is_better variable.
     Useful for algorithm development.
+
+    Note: losses are obtained from
+    ```
+        loss = param_a / float(iteration + 1) * param_b
+    ```
     """
     here = os.path.abspath(os.path.dirname(__file__))
     results = pandas.read_csv(os.path.join(here, "sample_results.csv"), index_col=0)
@@ -233,3 +241,201 @@ def get_sample_results_and_params():
                          range=[0, 1])]
     lower_is_better = True
     return parameters, results, lower_is_better
+
+
+class GaussianProcessEI(Algorithm):
+    def __init__(self, num_random_seeds=10, max_num_trials=None):
+        self.num_random_seeds = num_random_seeds
+        self.count = -1
+        self.seed_configurations = []
+        self.num_spray_samples = 10000
+        self.max_num_trials = max_num_trials
+        self.random_sampler = RandomSearch()
+        self.xtypes = {}
+        self.xnames = {}
+        self.best_y = None
+        self.epsilon=0.00001
+        self.lower_is_better = None
+        self.gp = None
+
+    def get_suggestion(self, parameters, results=None,
+                       lower_is_better=True):
+        self.count += 1
+        if self.max_num_trials and self.max_num_trials < self.count:
+            return None
+
+        self.lower_is_better = lower_is_better
+
+        if not self.seed_configurations:
+            self.generate_seeds(parameters)
+
+        if self.count < len(self.seed_configurations):
+            return self.seed_configurations[self.count]
+        x, y = self.get_input_output_pairs(results, parameters)
+        self.best_y = y.min() if lower_is_better else y.max()
+        self.gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=sklearn.gaussian_process.kernels.Matern(nu=2.5))
+        self.gp.fit(X=x, y=y)
+
+        xcand, paramscand = self.generate_candidates(parameters)
+        ycand, ycand_std = self.gp.predict(xcand, return_std=True)
+
+        ei = self.get_expected_improvement(ycand, ycand_std)
+        # print("Max EI: ", ei.max(), paramscand.iloc[numpy.argmax(ei)].to_dict())
+        max_ei_idxs = ei.argsort()[-50:][::-1]  # use top 5
+
+
+        return self.fine_tune_candidates(xcand, paramscand, max_ei_idxs, ei)
+        # return paramscand.iloc[numpy.argmax(ei)].to_dict()
+
+    def generate_seeds(self, parameters):
+        choice_grid_search = GridSearch()
+        choice_params = [p for p in parameters if isinstance(p, Choice)]
+        other_params = [p for p in parameters if not isinstance(p, Choice)]
+        p = choice_grid_search.get_suggestion(choice_params)
+        while p:
+            p.update(self.random_sampler.get_suggestion(other_params))
+            self.seed_configurations.append(p)
+            p = choice_grid_search.get_suggestion(choice_params)
+
+        while len(self.seed_configurations) < self.num_random_seeds:
+            p = self.random_sampler.get_suggestion(parameters)
+            self.seed_configurations.append(p)
+
+    def get_input_output_pairs(self, results, parameters):
+        completed = results.loc[results['Status'] != 'INTERMEDIATE', :]
+        x = completed.loc[:, [p.name for p in parameters]]
+        x = self.get_design_matrix(x, parameters)
+        y = numpy.array(completed.loc[:, 'Objective'])
+        return x, y
+
+    def generate_candidates(self, parameters):
+        d = {p.name: [] for p in parameters}
+        for _ in range(self.num_spray_samples):
+            params = self.random_sampler.get_suggestion(parameters)
+            for pname in params:
+                d[pname].append(params[pname])
+        df = pandas.DataFrame.from_dict(d)
+        return self.get_design_matrix(df, parameters), df
+
+    def get_design_matrix(self, df, parameters):
+        self.xtypes = {}
+        self.xscales = {}
+        self.xnames = {}
+        self.xbounds = []
+        num_samples = len(df)
+        num_features = sum(len(p.range) if isinstance(p, Choice) else 1 for p in parameters)
+        x = numpy.zeros((num_samples, num_features))
+        col = 0
+        for p in parameters:
+            if isinstance(p, Choice) and len(p.range) == 1:
+                continue
+            if not isinstance(p, Choice):
+                x[:, col] = numpy.array(df[p.name])
+                if p.scale == 'log':
+                    x[:, col] = numpy.log10(x[:, col])
+                self.xtypes[col] = 'continuous' if isinstance(p, Continuous) else 'discrete'
+                self.xscales[col] = p.scale
+                self.xnames[col] = p.name
+                if isinstance(p, Continuous):
+                    self.xbounds.append((p.range[0], p.range[1]))
+                col += 1
+            else:
+                for i, val in enumerate(p.range):
+                    x[:, col] = numpy.array(1.*(df[p.name] == val))
+                    self.xtypes[col] = 'discrete'
+                    self.xnames[col] = p.name + '_' + str(i)
+                    col += 1
+        return x[:, :col]
+
+    def get_expected_improvement(self, y, y_std):
+        with numpy.errstate(divide='ignore'):
+            scaling_factor = (-1) ** self.lower_is_better
+            z = scaling_factor * (y - self.best_y - self.epsilon)/y_std
+            expected_improvement = scaling_factor * (y - self.best_y -
+                                                     self.epsilon)*scipy.stats.norm.cdf(z)
+        return expected_improvement
+
+    def fine_tune_candidates(self, xcand, paramscand, cand_idxs, ei):
+        """
+        Numerically optimizes the top k candidates.
+
+        # Returns:
+            (dict) best candidate
+        """
+        def continuous_cols(x):
+            return numpy.array([x[i] for i in range(len(x)) if self.xtypes[i] == 'continuous'])
+
+        def designrow(xstar, row):
+            count = 0
+            newrow = numpy.copy(row)
+            for i in range(len(row)):
+                if self.xtypes[i] == 'continuous':
+                    newrow[i] = xstar[count]
+                    count += 1
+            return newrow.reshape(1, -1)
+
+        def eval_neg_ei(x, row):
+            """
+            # Arguments:
+                x (ndarray): the continuous parameters.
+                args: the choice and discrete parameters.
+
+            # Returns:
+                (float) expected improvement for x and args.
+            """
+            y, y_std = self.gp.predict(designrow(x, row), return_std=True)
+            return -self.get_expected_improvement(y, y_std)
+
+        # print(self.xtypes)
+        # print(self.xnames)
+
+        best_idx = None
+        max_ei = -numpy.inf
+        for idx in cand_idxs:
+            candidate = xcand[idx]
+            # print(candidate)
+            # print(candidate)
+            # print(continuous_cols(candidate))
+            # print(continuous_cols(candidate))
+            res = scipy.optimize.minimize(fun=eval_neg_ei,
+                                          x0=continuous_cols(candidate),
+                                          args=(candidate,),
+                                          # bounds=self.xbounds,
+                                          method="Nelder-Mead")
+            # print(res)
+            if -res.fun > max_ei:
+                max_ei = -res.fun
+                best_idx = idx
+                for col in range(len(candidate)):
+                    if self.xtypes[col] == 'continuous' and self.xscales[col] == 'linear':
+                        paramscand.set_value(index=idx, col=self.xnames[col], value=candidate[col])
+                    elif self.xtypes[col] == 'continuous' and self.xscales[col] == 'log':
+                        paramscand.set_value(index=idx, col=self.xnames[col],
+                                             value=10**candidate[col])
+            # cand_ei = eval_ei(continuous_cols(candidate) * 0.9, candidate)
+            # print("Prev EI ", ei[idx], " Cand EI ", cand_ei)
+            # if cand_ei > ei[idx]:
+            #     print("EI improved")
+            # if cand_ei > max_ei:
+            #     print("Max EI set")
+            #     max_ei = cand_ei
+            #     best_params = paramscand.iloc[idx]
+            #     for col in range(len(candidate)):
+            #         if self.xtypes[col] == 'continuous':
+            #             best_params[self.xnames[col]] = candidate[col] * 0.9
+            # cand_ei = eval_ei(continuous_cols(candidate) * 1.1, candidate)
+            # if cand_ei > ei[idx]:
+            #     print("EI improved")
+            # if cand_ei > max_ei:
+            #     max_ei = cand_ei
+            #     best_params = paramscand.iloc[idx]
+            #     for col in range(len(candidate)):
+            #         if self.xtypes[col] == 'continuous':
+            #             best_params[self.xnames[col]] = candidate[col] * 1.1
+
+
+        # print("Max EI after optimize: ", max_ei, best_params.to_dict())
+        return paramscand.iloc[best_idx].to_dict()
+
+
+        # for all candidates
