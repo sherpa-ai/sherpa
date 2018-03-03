@@ -33,10 +33,10 @@ class Trial(object):
 
 class Study(object):
     """
-    An interface to a parameter-optimization.
+    The core of an optimization.
     
     Includes functionality to get new suggested trials and add observations
-    for those.
+    for those. Used internally but can also be used directly by the user.
 
     # Attributes:
         algorithm (sherpa.algorithms.Algorithm): takes results table and returns
@@ -55,6 +55,17 @@ class Study(object):
                  stopping_rule=None, dashboard_port=None,
                  disable_dashboard=False,
                  output_dir=None):
+        """
+        # Arguments:
+            parameters (list[sherpa.Parameter]): a list of parameter ranges.
+            algorithm (sherpa.algorithm): the optimization algorithm.
+            lower_is_better (bool): whether to minimizer or maximize objective.
+            stopping_rule (sherpa.StoppingRule): algorithm to stop badly
+                performing trials.
+            dashboard_port (int): the port for the dashboard web-server.
+            disable_dashboard (bool): option to not run the dashboard.
+            output_dir (str): directory path for CSV results.
+        """
         self.parameters = parameters
         self.algorithm = algorithm
         self.stopping_rule = stopping_rule
@@ -84,7 +95,7 @@ class Study(object):
             trial (sherpa.Trial): trial for which an observation is to be added.
             iteration (int): iteration number e.g. epoch.
             objective (float): objective value.
-            context (dict): other metrics.
+            context (dict): other metrics or values to record.
         """
         assert isinstance(trial, Trial), "Trial must be sherpa.Trial"
 
@@ -113,7 +124,7 @@ class Study(object):
     def finalize(self, trial, status='COMPLETED'):
         """
         Once a trial will not add any more observations it
-        should be finalized with this function.
+        must be finalized with this function.
         
         # Arguments:
             trial (sherpa.Trial): trial that is completed.
@@ -297,7 +308,7 @@ class Runner(object):
 
     Responsibilities:
     
-    -Get rows from Mongo DB and check if anything new needs to be added to table.
+    -Get rows from database and check if any new observations need to be added to study.
     -Update active trials, finalize any completed/stopped/failed trials.
     -Check what trials should be stopped and tell database to send stop signal.
     -Check if new trials need to be submitted, get parameters and submit as a job.
@@ -306,31 +317,36 @@ class Runner(object):
         study (sherpa.Study): the study that is run.
         scheduler (sherpa.schedulers.Scheduler): a scheduler.
         database (sherpa.database.Database): the database.
+        max_concurrent (int): how many trials to run in parallel.
+        command (str): the command that runs a trial script e.g. "python train_nn.py".
+        resubmit_failed_trials (bool): whether a failed trial should be resubmitted.
+        
     """
     def __init__(self, study, scheduler, database, max_concurrent,
                  command, resubmit_failed_trials=False):
         self.max_concurrent = max_concurrent
         self.command = command
         self.resubmit_failed_trials = resubmit_failed_trials
-        self.done = False
         self.scheduler = scheduler
         self.database = database
         self.study = study
-        self.active_trials = []  # ids of trials that are active
-        self.queued_for_stopping = set()
-        self.all_trials = {}  # maps trial id to Trial object, process ID
-        self.trial_status = {JobStatus.finished: 'COMPLETED',
-                             JobStatus.killed: 'STOPPED',
-                             JobStatus.failed: 'FAILED',
-                             JobStatus.other: 'FAILED'}
+
+        self._done = False  # whether optimization is done.
+        self._active_trials = []  # ids of trials that are active.
+        self._queued_for_stopping = set()  # trials that need to be stopped.
+        self._all_trials = {}  # maps trial id to Trial object, process ID.
+        self._trial_status = {JobStatus.finished: 'COMPLETED',
+                              JobStatus.killed: 'STOPPED',
+                              JobStatus.failed: 'FAILED',
+                              JobStatus.other: 'FAILED'}
 
     def update_results(self):
         """
-        Get rows from Mongo DB and check if anything new needs to be added to
+        Get rows from database and check if anything new needs to be added to
         the results-table.
         """
         results = self.database.get_new_results()
-        if results != [] and self.all_trials == {}:
+        if results != [] and self._all_trials == {}:
             logger.debug(results)
             raise ValueError("Found unexpected results. Check the following\n"
                              "(1)\toutput_dir is empty\n"
@@ -354,7 +370,7 @@ class Runner(object):
             #                        new_trial, new_observation))
             if new_trial or new_observation:
                 tid = r.get('trial_id')
-                tdict = self.all_trials[tid]
+                tdict = self._all_trials[tid]
                 t = tdict.get('trial')
                 self.study.add_observation(trial=t,
                                            iteration=r.get('iteration'),
@@ -366,18 +382,18 @@ class Runner(object):
         Update active trials, finalize any completed/stopped/failed trials.
         """
         # logger.debug("Updating trials")
-        for i in range(len(self.active_trials)-1, -1, -1):
-            tid = self.active_trials[i]
-            status = self.scheduler.get_status(self.all_trials[tid].get('job_id'))
+        for i in range(len(self._active_trials)-1, -1, -1):
+            tid = self._active_trials[i]
+            status = self.scheduler.get_status(self._all_trials[tid].get('job_id'))
             # logger.debug("Trial with ID {} has status {}".format(tid, status))
             if status in [JobStatus.finished, JobStatus.failed,
                           JobStatus.killed, JobStatus.other]:
                 # self.update_results()
-                if tid in self.queued_for_stopping:
-                    self.queued_for_stopping.remove(tid)
+                if tid in self._queued_for_stopping:
+                    self._queued_for_stopping.remove(tid)
                 try:
-                    self.study.finalize(trial=self.all_trials[tid].get('trial'),
-                                        status=self.trial_status[status])
+                    self.study.finalize(trial=self._all_trials[tid].get('trial'),
+                                        status=self._trial_status[status])
                     self.study.to_csv()
                 except ValueError as e:
                     warn_msg = str(e)
@@ -389,32 +405,32 @@ class Runner(object):
                     warnings.warn(warn_msg, RuntimeWarning)
                     if self.resubmit_failed_trials:
                         logger.info("Resubmitting Trial {}.".format(tid))
-                        self.study.add_trial(self.all_trials[tid].get('trial'))
-                self.active_trials.pop(i)
+                        self.study.add_trial(self._all_trials[tid].get('trial'))
+                self._active_trials.pop(i)
 
     def stop_bad_performers(self):
         """
         Check whether any of the running trials should stop and add them for
         stopping if necessary.
         """
-        for tid in self.active_trials:
-            if tid in self.queued_for_stopping:
+        for tid in self._active_trials:
+            if tid in self._queued_for_stopping:
                 continue
-            if self.study.should_trial_stop(self.all_trials[tid].get('trial')):
+            if self.study.should_trial_stop(self._all_trials[tid].get('trial')):
                 logger.info("Stopping Trial {}".format(tid))
                 self.database.add_for_stopping(tid)
-                self.queued_for_stopping.add(tid)
+                self._queued_for_stopping.add(tid)
 
     def submit_new_trials(self):
         """
         Get new trial and submit it to the job scheduler.
         """
-        while len(self.active_trials) < self.max_concurrent:
+        while len(self._active_trials) < self.max_concurrent:
             next_trial = self.study.get_suggestion()
 
             # Check if algorithm is done.
             if not next_trial:
-                self.done = True
+                self._done = True
                 break
             
             submit_msg = "\n" + "-"*55 + "\n" + "Submitting Trial {}:\n".format(next_trial.id)
@@ -427,18 +443,19 @@ class Runner(object):
             pid = self.scheduler.submit_job(command=self.command,
                                             env={'SHERPA_TRIAL_ID': str(next_trial.id),
                                                  'SHERPA_DB_HOST': socket.gethostname(),
-                                                 'SHERPA_DB_PORT': str(self.database.port)},
+                                                 'SHERPA_DB_PORT': str(self.database.port),
+                                                 'SHERPA_OUTPUT_DIR': self.study.output_dir},
                                             job_name='trial_' + str(next_trial.id))
-            self.all_trials[next_trial.id] = {'trial': next_trial,
+            self._all_trials[next_trial.id] = {'trial': next_trial,
                                               'job_id': pid}
-            self.active_trials.append(next_trial.id)
+            self._active_trials.append(next_trial.id)
 
     def run_loop(self):
         """
         Run the optimization loop.
         """
         logger.debug("Running Loop")
-        while not self.done or len(self.active_trials) != 0:
+        while not self._done or len(self._active_trials) != 0:
             self.update_results()
 
             self.update_active_trials()
@@ -464,20 +481,20 @@ def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
     # Arguments:
         algorithm (sherpa.algorithms.Algorithm): takes results table and returns
             parameter set.
-        results (pandas.DataFrame): contains results from this study.
         parameters (list[sherpa.Parameter]): parameters being optimized.
-        stopping_rule (sherpa.stopping_rules.StoppingRule): rule for stopping
-            trials prematurely.
         lower_is_better (bool): whether lower objective values are better.
-        dashboard_port (int): port to run the dashboard web-server on.
         filename (str): the name of the file which is called to evaluate
             configurations
-        study (sherpa.Study): the Study to be run.
         output_dir (str): where scheduler and database files will be stored.
         scheduler (sherpa.Scheduler): a scheduler.
         max_concurrent (int): the number of trials that will be evaluated in
             parallel.
-        resubmit_failed_trials (bool): whether 
+        db_port (int): port to run the database on.
+        stopping_rule (sherpa.stopping_rules.StoppingRule): rule for stopping
+            trials prematurely.
+        dashboard_port (int): port to run the dashboard web-server on.
+        resubmit_failed_trials (bool): whether to resubmit a trial if it failed.
+        verbose (int, default=1): whether to print submit messages (0=no, 1=yes).
     """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -492,8 +509,10 @@ def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
                   stopping_rule=stopping_rule,
                   dashboard_port=dashboard_port,
                   output_dir=output_dir)
+
     if not db_port:
-        db_port = port_finder(27001, 28000)
+        db_port = port_finder(27001, 27050)
+
     with Database(db_dir=output_dir, port=db_port) as db:
         runner = Runner(study=study,
                         scheduler=scheduler,
@@ -549,10 +568,10 @@ class Parameter(object):
 
         # Arguments:
             config (dict): parameter config of the format
-                {'name': '<the-name>',
+                {'name': '<name>',
                  'type': '<continuous/discrete/choice>',
-                 'range': [value1, value2, ... ],
-                 'scale': 'log' to sample continuous/discrete from log-scale}
+                 'range': [<value1>, <value2>, ... ],
+                 'scale': <'log' to sample continuous/discrete from log-scale>}
 
         # Returns:
             (sherpa.Parameter)
@@ -616,7 +635,7 @@ class Discrete(Parameter):
     """
     Discrete parameter class.
     """
-    def __init__(self, name, range, scale):
+    def __init__(self, name, range, scale='linear'):
         super(Discrete, self).__init__(name, range)
         self.scale = scale
 

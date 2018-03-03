@@ -203,7 +203,7 @@ def test_local_scheduler(test_dir):
 
     time.sleep(5)
     testlogger.debug(s.get_status(job_id))
-    assert s.get_status(job_id) == sherpa.schedulers.JobStatus.finished
+    assert s.get_status(job_id) != sherpa.schedulers.JobStatus.running
 
 
 def get_test_study():
@@ -239,7 +239,7 @@ def test_runner_update_results():
 
     # new trial
     t = get_test_trial()
-    r.all_trials[t.id] = {'trial': t, 'job_id': None}
+    r._all_trials[t.id] = {'trial': t, 'job_id': None}
     r.update_results()
     testlogger.debug(r.study.results)
     assert r.study.results['Trial-ID'].isin([1]).sum()
@@ -264,8 +264,8 @@ def test_runner_update_active_trials():
                       command="python test.py")
 
     t = get_test_trial()
-    r.all_trials[t.id] = {'trial': t, 'job_id': None}
-    r.active_trials.append(t.id)
+    r._all_trials[t.id] = {'trial': t, 'job_id': None}
+    r._active_trials.append(t.id)
 
     mock_scheduler.get_status.return_value = sherpa.schedulers.JobStatus.running
     r.update_active_trials()
@@ -275,7 +275,7 @@ def test_runner_update_active_trials():
 
     mock_study.finalize.assert_called_with(trial=t, status='COMPLETED')
 
-    assert r.active_trials == []
+    assert r._active_trials == []
 
 
 def test_runner_stop_bad_performers():
@@ -287,8 +287,8 @@ def test_runner_stop_bad_performers():
 
     # setup
     t = get_test_trial()
-    r.active_trials.append(t.id)
-    r.all_trials[t.id] = {'trial': t, 'job_id': '111'}
+    r._active_trials.append(t.id)
+    r._all_trials[t.id] = {'trial': t, 'job_id': '111'}
 
     # test that trial is stopped
     r.update_active_trials = mock.MagicMock()
@@ -320,5 +320,5 @@ def test_runner_submit_new_trials():
     mock_scheduler.submit.has_calls([mock.call("python test.py"),
                                      mock.call("python test.py"),
                                      mock.call("python test.py")])
-    assert len(r.active_trials) == 3
-    assert len(r.all_trials) == 3
+    assert len(r._active_trials) == 3
+    assert len(r._all_trials) == 3
