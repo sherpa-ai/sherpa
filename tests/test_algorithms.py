@@ -97,3 +97,49 @@ def test_grid_search():
         suggestion = alg.get_suggestion(parameters)
 
     assert seen == {(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')}
+
+
+def test_gp_ei_seeds():
+    alg = sherpa.algorithms.GaussianProcessEI()
+
+    parameters = sherpa.Parameter.grid({'a': [1, 2],
+                                        'b': ['a', 'b']})
+    parameters.append(sherpa.Continuous(name='c', range=[0, 1]))
+
+    left = {(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')}
+    for _ in range(4):
+        suggestion = alg.get_suggestion(parameters, None, True)
+        left.remove((suggestion['a'], suggestion['b']))
+        assert 0 <= suggestion['c'] <= 1
+
+    assert len(left) == 0
+
+def test_gp_ei():
+    parameters = [sherpa.Choice(name="param_a",
+                                range=[1, 2, 3]),
+                  sherpa.Continuous(name="param_b",
+                                    range=[0, 1])]
+
+    algorithm = sherpa.algorithms.GaussianProcessEI(num_random_seeds=10)
+
+    study = sherpa.Study(parameters=parameters,
+                         algorithm=algorithm,
+                         lower_is_better=True,
+                         disable_dashboard=True)
+
+    for trial in study:
+        if trial.id == 50:
+            break
+        print("Trial {}:\t{}".format(trial.id, trial.parameters))
+
+        pseudo_objective = trial.parameters['param_a'] * trial.parameters['param_b']
+
+        study.add_observation(trial=trial,
+                              iteration=1,
+                              objective=pseudo_objective)
+        study.finalize(trial=trial,
+                       status='COMPLETED')
+
+    rval = study.get_best_result()
+    assert rval['param_a'] == 1.
+    assert rval['param_b'] < 0.001
