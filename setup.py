@@ -28,8 +28,8 @@ AUTHOR = 'Lars Hertel, Peter Sadowski and Julian Collado'
 REQUIRED = [
     'pandas>=0.20.3',
     'pymongo>=3.5.1',
-    'numpy>=1.13.1',
-    'sklearn',
+    'numpy>=3.13.1',
+    'sklearn>=0.19.1',
     'flask>=0.12.2',
     'enum34',
     'scipy>=1.0.0'
