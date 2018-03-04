@@ -34,7 +34,7 @@ pip install pandas
 pip install pymongo
 pip install numpy
 pip install scipy
-pip install sklearn
+pip install scikit-learn
 pip install flask
 pip install drmaa
 pip install enum34  # if on < Python 3.4
