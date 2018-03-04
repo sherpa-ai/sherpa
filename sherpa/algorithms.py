@@ -244,11 +244,13 @@ def get_sample_results_and_params():
 
 
 class GaussianProcessEI(Algorithm):
-    def __init__(self, num_random_seeds=10, max_num_trials=None):
+    def __init__(self, num_random_seeds=10, max_num_trials=None,
+                 fine_tune=True):
         self.num_random_seeds = num_random_seeds
         self.count = -1
         self.seed_configurations = []
         self.num_spray_samples = 10000
+        self.fine_tune = fine_tune
         self.max_num_trials = max_num_trials
         self.random_sampler = RandomSearch()
         self.xtypes = {}
@@ -283,9 +285,10 @@ class GaussianProcessEI(Algorithm):
         # print("Max EI: ", ei.max(), paramscand.iloc[numpy.argmax(ei)].to_dict())
         max_ei_idxs = ei.argsort()[-50:][::-1]  # use top 5
 
-
-        return self.fine_tune_candidates(xcand, paramscand, max_ei_idxs, ei)
-        # return paramscand.iloc[numpy.argmax(ei)].to_dict()
+        if self.fine_tune:
+            return self.fine_tune_candidates(xcand, paramscand, max_ei_idxs, ei)
+        else:
+            return paramscand.iloc[numpy.argmax(ei)].to_dict()
 
     def generate_seeds(self, parameters):
         choice_grid_search = GridSearch()
