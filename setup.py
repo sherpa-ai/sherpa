@@ -23,7 +23,7 @@ NAME = 'sherpa'
 DESCRIPTION = 'Hyperparameter Optimization for Machine Learning Models.'
 URL = 'https://gitlab.ics.uci.edu/uci-igb/sherpa/'
 EMAIL = 'lhertel@uci.edu'
-AUTHOR = 'Lars Hertel and Peter Sadowski'
+AUTHOR = 'Lars Hertel, Peter Sadowski and Julian Collado'
 
 REQUIRED = [
     'pandas>=0.20.3',
