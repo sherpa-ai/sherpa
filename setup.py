@@ -95,6 +95,7 @@ setup(
     classifiers=[
         # Trove classifiers
         # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
+        'Development Status :: 3 - Alpha',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2.6',
@@ -108,6 +109,10 @@ setup(
         'Programming Language :: Python :: Implementation :: PyPy'
     ],
     # $ setup.py publish support.
+    keywords='hyperparameter optimization machine learning',
+    project_urls={
+        'Code': 'https://gitlab.ics.uci.edu/uci-igb/sherpa',
+    },
     cmdclass={
         'upload': UploadCommand,
     },
