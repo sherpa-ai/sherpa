@@ -173,7 +173,9 @@ def test_pbt():
         print(parent_param)
         assert (trial.parameters['param_a'] == 0.8 * parent_param or
                 trial.parameters['param_a'] == 1.0 * parent_param or
-                trial.parameters['param_a'] == 1.2 * parent_param)
+                trial.parameters['param_a'] == 1.2 * parent_param or
+                trial.parameters['param_a'] == 0. or
+                trial.parameters['param_a'] == 1.)
         assert int(trial.parameters['load_from']) <= 7
         study.add_observation(trial=trial, iteration=1, objective=trial.id*0.1)
         study.finalize(trial=trial,
@@ -189,8 +191,10 @@ def test_pbt():
             'param_a'].iloc[0]
         assert (trial.parameters['param_a'] == 0.8 * parent_param or
                 trial.parameters['param_a'] == 1.0 * parent_param or
-                trial.parameters['param_a'] == 1.2 * parent_param)
-        assert 21 <= int(trial.parameters['load_from']) <= 27
+                trial.parameters['param_a'] == 1.2 * parent_param or
+                trial.parameters['param_a'] == 0. or
+                trial.parameters['param_a'] == 1.)
+        assert int(trial.parameters['load_from']) <= 27
         study.add_observation(trial=trial, iteration=1, objective=trial.id*0.1)
         study.finalize(trial=trial,
                        status='COMPLETED')
