@@ -468,7 +468,8 @@ class PopulationBasedTraining(Algorithm):
     @staticmethod
     def perturb(candidate, parameters):
         for param in parameters:
-            assert isinstance(param, Continuous), "Only continuous parameters are allowed."
+            if not isinstance(param, Continuous):
+                continue
             factor = numpy.random.choice([0.8, 1.0, 1.2])
             if param.scale == 'log':
                 candidate[param.name] = 10**(numpy.log10(candidate[param.name]) * factor)
