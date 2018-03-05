@@ -443,7 +443,7 @@ class PopulationBasedTraining(Algorithm):
             trial = self.perturb(candidate=candidate, parameters=parameters)
             trial['load_from'] = trial['save_to']
             trial['save_to'] = str(self.count)
-            trial['lineage'] += trial['load_from'] + '.'
+            trial['lineage'] += trial['load_from'] + ','
 
         return trial
 
@@ -456,12 +456,12 @@ class PopulationBasedTraining(Algorithm):
         """
         # Select correct generation
         completed = results.loc[results['Status'] != 'INTERMEDIATE', :]
-        fr_ = (self.generation - 2) * self.population_size + 1
-        to_ = (self.generation - 1) * self.population_size
-        population = completed.loc[(completed['Trial-ID'] >= fr_) & (completed['Trial-ID'] <= to_)]
+#         fr_ = (self.generation - 2) * self.population_size + 1
+#         to_ = (self.generation - 1) * self.population_size
+#         population = completed.loc[(completed['Trial-ID'] >= fr_) & (completed['Trial-ID'] <= to_)]
 
         # Sample from top 33%
-        population = population.sort_values(by='Objective', ascending=lower_is_better)
+        population = completed.sort_values(by='Objective', ascending=lower_is_better)
         idx = numpy.random.randint(low=0, high=self.population_size//3 + 1)
         d = population.iloc[idx].to_dict()
         trial = {param.name: d[param.name] for param in parameters}
@@ -479,6 +479,8 @@ class PopulationBasedTraining(Algorithm):
                 candidate[param.name] = 10**(numpy.log10(candidate[param.name]) * factor)
             else:
                 candidate[param.name] *= factor
+            candidate[param.name] = max([candidate[param.name], min(param.range)])
+            candidate[param.name] = min([candidate[param.name], max(param.range)])
         return candidate
 
 
