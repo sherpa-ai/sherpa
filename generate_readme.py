@@ -20,7 +20,26 @@ def process_function_docstring(docstring):
 text = """
 # SHERPA
 
-## Installation
+## Installation from wheel
+Download a copy of the wheel file from the dist folder in git@gitlab.ics.uci.edu:uci-igb/sherpa.git
+
+Make sure you have the most updated version of pip
+```
+pip install --upgrade pip
+```
+
+Install wheel package if needed
+```
+pip install wheel
+```
+
+Go to the directory where you downloaded the wheel and install sherpa from wheel
+```
+pip install sherpa-0.0.0-py2.py3-none-any.whl
+```
+
+
+## Installation from gitlab
 Clone into ```/your/path/``` from GitLab:
 ```
 cd /your/path/
