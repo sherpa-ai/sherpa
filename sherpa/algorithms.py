@@ -244,7 +244,8 @@ def get_sample_results_and_params():
 
 
 class GaussianProcessEI(Algorithm):
-    def __init__(self, num_random_seeds=10, max_num_trials=None, fine_tune=True):
+    def __init__(self, num_random_seeds=10, max_num_trials=None,
+                 fine_tune=True):
         self.num_random_seeds = num_random_seeds
         self.count = -1
         self.seed_configurations = []
@@ -392,23 +393,16 @@ class GaussianProcessEI(Algorithm):
             y, y_std = self.gp.predict(designrow(x, row), return_std=True)
             return -self.get_expected_improvement(y, y_std)
 
-        # print(self.xtypes)
-        # print(self.xnames)
-
         best_idx = None
         max_ei = -numpy.inf
         for idx in cand_idxs:
             candidate = xcand[idx]
-            # print(candidate)
-            # print(candidate)
-            # print(continuous_cols(candidate))
-            # print(continuous_cols(candidate))
+
             res = scipy.optimize.minimize(fun=eval_neg_ei,
                                           x0=continuous_cols(candidate),
                                           args=(candidate,),
-                                          # bounds=self.xbounds,
                                           method="Nelder-Mead")
-            # print(res)
+
             if -res.fun > max_ei:
                 max_ei = -res.fun
                 best_idx = idx
@@ -418,30 +412,74 @@ class GaussianProcessEI(Algorithm):
                     elif self.xtypes[col] == 'continuous' and self.xscales[col] == 'log':
                         paramscand.set_value(index=idx, col=self.xnames[col],
                                              value=10**candidate[col])
-            # cand_ei = eval_ei(continuous_cols(candidate) * 0.9, candidate)
-            # print("Prev EI ", ei[idx], " Cand EI ", cand_ei)
-            # if cand_ei > ei[idx]:
-            #     print("EI improved")
-            # if cand_ei > max_ei:
-            #     print("Max EI set")
-            #     max_ei = cand_ei
-            #     best_params = paramscand.iloc[idx]
-            #     for col in range(len(candidate)):
-            #         if self.xtypes[col] == 'continuous':
-            #             best_params[self.xnames[col]] = candidate[col] * 0.9
-            # cand_ei = eval_ei(continuous_cols(candidate) * 1.1, candidate)
-            # if cand_ei > ei[idx]:
-            #     print("EI improved")
-            # if cand_ei > max_ei:
-            #     max_ei = cand_ei
-            #     best_params = paramscand.iloc[idx]
-            #     for col in range(len(candidate)):
-            #         if self.xtypes[col] == 'continuous':
-            #             best_params[self.xnames[col]] = candidate[col] * 1.1
 
-
-        # print("Max EI after optimize: ", max_ei, best_params.to_dict())
         return paramscand.iloc[best_idx].to_dict()
 
 
-        # for all candidates
+
+class PopulationBasedTraining(Algorithm):
+    def __init__(self, population_size=20):
+        self.population_size = population_size
+        self.generation = 0
+        self.count = 0
+        self.random_sampler = RandomSearch()
+
+    def get_suggestion(self, parameters, results, lower_is_better):
+        self.count += 1
+
+        if self.count % self.population_size == 1:
+            self.generation += 1
+
+        if self.generation == 1:
+            trial = self.random_sampler.get_suggestion(parameters,
+                                                        results, lower_is_better)
+            trial['lineage'] = ''
+            trial['load_from'] = ''
+            trial['save_to'] = str(self.count)  # TODO: unifiy with Trial-ID
+        else:
+            candidate = self.get_candidate(parameters=parameters,
+                                           results=results,
+                                           lower_is_better=lower_is_better)
+            trial = self.perturb(candidate=candidate, parameters=parameters)
+            trial['load_from'] = trial['save_to']
+            trial['save_to'] = str(self.count)
+            trial['lineage'] += trial['load_from'] + '.'
+
+        return trial
+
+    def get_candidate(self, parameters, results, lower_is_better):
+        """
+        Samples candidates from the top 33% of population.
+
+        # Returns
+            (dict) parameter dictionary.
+        """
+        # Select correct generation
+        completed = results.loc[results['Status'] != 'INTERMEDIATE', :]
+        fr_ = (self.generation - 2) * self.population_size + 1
+        to_ = (self.generation - 1) * self.population_size
+        population = completed.loc[(completed['Trial-ID'] >= fr_) & (completed['Trial-ID'] <= to_)]
+
+        # Sample from top 33%
+        population = population.sort_values(by='Objective', ascending=lower_is_better)
+        idx = numpy.random.randint(low=0, high=self.population_size//3 + 1)
+        d = population.iloc[idx].to_dict()
+        trial = {param.name: d[param.name] for param in parameters}
+        for key in ['load_from', 'save_to', 'lineage']:
+            trial[key] = d[key]
+        return trial
+
+    @staticmethod
+    def perturb(candidate, parameters):
+        for param in parameters:
+            if not isinstance(param, Continuous):
+                continue
+            factor = numpy.random.choice([0.8, 1.0, 1.2])
+            if param.scale == 'log':
+                candidate[param.name] = 10**(numpy.log10(candidate[param.name]) * factor)
+            else:
+                candidate[param.name] *= factor
+        return candidate
+
+
+
