@@ -1,8 +1,8 @@
 from __future__ import print_function
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = ''
 import numpy as np
 import sherpa
-
 import keras
 from keras.models import Model
 from keras.layers import Dense, Input
@@ -16,8 +16,6 @@ def define_model(params):
     '''
     nin    = 784
     nout   = 10
-    units  = 10
-    nhlay  = 2
     act    = params['act']
     init   = 'glorot_normal'
     input  = Input(shape=(nin,), dtype='float32', name='input')
@@ -40,7 +38,7 @@ def define_model(params):
 
 
 def main(client, trial):
-    batch_size = 128
+    batch_size = 32
     num_classes = 10
     epochs = trial.parameters['epochs']
 
@@ -60,7 +58,6 @@ def main(client, trial):
     y_train = keras.utils.to_categorical(y_train, num_classes)
     y_test = keras.utils.to_categorical(y_test, num_classes)
 
-
     # Create new model.
     model   = define_model(trial.parameters)
 
@@ -79,17 +76,9 @@ def main(client, trial):
                         callbacks=callbacks,
                         validation_data=(x_test, y_test))
 
-    if 'modelfile' in trial.parameters:
-        # Save model file.
-        model.save(trial.parameters['modelfile'])
-
-    return
 
 if __name__=='__main__':
     client = sherpa.Client()
-    try:
-        trial = client.get_trial()
-        main(client, trial)
-    finally:
-        gpu_lock.free_lock(GPUIDX)
+    trial = client.get_trial()
+    main(client, trial)
 
