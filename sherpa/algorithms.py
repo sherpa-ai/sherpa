@@ -5,7 +5,7 @@ import pandas
 import scipy.stats
 import scipy.optimize
 import sklearn.gaussian_process
-from .core import Choice, Continuous
+from .core import Choice, Continuous, Discrete, Ordinal
 import sklearn.model_selection
 
 
@@ -468,15 +468,35 @@ class PopulationBasedTraining(Algorithm):
     @staticmethod
     def perturb(candidate, parameters):
         for param in parameters:
-            if not isinstance(param, Continuous):
+            if isinstance(param, Continuous) or isinstance(param, Discrete):
+                factor = numpy.random.choice([0.8, 1.0, 1.2])
+
+                if param.scale == 'log':
+                    candidate[param.name] = 10**(numpy.log10(candidate[param.name]) * factor)
+                else:
+                    candidate[param.name] *= factor
+
+                if isinstance(param, Discrete):
+                    candidate[param.name] = int(candidate[param.name])
+
+                candidate[param.name] = max(
+                    [candidate[param.name], min(param.range)])
+                candidate[param.name] = min(
+                    [candidate[param.name], max(param.range)])
+
+            elif isinstance(param, Ordinal):
+                shift = numpy.random.choice([-1, 0, +1])
+                newidx = param.range.index(candidate[param.name]) + shift
+                newidx = min([newidx, len(param.range)-1])
+                newidx = max([newidx, 0])
+                candidate[param.name] = param.range[newidx]
+
+            elif isinstance(param, Choice):
                 continue
-            factor = numpy.random.choice([0.8, 1.0, 1.2])
-            if param.scale == 'log':
-                candidate[param.name] = 10**(numpy.log10(candidate[param.name]) * factor)
+
             else:
-                candidate[param.name] *= factor
-            candidate[param.name] = max([candidate[param.name], min(param.range)])
-            candidate[param.name] = min([candidate[param.name], max(param.range)])
+                raise ValueError("Unrecognized Parameter Object.")
+
         return candidate
 
 
