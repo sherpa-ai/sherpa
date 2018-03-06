@@ -199,3 +199,32 @@ def test_pbt():
         study.finalize(trial=trial,
                        status='COMPLETED')
 
+
+def test_pbt_ordinal():
+    parameters = [sherpa.Ordinal(name='param_a', range=[-1, 0, 1])]
+
+    algorithm = sherpa.algorithms.PopulationBasedTraining(population_size=10)
+
+    study = sherpa.Study(parameters=parameters,
+                         algorithm=algorithm,
+                         lower_is_better=True,
+                         disable_dashboard=True)
+
+    for _ in range(20):
+        trial = study.get_suggestion()
+        print("Trial-ID={}".format(trial.id))
+        print(trial.parameters)
+        print()
+        study.add_observation(trial=trial, iteration=1, objective=trial.parameters['param_a']*0.1)
+        study.finalize(trial=trial,
+                       status='COMPLETED')
+
+    for _ in range(20):
+        trial = study.get_suggestion()
+        print("Trial-ID={}".format(trial.id))
+        print(trial.parameters)
+        print()
+        assert trial.parameters['param_a'] in (-1, 0, 1)
+        study.add_observation(trial=trial, iteration=1, objective=trial.parameters['param_a']*0.1)
+        study.finalize(trial=trial,
+                       status='COMPLETED')
