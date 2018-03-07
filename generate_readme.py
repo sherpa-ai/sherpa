@@ -20,6 +20,16 @@ def process_function_docstring(docstring):
 text = """
 # SHERPA
 
+## Setting up your environment
+You should have an environment-profile that sets path variables and potentially loads a Python Virtual environment. All variable settings above should go into that profile. Note that an SGE job will not load your `.bashrc` so all necessary settings need to be in your profile.
+
+Add MongoDB, DRMAA and SGE to your profile:
+```
+module load mongodb/2.6
+export DRMAA_LIBRARY_PATH=/opt/sge/lib/lx-amd64/libdrmaa.so
+module load sge
+```
+
 ## Installation from wheel
 Download a copy of the wheel file from the dist folder in git@gitlab.ics.uci.edu:uci-igb/sherpa.git
 
@@ -38,6 +48,10 @@ Go to the directory where you downloaded the wheel and install sherpa from wheel
 pip install sherpa-0.0.0-py2.py3-none-any.whl
 ```
 
+Add GPU_LOCK to Python-path in your profile:
+```
+export PYTHONPATH=$PYTHONPATH:/extra/pjsadows0/libs/shared/gpu_lock/
+```
 
 ## Installation from gitlab
 Clone into ```/your/path/``` from GitLab:
@@ -50,13 +64,6 @@ Add SHERPA and GPU_LOCK to Python-path in your profile:
 ```
 export PYTHONPATH=$PYTHONPATH:/your/path/sherpa/
 export PYTHONPATH=$PYTHONPATH:/extra/pjsadows0/libs/shared/gpu_lock/
-```
-
-Add MongoDB, DRMAA and SGE to your profile:
-```
-module load mongodb/2.6
-export DRMAA_LIBRARY_PATH=/opt/sge/lib/lx-amd64/libdrmaa.so
-module load sge
 ```
 
 Install dependencies:
