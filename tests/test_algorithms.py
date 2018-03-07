@@ -97,3 +97,33 @@ def test_grid_search():
         suggestion = alg.get_suggestion(parameters)
 
     assert seen == {(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')}
+
+
+def test_random_search_without_repetition_choice_parameter():
+    parameters = sherpa.Parameter.grid({'a': [1, 2, 3], 
+                                        'b': ['a', 'b', 'c']})
+
+    alg = sherpa.algorithms.RandomSearch(max_num_trials=9, repeat_suggestions=False)
+
+    suggestion = alg.get_suggestion(parameters)
+    seen = set()
+    while suggestion:
+        seen.add((suggestion['a'], suggestion['b']))
+        suggestion = alg.get_suggestion(parameters)
+    assert seen == {(1, 'a'), (1, 'b'), (1, 'c'), (2, 'a'), (2, 'b'), (2, 'c'), (3, 'a'), (3, 'b'), (3, 'c')}, seen
+
+def test_random_search_without_repetition_continuous_parameter():
+    """
+    Checks that the stopping criteria for continuous parameters works
+    """
+    parameters = [sherpa.core.Parameter.from_dict({'name': 'a', 'type': 'continuous', 'range': [0, 1]}),
+                  sherpa.core.Parameter.from_dict({'name': 'b', 'type': 'choice', 'range': [0, 1, 2]})]
+
+    alg = sherpa.algorithms.RandomSearch(max_num_trials=9, repeat_suggestions=False)
+
+    suggestion = alg.get_suggestion(parameters)
+    seen = set()
+    while suggestion:
+        seen.add((suggestion['a'], suggestion['b']))
+        suggestion = alg.get_suggestion(parameters)
+    assert len(seen) == 9, seen
