@@ -35,17 +35,38 @@ class RandomSearch(Algorithm):
 
     Expects to set a number of trials to yield.
     """
-    def __init__(self, max_num_trials):
+    def __init__(self, max_num_trials, repeat_suggestions=True, max_num_resamples=None):
         self.max_num_trials = max_num_trials
         self.count = 0
-
+        self.repeat_suggestions = repeat_suggestions
+        self.seen_suggestions = set()
+        if max_num_resamples is None:
+            self.max_num_resamples = 100*self.max_num_trials
+        else:
+            self.max_num_resamples = max_num_resamples
     def get_suggestion(self, parameters, results=None, lower_is_better=True):
         if self.count >= self.max_num_trials:
             return None
+        elif not self.repeat_suggestions:
+            new_params = {p.name: p.sample() for p in parameters}
+            num_resamples = 0
+            while self.dict_2_sorted_tuple(new_params) in self.seen_suggestions:
+                if num_resamples >= self.max_num_resamples:  # Prevents infinite loop
+                    return None
+                new_params = {p.name: p.sample() for p in parameters} 
+                num_resamples += 1   
+            self.seen_suggestions.add(self.dict_2_sorted_tuple(new_params))
+            self.count += 1
+            return new_params
         else:
             self.count += 1
             return {p.name: p.sample() for p in parameters}
-
+    def dict_2_sorted_tuple(self, dictionary):
+        keys = [k for k in dictionary.keys()]
+        keys.sort()
+        sorted_values = [dictionary.get(key) for key in keys]
+        return tuple(sorted_values)
+        
 
 class GridSearch(Algorithm):
     """
