@@ -31,6 +31,15 @@ class Algorithm(object):
         """
         raise NotImplementedError("Algorithm class is not usable itself.")
 
+    def load(self, num_trials):
+        """
+        Reinstantiates the algorithm when loaded.
+
+        # Arguments:
+            num_trials (int): number of trials in study so far.
+        """
+        pass
+
 
 class RandomSearch(Algorithm):
     """
@@ -247,7 +256,7 @@ class GaussianProcessEI(Algorithm):
     def __init__(self, num_random_seeds=10, max_num_trials=None,
                  fine_tune=True):
         self.num_random_seeds = num_random_seeds
-        self.count = -1
+        self.count = 0
         self.seed_configurations = []
         self.num_spray_samples = 10000
         self.fine_tune = fine_tune
@@ -260,10 +269,13 @@ class GaussianProcessEI(Algorithm):
         self.lower_is_better = None
         self.gp = None
 
+    def load(self, num_trials):
+        self.count = num_trials
+
     def get_suggestion(self, parameters, results=None,
                        lower_is_better=True):
         self.count += 1
-        if self.max_num_trials and self.max_num_trials < self.count:
+        if self.max_num_trials and self.max_num_trials == self.count:
             return None
 
         self.lower_is_better = lower_is_better
@@ -271,12 +283,13 @@ class GaussianProcessEI(Algorithm):
         if not self.seed_configurations:
             self.generate_seeds(parameters)
 
-        if self.count < len(self.seed_configurations):
-            return self.seed_configurations[self.count]
+        if self.count <= len(self.seed_configurations):
+            return self.seed_configurations[self.count-1]
         
         if len(results) == 0 or len(results.loc[results['Status'] != 'INTERMEDIATE', :]) < 1:
-            # Warn user
+            # Warn user: more workers than seed configurations
             return self.random_sampler.get_suggestion(parameters, results, lower_is_better)
+
         x, y = self.get_input_output_pairs(results, parameters)
         self.best_y = y.min() if lower_is_better else y.max()
         self.gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=sklearn.gaussian_process.kernels.Matern(nu=2.5))
@@ -418,11 +431,16 @@ class GaussianProcessEI(Algorithm):
 
 
 class PopulationBasedTraining(Algorithm):
-    def __init__(self, population_size=20):
+    def __init__(self, population_size=20, parameter_range={}):
         self.population_size = population_size
+        self.parameter_range = parameter_range
         self.generation = 0
         self.count = 0
         self.random_sampler = RandomSearch()
+
+    def load(self, num_trials):
+        self.count = num_trials
+        self.generation = self.count//self.population_size + 1
 
     def get_suggestion(self, parameters, results, lower_is_better):
         self.count += 1
@@ -462,15 +480,14 @@ class PopulationBasedTraining(Algorithm):
 
         # Sample from top 33%
         population = completed.sort_values(by='Objective', ascending=lower_is_better)
-        idx = numpy.random.randint(low=0, high=self.population_size//3 + 1)
+        idx = numpy.random.randint(low=0, high=self.population_size//2 + 1)
         d = population.iloc[idx].to_dict()
         trial = {param.name: d[param.name] for param in parameters}
         for key in ['load_from', 'save_to', 'lineage']:
             trial[key] = d[key]
         return trial
 
-    @staticmethod
-    def perturb(candidate, parameters):
+    def perturb(self, candidate, parameters):
         for param in parameters:
             if isinstance(param, Continuous) or isinstance(param, Discrete):
                 factor = numpy.random.choice([0.8, 1.0, 1.2])
@@ -484,16 +501,17 @@ class PopulationBasedTraining(Algorithm):
                     candidate[param.name] = int(candidate[param.name])
 
                 candidate[param.name] = max(
-                    [candidate[param.name], min(param.range)])
+                    [candidate[param.name], min(self.parameter_range.get(param.name) or param.range)])
                 candidate[param.name] = min(
-                    [candidate[param.name], max(param.range)])
+                    [candidate[param.name], max(self.parameter_range.get(param.name) or param.range)])
 
             elif isinstance(param, Ordinal):
                 shift = numpy.random.choice([-1, 0, +1])
-                newidx = param.range.index(candidate[param.name]) + shift
-                newidx = min([newidx, len(param.range)-1])
+                values = self.parameter_range.get(param.name) or param.range
+                newidx = values.index(candidate[param.name]) + shift
+                newidx = min([newidx, len(values)-1])
                 newidx = max([newidx, 0])
-                candidate[param.name] = param.range[newidx]
+                candidate[param.name] = values[newidx]
 
             elif isinstance(param, Choice):
                 continue

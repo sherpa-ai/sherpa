@@ -282,6 +282,12 @@ class Study(object):
         proc.start()
         return proc
 
+    def load(self):
+        results_path = os.path.join(self.output_dir, 'results.csv')
+        self.results = pandas.read_csv(results_path)
+        self.num_trials = self.results['Trial-ID'].max()
+        self.algorithm.load(self.num_trials)
+
     def __iter__(self):
         """
         Allow to iterate over a study.
@@ -473,7 +479,8 @@ class Runner(object):
 
 def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
              scheduler, max_concurrent=1, db_port=None, stopping_rule=None,
-             dashboard_port=None, resubmit_failed_trials=False, verbose=1):
+             dashboard_port=None, resubmit_failed_trials=False, verbose=1,
+             load=False):
     """
     Runs a Study with a scheduler and automatically runs a database in the
     background.
@@ -509,6 +516,9 @@ def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
                   stopping_rule=stopping_rule,
                   dashboard_port=dashboard_port,
                   output_dir=output_dir)
+
+    if load:
+        study.load()
 
     if not db_port:
         db_port = port_finder(27001, 27050)
