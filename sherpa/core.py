@@ -282,6 +282,12 @@ class Study(object):
         proc.start()
         return proc
 
+    def load(self):
+        results_path = os.path.join(self.output_dir, 'results.csv')
+        self.results = pandas.read_csv(results_path)
+        self.num_trials = self.results['Trial-ID'].max()
+        self.algorithm.load(self.num_trials)
+
     def __iter__(self):
         """
         Allow to iterate over a study.
