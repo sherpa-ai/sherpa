@@ -475,7 +475,7 @@ class PopulationBasedTraining(Algorithm):
 
         # Sample from top 33%
         population = completed.sort_values(by='Objective', ascending=lower_is_better)
-        idx = numpy.random.randint(low=0, high=self.population_size//2 + 1)
+        idx = numpy.random.randint(low=0, high=self.population_size//2)
         d = population.iloc[idx].to_dict()
         trial = {param.name: d[param.name] for param in parameters}
         for key in ['load_from', 'save_to', 'lineage']:
