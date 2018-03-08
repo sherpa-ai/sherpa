@@ -29,13 +29,15 @@ class Database(object):
         dbpath (str): the path where Mongo-DB stores its files.
         port (int): the port on which the Mongo-DB should run.
     """
-    def __init__(self, db_dir, port=27010):
+    def __init__(self, db_dir, port=27010, reinstantiated=False):
         self.client = MongoClient(port=port)
         self.db = self.client.sherpa
         self.collected_results = []
         self.mongo_process = None
         self.dir = db_dir
         self.port = port
+        if reinstantiated:
+            self.get_new_results()
 
     def close(self):
         print('Closing MongoDB!')
@@ -76,10 +78,10 @@ class Database(object):
         new_results = []
         for entry in self.db.results.find():
             result = entry
-            result.pop('_id')
-            if result not in self.collected_results:
+            mongo_id = result.pop('_id')
+            if mongo_id not in self.collected_results:
                 new_results.append(result)
-                self.collected_results.append(result)
+                self.collected_results.append(mongo_id)
         return new_results
 
     def enqueue_trial(self, trial):
