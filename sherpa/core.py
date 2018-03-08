@@ -479,7 +479,8 @@ class Runner(object):
 
 def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
              scheduler, max_concurrent=1, db_port=None, stopping_rule=None,
-             dashboard_port=None, resubmit_failed_trials=False, verbose=1):
+             dashboard_port=None, resubmit_failed_trials=False, verbose=1,
+             load=False):
     """
     Runs a Study with a scheduler and automatically runs a database in the
     background.
@@ -515,6 +516,9 @@ def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
                   stopping_rule=stopping_rule,
                   dashboard_port=dashboard_port,
                   output_dir=output_dir)
+
+    if load:
+        study.load()
 
     if not db_port:
         db_port = port_finder(27001, 27050)
