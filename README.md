@@ -1,7 +1,34 @@
 
 # SHERPA
 
-## Installation
+## Setting up your environment
+Add MongoDB, DRMAA and SGE to your profile:
+```
+module load mongodb/2.6
+export DRMAA_LIBRARY_PATH=/opt/sge/lib/lx-amd64/libdrmaa.so
+module load sge
+```
+
+## Installation from wheel
+Download a copy of the wheel file from the dist folder in git@gitlab.ics.uci.edu:uci-igb/sherpa.git
+
+Make sure you have the most updated version of pip
+```
+pip install --upgrade pip
+```
+
+Install wheel package if needed
+```
+pip install wheel
+```
+
+Go to the directory where you downloaded the wheel and install sherpa from wheel
+```
+pip install sherpa-0.0.0-py2.py3-none-any.whl
+```
+If you used the wheel to install Sherpa you don't need to set your python path.
+
+## Installation from gitlab
 Clone into ```/your/path/``` from GitLab:
 ```
 cd /your/path/
@@ -12,13 +39,6 @@ Add SHERPA and GPU_LOCK to Python-path in your profile:
 ```
 export PYTHONPATH=$PYTHONPATH:/your/path/sherpa/
 export PYTHONPATH=$PYTHONPATH:/extra/pjsadows0/libs/shared/gpu_lock/
-```
-
-Add MongoDB, DRMAA and SGE to your profile:
-```
-module load mongodb/2.6
-export DRMAA_LIBRARY_PATH=/opt/sge/lib/lx-amd64/libdrmaa.so
-module load sge
 ```
 
 Install dependencies:
@@ -34,7 +54,7 @@ pip install pandas
 pip install pymongo
 pip install numpy
 pip install scipy
-pip install sklearn
+pip install scikit-learn
 pip install flask
 pip install drmaa
 pip install enum34  # if on < Python 3.4

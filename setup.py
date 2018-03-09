@@ -23,16 +23,16 @@ NAME = 'sherpa'
 DESCRIPTION = 'Hyperparameter Optimization for Machine Learning Models.'
 URL = 'https://gitlab.ics.uci.edu/uci-igb/sherpa/'
 EMAIL = 'lhertel@uci.edu'
-AUTHOR = 'Lars Hertel and Peter Sadowski'
+AUTHOR = 'Lars Hertel, Peter Sadowski and Julian Collado'
 
 REQUIRED = [
     'pandas>=0.20.3',
     'pymongo>=3.5.1',
-    'numpy>=1.13.1',
-    'sklearn',
+    'numpy>=1.8.2',
+    'scipy>=1.0.0',
+    'scikit-learn>=0.19.1',
     'flask>=0.12.2',
     'enum34',
-    'scipy>=1.0.0'
 ]
 
 PARALLEL = ['pymongo>=3.5.1', 'drmaa>=0.7.7']
@@ -95,6 +95,7 @@ setup(
     classifiers=[
         # Trove classifiers
         # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
+        'Development Status :: 3 - Alpha',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2.6',
@@ -108,6 +109,10 @@ setup(
         'Programming Language :: Python :: Implementation :: PyPy'
     ],
     # $ setup.py publish support.
+    keywords='hyperparameter optimization machine learning',
+    project_urls={
+        'Code': 'https://gitlab.ics.uci.edu/uci-igb/sherpa',
+    },
     cmdclass={
         'upload': UploadCommand,
     },
