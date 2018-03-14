@@ -459,8 +459,8 @@ class PopulationBasedTraining(Algorithm):
                                            results=results,
                                            lower_is_better=lower_is_better)
             trial = self.perturb(candidate=candidate, parameters=parameters)
-            trial['load_from'] = trial['save_to']
-            trial['save_to'] = str(self.count)
+            trial['load_from'] = str(int(trial['save_to']))
+            trial['save_to'] = str(int(self.count))
             trial['lineage'] += trial['load_from'] + ','
 
         return trial
@@ -474,13 +474,13 @@ class PopulationBasedTraining(Algorithm):
         """
         # Select correct generation
         completed = results.loc[results['Status'] != 'INTERMEDIATE', :]
-#         fr_ = (self.generation - 2) * self.population_size + 1
-#         to_ = (self.generation - 1) * self.population_size
-#         population = completed.loc[(completed['Trial-ID'] >= fr_) & (completed['Trial-ID'] <= to_)]
+        fr_ = (self.generation - 2) * self.population_size + 1
+        to_ = (self.generation - 1) * self.population_size
+        population = completed.loc[(completed['Trial-ID'] >= fr_) & (completed['Trial-ID'] <= to_)]
 
         # Sample from top 33%
-        population = completed.sort_values(by='Objective', ascending=lower_is_better)
-        idx = numpy.random.randint(low=0, high=self.population_size//2)
+        population = population.sort_values(by='Objective', ascending=lower_is_better)
+        idx = numpy.random.randint(low=0, high=self.population_size//3)
         d = population.iloc[idx].to_dict()
         trial = {param.name: d[param.name] for param in parameters}
         for key in ['load_from', 'save_to', 'lineage']:
@@ -492,10 +492,10 @@ class PopulationBasedTraining(Algorithm):
             if isinstance(param, Continuous) or isinstance(param, Discrete):
                 factor = numpy.random.choice([0.8, 1.0, 1.2])
 
-                if param.scale == 'log':
-                    candidate[param.name] = 10**(numpy.log10(candidate[param.name]) * factor)
-                else:
-                    candidate[param.name] *= factor
+#                 if param.scale == 'log':
+#                     candidate[param.name] = 10**(numpy.log10(candidate[param.name]) * factor)
+#                 else:
+                candidate[param.name] *= factor
 
                 if isinstance(param, Discrete):
                     candidate[param.name] = int(candidate[param.name])
