@@ -36,8 +36,7 @@ class Database(object):
         self.mongo_process = None
         self.dir = db_dir
         self.port = port
-        if reinstantiated:
-            self.get_new_results()
+        self.reinstantiated = reinstantiated
 
     def close(self):
         print('Closing MongoDB!')
@@ -58,6 +57,8 @@ class Database(object):
             raise FileNotFoundError(str(e) + "\nCheck that MongoDB is installed and in PATH.")
         time.sleep(1)
         self.check_db_status()
+        if self.reinstantiated:
+            self.get_new_results()
 
     def check_db_status(self):
         """
@@ -98,8 +99,14 @@ class Database(object):
             for k, v in trial['parameters'].items():
                 if isinstance(v, numpy.int64):
                     v = int(v)
+#                 if isinstance(v, str):
+#                     v = v.encode()
+                print(v, type(v))
                 new_params[k] = v
+                
             trial['parameters'] = new_params
+#             for k, v in trial['parameters'].items():
+#                 print(v, type(v))
             t_id = self.db.trials.insert_one(trial).inserted_id
 
     def add_for_stopping(self, trial_id):
