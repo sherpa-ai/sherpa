@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
-class JobStatus(Enum):
+class _JobStatus(Enum):
     finished = 1
     running = 2
     failed = 3
@@ -31,15 +31,15 @@ class Scheduler(object):
         """
         Submits a command to the scheduler.
 
-        # Arguments:
+        Args:
             command (str): the command to run by the scheduler.
         """
         pass
 
     def get_status(self, job_id):
         """
-        # Returns:
-            (dict) of job_id keys to respective status
+        Returns:
+            dict: of job_id keys to respective status
         """
         pass
 
@@ -51,8 +51,8 @@ class LocalScheduler(Scheduler):
     def __init__(self, submit_options=''):
         self.jobs = {}
         self.submit_options = submit_options
-        self.decode_status = {0: JobStatus.finished,
-                              -15: JobStatus.killed}
+        self.decode_status = {0: _JobStatus.finished,
+                              -15: _JobStatus.killed}
 
     def submit_job(self, command, env={}, job_name=''):
         env.update(os.environ.copy())
@@ -67,9 +67,9 @@ class LocalScheduler(Scheduler):
             raise ValueError("Job not found.")
         status = process.poll()
         if status is None:
-            return JobStatus.running
+            return _JobStatus.running
         else:
-            return self.decode_status.get(status, JobStatus.other)
+            return self.decode_status.get(status, _JobStatus.other)
 
 
 class SGEScheduler(Scheduler):
@@ -87,16 +87,16 @@ class SGEScheduler(Scheduler):
         self.killed_jobs = set()
         self.drmaa = __import__('drmaa')
         self.decode_status = {
-            self.drmaa.JobState.UNDETERMINED: JobStatus.other,
-            self.drmaa.JobState.QUEUED_ACTIVE: JobStatus.queued,
-            self.drmaa.JobState.SYSTEM_ON_HOLD: JobStatus.other,
-            self.drmaa.JobState.USER_ON_HOLD: JobStatus.other,
-            self.drmaa.JobState.USER_SYSTEM_ON_HOLD: JobStatus.other,
-            self.drmaa.JobState.RUNNING: JobStatus.running,
-            self.drmaa.JobState.SYSTEM_SUSPENDED: JobStatus.other,
-            self.drmaa.JobState.USER_SUSPENDED: JobStatus.other,
-            self.drmaa.JobState.DONE: JobStatus.finished,
-            self.drmaa.JobState.FAILED: JobStatus.failed}
+            self.drmaa.JobState.UNDETERMINED: _JobStatus.other,
+            self.drmaa.JobState.QUEUED_ACTIVE: _JobStatus.queued,
+            self.drmaa.JobState.SYSTEM_ON_HOLD: _JobStatus.other,
+            self.drmaa.JobState.USER_ON_HOLD: _JobStatus.other,
+            self.drmaa.JobState.USER_SYSTEM_ON_HOLD: _JobStatus.other,
+            self.drmaa.JobState.RUNNING: _JobStatus.running,
+            self.drmaa.JobState.SYSTEM_SUSPENDED: _JobStatus.other,
+            self.drmaa.JobState.USER_SUSPENDED: _JobStatus.other,
+            self.drmaa.JobState.DONE: _JobStatus.finished,
+            self.drmaa.JobState.FAILED: _JobStatus.failed}
 
     def submit_job(self, command, env={}, job_name=''):
         """
@@ -141,12 +141,12 @@ class SGEScheduler(Scheduler):
     @staticmethod
     def _submit_job(submit_command, run_command):
         """
-        # Arguments:
+        Args:
             submit_command (str): e.g. "qsub -N myProject ..."
             run_command (str): e.g. "python nn.py"
 
-        # Returns:
-            (str) SGE process ID.
+        Returns:
+            str: SGE process ID.
         """
         process = subprocess.Popen(submit_command,
                                    stdin=subprocess.PIPE,
@@ -168,19 +168,19 @@ class SGEScheduler(Scheduler):
 
     def get_status(self, job_id):
         """
-        # Arguments:
+        Args:
             job_ids (list[str]): list of SGE process IDs.
 
-        # Returns:
-            JobStatus
+        Returns:
+            sherpa._JobStatus: The job status.
         """
         with self.drmaa.Session() as s:
             try:
-                status = s.jobStatus(str(job_id))
+                status = s._JobStatus(str(job_id))
             except self.drmaa.errors.InvalidJobException:
-                return JobStatus.finished
+                return _JobStatus.finished
         s = self.decode_status.get(status)
-        if s == JobStatus.finished and job_id in self.killed_jobs:
-            s = JobStatus.killed
+        if s == _JobStatus.finished and job_id in self.killed_jobs:
+            s = _JobStatus.killed
         return s
 

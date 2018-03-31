@@ -3,7 +3,9 @@ import sys
 # sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pytest
 import sherpa
+import sherpa.core
 import sherpa.schedulers
+import sherpa.database
 import pandas
 import collections
 import pymongo
@@ -105,8 +107,8 @@ def test_study():
 def test_database(test_dir):
     test_trial = get_test_trial()
     testlogger.debug(test_dir)
-    db_port = sherpa.port_finder(27000, 28000)
-    with sherpa.Database(test_dir, port=db_port) as db:
+    db_port = sherpa.core._port_finder(27000, 28000)
+    with sherpa.database._Database(test_dir, port=db_port) as db:
         time.sleep(2)
         testlogger.debug("Enqueuing...")
         db.enqueue_trial(test_trial)
@@ -141,7 +143,7 @@ def test_database(test_dir):
                                 objective=0.1, context={'other_metric': 0.2})
 
         # test that Sherpa raises correct error if MongoDB exits
-        db2 = sherpa.Database(test_dir, port=db_port)
+        db2 = sherpa.database._Database(test_dir, port=db_port)
         with pytest.raises(OSError):
             db2.start()
 
@@ -177,11 +179,11 @@ def test_sge_scheduler():
 
     try:
         time.sleep(2)
-        assert s.get_status(job_id) == sherpa.schedulers.JobStatus.running
+        assert s.get_status(job_id) == sherpa.schedulers._JobStatus.running
 
         time.sleep(10)
         testlogger.debug(s.get_status(job_id))
-        assert s.get_status(job_id) == sherpa.schedulers.JobStatus.finished
+        assert s.get_status(job_id) == sherpa.schedulers._JobStatus.finished
 
     finally:
         shutil.rmtree(test_dir)
@@ -199,11 +201,11 @@ def test_local_scheduler(test_dir):
 
     job_id = s.submit_job("python {}/test.py".format(test_dir), env={'SHERPA_TRIAL_ID': '3'})
 
-    assert s.get_status(job_id) == sherpa.schedulers.JobStatus.running
+    assert s.get_status(job_id) == sherpa.schedulers._JobStatus.running
 
     time.sleep(5)
     testlogger.debug(s.get_status(job_id))
-    assert s.get_status(job_id) != sherpa.schedulers.JobStatus.running
+    assert s.get_status(job_id) != sherpa.schedulers._JobStatus.running
 
 
 def get_test_study():
@@ -233,7 +235,7 @@ def test_runner_update_results():
                                          'parameters': {'a': 1, 'b': 2},
                                          'trial_id': 1}]
 
-    r = sherpa.Runner(study=get_test_study(), scheduler=mock.MagicMock(),
+    r = sherpa.core._Runner(study=get_test_study(), scheduler=mock.MagicMock(),
                       database=mock_db, max_concurrent=1,
                       command="python test.py")
 
@@ -259,7 +261,7 @@ def test_runner_update_active_trials():
 
     mock_study = mock.MagicMock()
 
-    r = sherpa.Runner(study=mock_study, scheduler=mock_scheduler,
+    r = sherpa.core._Runner(study=mock_study, scheduler=mock_scheduler,
                       database=mock.MagicMock(), max_concurrent=1,
                       command="python test.py")
 
@@ -267,10 +269,10 @@ def test_runner_update_active_trials():
     r._all_trials[t.id] = {'trial': t, 'job_id': None}
     r._active_trials.append(t.id)
 
-    mock_scheduler.get_status.return_value = sherpa.schedulers.JobStatus.running
+    mock_scheduler.get_status.return_value = sherpa.schedulers._JobStatus.running
     r.update_active_trials()
 
-    mock_scheduler.get_status.return_value = sherpa.schedulers.JobStatus.finished
+    mock_scheduler.get_status.return_value = sherpa.schedulers._JobStatus.finished
     r.update_active_trials()
 
     mock_study.finalize.assert_called_with(trial=t, status='COMPLETED')
@@ -279,7 +281,7 @@ def test_runner_update_active_trials():
 
 
 def test_runner_stop_bad_performers():
-    r = sherpa.Runner(study=mock.MagicMock(),
+    r = sherpa.core._Runner(study=mock.MagicMock(),
                       scheduler=mock.MagicMock(),
                       database=mock.MagicMock(),
                       max_concurrent=1,
@@ -309,7 +311,7 @@ def test_runner_submit_new_trials():
                                              get_test_trial(2),
                                              get_test_trial(3)]
 
-    r = sherpa.Runner(study=mock_study,
+    r = sherpa.core._Runner(study=mock_study,
                       scheduler=mock_scheduler,
                       database=mock.MagicMock(),
                       max_concurrent=3,

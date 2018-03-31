@@ -22,12 +22,12 @@ class Algorithm(object):
         """
         Returns a suggestion for parameter values based on results.
 
-        # Arguments:
+        Args:
             parameters (list[sherpa.Parameter]): the parameters.
             results (pandas.DataFrame): all results so far.
 
-        # Returns:
-            (dict) of parameter values.
+        Returns:
+            dict: parameter values.
         """
         raise NotImplementedError("Algorithm class is not usable itself.")
 
@@ -35,7 +35,7 @@ class Algorithm(object):
         """
         Reinstantiates the algorithm when loaded.
 
-        # Arguments:
+        Args:
             num_trials (int): number of trials in study so far.
         """
         pass
@@ -64,13 +64,14 @@ class GridSearch(Algorithm):
     Regular Grid Search. Expects Choice parameters.
     
     Example:
-    ```
-    hp_space = {'act': ['tanh', 'relu'],
-                'lrinit': [0.1, 0.01],
-                }
-    parameters = sherpa.Parameter.grid(hp_space)
-    alg = sherpa.algorithms.GridSearch()
-    ```
+    ::
+
+        hp_space = {'act': ['tanh', 'relu'],
+                    'lrinit': [0.1, 0.01],
+                    }
+        parameters = sherpa.Parameter.grid(hp_space)
+        alg = sherpa.algorithms.GridSearch()
+
     """
     def __init__(self):
         self.count = 0
@@ -141,13 +142,13 @@ class StoppingRule(object):
     """
     def should_trial_stop(self, trial, results, lower_is_better):
         """
-        # Arguments:
+        Args:
             trial (sherpa.Trial): trial to be stopped.
             results (pandas.DataFrame): all results so far.
             lower_is_better (bool): whether lower objective values are better.
 
-        # Returns:
-            (bool) decision.
+        Returns:
+            bool: decision.
         """
         raise NotImplementedError("StoppingRule class is not usable itself.")
 
@@ -156,8 +157,7 @@ class MedianStoppingRule(StoppingRule):
     """
     Median Stopping-Rule similar to Golovin et al.
     "Google Vizier: A Service for Black-Box Optimization".
-    
-    # Description:
+
     For a Trial `t`, the best objective value is found.
 
     Then the best objective value for every other trial is found.
@@ -178,13 +178,13 @@ class MedianStoppingRule(StoppingRule):
 
     def should_trial_stop(self, trial, results, lower_is_better):
         """
-        # Arguments:
+        Args:
             trial (sherpa.Trial): trial to be stopped.
             results (pandas.DataFrame): all results so far.
             lower_is_better (bool): whether lower objective values are better.
 
-        # Returns:
-            (bool) decision.
+        Returns:
+            bool: decision.
         """
         if len(results) == 0:
             return False
@@ -229,18 +229,19 @@ class MedianStoppingRule(StoppingRule):
 def get_sample_results_and_params():
     """
     Call as:
+    ::
 
-    ```
         parameters, results, lower_is_better = sherpa.algorithms.get_sample_results_and_params()
-    ```
+
 
     to get a sample set of parameters, results and lower_is_better variable.
     Useful for algorithm development.
 
     Note: losses are obtained from
-    ```
+    ::
+
         loss = param_a / float(iteration + 1) * param_b
-    ```
+
     """
     here = os.path.abspath(os.path.dirname(__file__))
     results = pandas.read_csv(os.path.join(here, "sample_results.csv"), index_col=0)
@@ -281,7 +282,7 @@ class GaussianProcessEI(Algorithm):
         self.lower_is_better = lower_is_better
 
         if not self.seed_configurations:
-            self.generate_seeds(parameters)
+            self._generate_seeds(parameters)
 
         if self.count <= len(self.seed_configurations):
             return self.seed_configurations[self.count-1]
@@ -290,24 +291,24 @@ class GaussianProcessEI(Algorithm):
             # Warn user: more workers than seed configurations
             return self.random_sampler.get_suggestion(parameters, results, lower_is_better)
 
-        x, y = self.get_input_output_pairs(results, parameters)
+        x, y = self._get_input_output_pairs(results, parameters)
         self.best_y = y.min() if lower_is_better else y.max()
         self.gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=sklearn.gaussian_process.kernels.Matern(nu=2.5))
         self.gp.fit(X=x, y=y)
 
-        xcand, paramscand = self.generate_candidates(parameters)
+        xcand, paramscand = self._generate_candidates(parameters)
         ycand, ycand_std = self.gp.predict(xcand, return_std=True)
 
-        ei = self.get_expected_improvement(ycand, ycand_std)
+        ei = self._get_expected_improvement(ycand, ycand_std)
         # print("Max EI: ", ei.max(), paramscand.iloc[numpy.argmax(ei)].to_dict())
         max_ei_idxs = ei.argsort()[-50:][::-1]  # use top 5
 
         if self.fine_tune:
-            return self.fine_tune_candidates(xcand, paramscand, max_ei_idxs, ei)
+            return self._fine_tune_candidates(xcand, paramscand, max_ei_idxs, ei)
         else:
             return paramscand.iloc[numpy.argmax(ei)].to_dict()
 
-    def generate_seeds(self, parameters):
+    def _generate_seeds(self, parameters):
         choice_grid_search = GridSearch()
         choice_params = [p for p in parameters if isinstance(p, Choice)]
         other_params = [p for p in parameters if not isinstance(p, Choice)]
@@ -321,23 +322,23 @@ class GaussianProcessEI(Algorithm):
             p = self.random_sampler.get_suggestion(parameters)
             self.seed_configurations.append(p)
 
-    def get_input_output_pairs(self, results, parameters):
+    def _get_input_output_pairs(self, results, parameters):
         completed = results.loc[results['Status'] != 'INTERMEDIATE', :]
         x = completed.loc[:, [p.name for p in parameters]]
-        x = self.get_design_matrix(x, parameters)
+        x = self._get_design_matrix(x, parameters)
         y = numpy.array(completed.loc[:, 'Objective'])
         return x, y
 
-    def generate_candidates(self, parameters):
+    def _generate_candidates(self, parameters):
         d = {p.name: [] for p in parameters}
         for _ in range(self.num_spray_samples):
             params = self.random_sampler.get_suggestion(parameters)
             for pname in params:
                 d[pname].append(params[pname])
         df = pandas.DataFrame.from_dict(d)
-        return self.get_design_matrix(df, parameters), df
+        return self._get_design_matrix(df, parameters), df
 
-    def get_design_matrix(self, df, parameters):
+    def _get_design_matrix(self, df, parameters):
         self.xtypes = {}
         self.xscales = {}
         self.xnames = {}
@@ -367,7 +368,7 @@ class GaussianProcessEI(Algorithm):
                     col += 1
         return x[:, :col]
 
-    def get_expected_improvement(self, y, y_std):
+    def _get_expected_improvement(self, y, y_std):
         with numpy.errstate(divide='ignore'):
             scaling_factor = (-1) ** self.lower_is_better
             z = scaling_factor * (y - self.best_y - self.epsilon)/y_std
@@ -375,12 +376,12 @@ class GaussianProcessEI(Algorithm):
                                                      self.epsilon)*scipy.stats.norm.cdf(z)
         return expected_improvement
 
-    def fine_tune_candidates(self, xcand, paramscand, cand_idxs, ei):
+    def _fine_tune_candidates(self, xcand, paramscand, cand_idxs, ei):
         """
         Numerically optimizes the top k candidates.
 
-        # Returns:
-            (dict) best candidate
+        Returns:
+            dict: best candidate
         """
         def continuous_cols(x):
             return numpy.array([x[i] for i in range(len(x)) if self.xtypes[i] == 'continuous'])
@@ -396,12 +397,12 @@ class GaussianProcessEI(Algorithm):
 
         def eval_neg_ei(x, row):
             """
-            # Arguments:
+            Args:
                 x (ndarray): the continuous parameters.
                 args: the choice and discrete parameters.
 
-            # Returns:
-                (float) expected improvement for x and args.
+            Returns:
+                float: expected improvement for x and args.
             """
             y, y_std = self.gp.predict(designrow(x, row), return_std=True)
             return -self.get_expected_improvement(y, y_std)
@@ -429,8 +430,10 @@ class GaussianProcessEI(Algorithm):
         return paramscand.iloc[best_idx].to_dict()
 
 
-
 class PopulationBasedTraining(Algorithm):
+    """
+    Population based training as introduced by Jaderberg et al. 2017.
+    """
     def __init__(self, population_size=20, parameter_range={}):
         self.population_size = population_size
         self.parameter_range = parameter_range
@@ -455,22 +458,22 @@ class PopulationBasedTraining(Algorithm):
             trial['load_from'] = ''
             trial['save_to'] = str(self.count)  # TODO: unifiy with Trial-ID
         else:
-            candidate = self.get_candidate(parameters=parameters,
+            candidate = self._get_candidate(parameters=parameters,
                                            results=results,
                                            lower_is_better=lower_is_better)
-            trial = self.perturb(candidate=candidate, parameters=parameters)
+            trial = self._perturb(candidate=candidate, parameters=parameters)
             trial['load_from'] = str(int(trial['save_to']))
             trial['save_to'] = str(int(self.count))
             trial['lineage'] += trial['load_from'] + ','
 
         return trial
 
-    def get_candidate(self, parameters, results, lower_is_better):
+    def _get_candidate(self, parameters, results, lower_is_better):
         """
         Samples candidates from the top 33% of population.
 
-        # Returns
-            (dict) parameter dictionary.
+        Returns
+            dict: parameter dictionary.
         """
         # Select correct generation
         completed = results.loc[results['Status'] != 'INTERMEDIATE', :]
@@ -487,7 +490,7 @@ class PopulationBasedTraining(Algorithm):
             trial[key] = d[key]
         return trial
 
-    def perturb(self, candidate, parameters):
+    def _perturb(self, candidate, parameters):
         for param in parameters:
             if isinstance(param, Continuous) or isinstance(param, Discrete):
                 factor = numpy.random.choice([0.8, 1.0, 1.2])
