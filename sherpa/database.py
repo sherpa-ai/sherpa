@@ -1,11 +1,13 @@
 import logging
+import numpy
+import pymongo
 from pymongo import MongoClient
 import subprocess
 import time
 import os
 import socket
 try:
-    from subprocess import DEVNULL # py3k
+    from subprocess import DEVNULL # python 3
 except ImportError:
     import os
     DEVNULL = open(os.devnull, 'wb')
@@ -16,24 +18,25 @@ logging.basicConfig(level=logging.DEBUG)
 dblogger = logging.getLogger(__name__)
 
 
-class Database(object):
+class _Database(object):
     """
     Manages a Mongo-DB for storing metrics and delivering parameters to trials.
 
     The Mongo-DB contains one database that serves as a queue of future trials
     and one to store results of active and finished trials.
 
-    # Attributes:
+    Attributes:
         dbpath (str): the path where Mongo-DB stores its files.
         port (int): the port on which the Mongo-DB should run.
     """
-    def __init__(self, db_dir, port=27010):
+    def __init__(self, db_dir, port=27010, reinstantiated=False):
         self.client = MongoClient(port=port)
         self.db = self.client.sherpa
         self.collected_results = []
         self.mongo_process = None
         self.dir = db_dir
         self.port = port
+        self.reinstantiated = reinstantiated
 
     def close(self):
         print('Closing MongoDB!')
@@ -54,6 +57,8 @@ class Database(object):
             raise FileNotFoundError(str(e) + "\nCheck that MongoDB is installed and in PATH.")
         time.sleep(1)
         self.check_db_status()
+        if self.reinstantiated:
+            self.get_new_results()
 
     def check_db_status(self):
         """
@@ -67,17 +72,17 @@ class Database(object):
         """
         Checks database for new results.
 
-        # Returns:
+        Returns:
             (list[dict]) where each dict is one row from the DB.
         """
         self.check_db_status()
         new_results = []
         for entry in self.db.results.find():
             result = entry
-            result.pop('_id')
-            if result not in self.collected_results:
+            mongo_id = result.pop('_id')
+            if mongo_id not in self.collected_results:
                 new_results.append(result)
-                self.collected_results.append(result)
+                self.collected_results.append(mongo_id)
         return new_results
 
     def enqueue_trial(self, trial):
@@ -87,7 +92,18 @@ class Database(object):
         self.check_db_status()
         trial = {'trial_id': trial.id,
                  'parameters': trial.parameters}
-        t_id = self.db.trials.insert_one(trial).inserted_id
+        try:
+            t_id = self.db.trials.insert_one(trial).inserted_id
+        except pymongo.errors.InvalidDocument:
+            new_params = {}
+            for k, v in trial['parameters'].items():
+                if isinstance(v, numpy.int64):
+                    v = int(v)
+
+                new_params[k] = v
+                
+            trial['parameters'] = new_params
+            t_id = self.db.trials.insert_one(trial).inserted_id
 
     def add_for_stopping(self, trial_id):
         """
@@ -96,11 +112,11 @@ class Database(object):
         In the trial-script this will raise an exception causing the trial to
         stop.
 
-        # Arguments:
+        Args:
             trial_id (int): the ID of the trial to stop.
         """
         self.check_db_status()
-        # dblogger.debug("Adding {} to DB".format({'trial_id': trial_id}))
+        dblogger.debug("Adding {} to DB".format({'trial_id': trial_id}))
         self.db.stop.insert_one({'trial_id': trial_id}).inserted_id
 
     def __enter__(self):
@@ -117,7 +133,7 @@ class Client(object):
 
     This function is called from trial-scripts only.
 
-    # Attributes:
+    Attributes:
         host (str): the host that runs the database. Passed host, host set via
             environment variable or 'localhost' in that order.
         port (int): port that database is running on. Passed port, port set via
@@ -125,11 +141,11 @@ class Client(object):
     """
     def __init__(self, host=None, port=None, **mongo_client_args):
         """
-        # Arguments:
-        host (str): the host that runs the database. Generally not needed since
-            the scheduler passes the DB-host as an environment variable.
-        port (int): port that database is running on. Generally not needed since
-            the scheduler passes the DB-port as an environment variable.
+        Args:
+            host (str): the host that runs the database. Generally not needed since
+                the scheduler passes the DB-host as an environment variable.
+            port (int): port that database is running on. Generally not needed since
+                the scheduler passes the DB-port as an environment variable.
         """
         host = host or os.environ.get('SHERPA_DB_HOST') or 'localhost'
         port = port or os.environ.get('SHERPA_DB_PORT') or 27010
@@ -140,12 +156,12 @@ class Client(object):
         """
         Returns the next trial from a Sherpa Study.
 
-        # Arguments:
+        Args:
             client (sherpa.SherpaClient): the client obtained from registering with
                 a study.
 
-        # Returns:
-            (sherpa.Trial)
+        Returns:
+            sherpa.Trial: The trial to run.
         """
         assert id or os.environ.get('SHERPA_TRIAL_ID'), "Environment-variable SHERPA_TRIAL_ID not found. Scheduler needs to set this variable in the environment when submitting a job"
         trial_id = int(id or os.environ.get('SHERPA_TRIAL_ID'))
@@ -163,7 +179,7 @@ class Client(object):
         """
         Sends metrics for a trial to database.
 
-        # Arguments:
+        Args:
             client (sherpa.SherpaClient): client to the database.
             trial (sherpa.Trial): trial to send metrics for.
             iteration (int): the iteration e.g. epoch the metrics are for.
@@ -178,6 +194,5 @@ class Client(object):
         self.db.results.insert_one(result)
 
         for entry in self.db.stop.find():
-            print("Found entry {}".format(entry))
             if entry.get('trial_id') == trial.id:
                 raise StopIteration("Trial listed for stopping.")

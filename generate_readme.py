@@ -162,30 +162,6 @@ the SHERPA root.
 
 """
 
-# text += "### Parameters"
-# text += process_function_docstring(sherpa.Parameter.__doc__)
-# text += "\n"
-#
-# text += "### Algorithm"
-# text += process_function_docstring(sherpa.algorithms.Algorithm.__doc__)
-# text += "\n"
-#
-# text += "### Stopping Rules"
-# text += process_function_docstring(sherpa.algorithms.StoppingRule.__doc__)
-# text += "\n"
-#
-# text += "### Combining these into a Study"
-# text += process_function_docstring(sherpa.Study.__doc__)
-# text += "\n"
-#
-# text += "### Scheduler"
-# text += process_function_docstring(sherpa.schedulers.Scheduler.__doc__)
-# text += "\n"
-#
-# text += "### Putting it all together"
-# text += process_function_docstring(sherpa.optimize.__doc__)
-# text += "\n"
-
 
 with open('README.md', 'w') as f:
     f.write(text)
