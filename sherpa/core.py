@@ -580,11 +580,16 @@ class Parameter(object):
         Returns a parameter object according to the given dictionary config.
 
         Args:
-            config (dict): parameter config of the format
-                {'name': '<name>',
-                 'type': '<continuous/discrete/choice>',
-                 'range': [<value1>, <value2>, ... ],
-                 'scale': <'log' to sample continuous/discrete from log-scale>}
+            config (dict): parameter config.
+
+        Example:
+
+        ::
+
+            {'name': '<name>',
+             'type': '<continuous/discrete/choice>',
+             'range': [<value1>, <value2>, ... ],
+             'scale': <'log' to sample continuous/discrete from log-scale>}
 
         Returns:
             sherpa.Parameter: the parameter range object.
@@ -611,7 +616,12 @@ class Parameter(object):
         Creates a list of parameters given a parameter grid.
 
         Args:
-            parameter_grid (dict): dictionary of the form
+            parameter_grid (dict): grid dictionary.
+
+        Example:
+
+            ::
+
                 {'parameter_a': [aValue1, aValue2, ...],
                  'parameter_b': [bValue1, bValue2, ...],
                  ...}

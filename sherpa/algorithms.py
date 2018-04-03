@@ -253,9 +253,9 @@ def get_sample_results_and_params():
     return parameters, results, lower_is_better
 
 
-class GaussianProcessEI(Algorithm):
+class BayesianOptimization(Algorithm):
     def __init__(self, num_random_seeds=10, max_num_trials=None,
-                 fine_tune=True):
+                 fine_tune=True, acquisition_function='ei'):
         self.num_random_seeds = num_random_seeds
         self.count = 0
         self.seed_configurations = []
@@ -266,9 +266,14 @@ class GaussianProcessEI(Algorithm):
         self.xtypes = {}
         self.xnames = {}
         self.best_y = None
-        self.epsilon=0.00001
+        self.epsilon = 0.00001
         self.lower_is_better = None
         self.gp = None
+        assert acquisition_function in ['ei'], (str(acquisition_function) +
+                                                " is currently not implemented "
+                                                "as acquisition function.")
+        self.acquisition_function = acquisition_function
+
 
     def load(self, num_trials):
         self.count = num_trials
@@ -299,14 +304,14 @@ class GaussianProcessEI(Algorithm):
         xcand, paramscand = self._generate_candidates(parameters)
         ycand, ycand_std = self.gp.predict(xcand, return_std=True)
 
-        ei = self._get_expected_improvement(ycand, ycand_std)
+        u = self._get_acquisition_function_value(ycand, ycand_std)
         # print("Max EI: ", ei.max(), paramscand.iloc[numpy.argmax(ei)].to_dict())
-        max_ei_idxs = ei.argsort()[-50:][::-1]  # use top 5
+        max_u_idxs = u.argsort()[-50:][::-1]  # use top 5
 
         if self.fine_tune:
-            return self._fine_tune_candidates(xcand, paramscand, max_ei_idxs, ei)
+            return self._fine_tune_candidates(xcand, paramscand, max_u_idxs, u)
         else:
-            return paramscand.iloc[numpy.argmax(ei)].to_dict()
+            return paramscand.iloc[numpy.argmax(u)].to_dict()
 
     def _generate_seeds(self, parameters):
         choice_grid_search = GridSearch()
@@ -368,13 +373,14 @@ class GaussianProcessEI(Algorithm):
                     col += 1
         return x[:, :col]
 
-    def _get_expected_improvement(self, y, y_std):
-        with numpy.errstate(divide='ignore'):
-            scaling_factor = (-1) ** self.lower_is_better
-            z = scaling_factor * (y - self.best_y - self.epsilon)/y_std
-            expected_improvement = scaling_factor * (y - self.best_y -
-                                                     self.epsilon)*scipy.stats.norm.cdf(z)
-        return expected_improvement
+    def _get_acquisition_function_value(self, y, y_std):
+        if self.acquisition_function == 'ei':
+            with numpy.errstate(divide='ignore'):
+                scaling_factor = (-1) ** self.lower_is_better
+                z = scaling_factor * (y - self.best_y - self.epsilon)/y_std
+                expected_improvement = scaling_factor * (y - self.best_y -
+                                                         self.epsilon)*scipy.stats.norm.cdf(z)
+            return expected_improvement
 
     def _fine_tune_candidates(self, xcand, paramscand, cand_idxs, ei):
         """

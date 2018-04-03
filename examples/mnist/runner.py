@@ -21,7 +21,7 @@ def run_example(FLAGS):
     
     if FLAGS.algorithm == 'BayesianOptimization':  
         print('Running Bayesian Optimization')
-        alg = sherpa.algorithms.GaussianProcessEI(num_random_seeds=10,
+        alg = sherpa.algorithms.BayesianOptimization(num_random_seeds=10,
                                                   max_num_trials=150, fine_tune=False)
     else:
         print('Running Random Search')
