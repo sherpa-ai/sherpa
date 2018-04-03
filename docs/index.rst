@@ -3,10 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to SHERPA!
-==================
-
-SHERPA is a Python library for hyperparameter tuning of deep neural networks.
+.. include:: ./welcome.rst
 
 .. toctree::
    :maxdepth: 1
@@ -16,4 +13,5 @@ SHERPA is a Python library for hyperparameter tuning of deep neural networks.
    gettingstarted
    pbt
    bayesianoptimization
+   apimode
    api

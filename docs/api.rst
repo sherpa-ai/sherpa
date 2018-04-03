@@ -16,6 +16,10 @@ Parameters
 .. autoclass:: sherpa.core.Ordinal
    :noindex:
 
+.. autoclass:: sherpa.core.Parameter
+   :noindex:
+   :members:
+
 Algorithms
 ----------
 
@@ -24,6 +28,21 @@ Algorithms
 
 .. autoclass:: sherpa.algorithms.GridSearch
   :noindex:
+
+.. autoclass:: sherpa.algorithms.LocalSearch
+  :noindex:
+
+.. autoclass:: sherpa.algorithms.BayesianOptimization
+  :noindex:
+
+.. autoclass:: sherpa.algorithms.PopulationBasedTraining
+  :noindex:
+
+Stopping Rules
+--------------
+
+.. autoclass:: sherpa.algorithms.MedianStoppingRule
+   :noindex:
 
 Schedulers
 ----------
@@ -46,7 +65,7 @@ Study
 -----
 
 A SHERPA optimization can also be run manually, without using
-:code:`sherpa.optimize`. 
+:code:`sherpa.optimize`.
 
 .. autoclass:: sherpa.core.Study
    :noindex:
