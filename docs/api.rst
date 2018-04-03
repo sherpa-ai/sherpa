@@ -46,7 +46,7 @@ Study
 -----
 
 A SHERPA optimization can also be run manually, without using
-:code:`sherpa.optimize`. 
+:code:`sherpa.optimize`.
 
 .. autoclass:: sherpa.core.Study
    :noindex:
