@@ -112,8 +112,8 @@ Before:
 
 After:
 
-::
-    :emphasize-lines: 5
+.. codeblock:: python
+   :emphasize-lines: 5
 
     from keras.models import Sequential
     from keras.layers import Dense
