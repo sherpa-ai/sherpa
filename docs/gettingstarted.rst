@@ -167,13 +167,10 @@ case Random Search.
     alg = sherpa.algorithms.RandomSearch(max_num_trials=150)
     rval = sherpa.optimize(parameters=parameters,
                            algorithm=alg,
-                           stopping_rule=None,
-                           output_dir='./output_'+ str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S")),
                            lower_is_better=False,
                            filename='./trial.py', # Python script to run, where the model was defined
                            scheduler=sherpa.schedulers.LocalScheduler(), # Run on local machine
-                           max_concurrent=1, # maximum concurrent training models)
-
+                           )
 And that's it! Now to run your model you just have to do:
 
 ::
