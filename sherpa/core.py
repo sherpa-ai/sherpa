@@ -12,6 +12,7 @@ import warnings
 import contextlib
 from .database import _Database
 from .schedulers import _JobStatus
+import datetime
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -480,8 +481,12 @@ class _Runner(object):
             time.sleep(5)
 
 
-def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
-             scheduler, max_concurrent=1, db_port=None, stopping_rule=None,
+def optimize(parameters, algorithm, lower_is_better,
+             scheduler,
+             filename,
+             output_dir='./output_' + str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S")),
+             max_concurrent=1,
+             db_port=None, stopping_rule=None,
              dashboard_port=None, resubmit_failed_trials=False, verbose=1,
              load=False):
     """
@@ -527,13 +532,13 @@ def optimize(parameters, algorithm, lower_is_better, filename, output_dir,
         db_port = _port_finder(27001, 27050)
 
     with _Database(db_dir=output_dir, port=db_port, reinstantiated=load) as db:
-        _Runner = _Runner(study=study,
+        runner = _Runner(study=study,
                         scheduler=scheduler,
                         database=db,
                         max_concurrent=max_concurrent,
                         command=' '.join(['python', filename]),
                         resubmit_failed_trials=resubmit_failed_trials)
-        _Runner.run_loop()
+        runner.run_loop()
     return study.get_best_result()
 
 
