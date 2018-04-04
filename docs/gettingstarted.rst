@@ -100,6 +100,7 @@ different, for example the number of hidden units.
 Before:
 
 ::
+
     from keras.models import Sequential
     from keras.layers import Dense
     model = Sequential()
@@ -112,6 +113,7 @@ Before:
 After:
 
 ::
+
     from keras.models import Sequential
     from keras.layers import Dense
     def define_model(params):
@@ -132,11 +134,13 @@ Here you can include all the usual Keras callbacks as well.
 Before:
 
 ::
+
     model.fit(x_train, y_train, epochs=5, batch_size=32)
 
 After:
 
 :: 
+
     import sherpa
     client = sherpa.Client()
     trial = client.get_trial()
@@ -156,6 +160,7 @@ Now we are going to create the runner-script and specify our hyperparameter
 case Random Search.
 
 ::
+
     import sherpa
     import datetime
     parameters = [sherpa.Choice('num_units', [100, 200, 300]),]
@@ -172,5 +177,6 @@ case Random Search.
 And that's it! Now to run your model you just have to do:
 
 ::
+
     python runner.py
 
