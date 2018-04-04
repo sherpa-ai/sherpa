@@ -112,9 +112,6 @@ Before:
 
 After:
 
-.. codeblock:: python
-   :emphasize-lines: 5
-
 ::
 
     from keras.models import Sequential
