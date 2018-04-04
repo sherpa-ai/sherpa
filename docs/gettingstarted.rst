@@ -115,6 +115,8 @@ After:
 .. codeblock:: python
    :emphasize-lines: 5
 
+::
+
     from keras.models import Sequential
     from keras.layers import Dense
     def define_model(params):
