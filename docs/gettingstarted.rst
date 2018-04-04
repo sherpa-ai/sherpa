@@ -81,7 +81,7 @@ From Keras to Sherpa in 30 seconds
 ===================================
 
 Here we will show how to adapt a minimal Keras script so it can 
-be used with Sherpa. This uses the getting started in 30 seconds
+be used with Sherpa. As starting point we use the "getting started in 30 seconds"
 tutorial from the Keras webpage.
 
 As mentioned in the previous section you need a trial-script and a 
@@ -162,7 +162,6 @@ case Random Search.
 ::
 
     import sherpa
-    import datetime
     parameters = [sherpa.Choice('num_units', [100, 200, 300]),]
     alg = sherpa.algorithms.RandomSearch(max_num_trials=150)
     rval = sherpa.optimize(parameters=parameters,
