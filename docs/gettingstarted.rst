@@ -118,7 +118,7 @@ After:
     from keras.layers import Dense
     def define_model(params):
         model = Sequential()
-        model.add(Dense(units=**params('num_units')**, activation='relu', input_dim=100))
+        model.add(Dense(units=\*\*params('num_units')\*\*, activation='relu', input_dim=100))
         model.add(Dense(units=10, activation='softmax'))
         model.compile(loss='categorical_crossentropy',
                   optimizer='sgd',
