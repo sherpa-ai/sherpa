@@ -254,6 +254,18 @@ def get_sample_results_and_params():
 
 
 class BayesianOptimization(Algorithm):
+    """
+    Bayesian optimization using Gaussian Process and Expected Improvement.
+
+    Args:
+        num_random_seeds (int): the number of random starting configurations,
+            default to 10.
+        max_num_trials (int): the number of trials after which the algorithm will
+            stop. Defaults to ``None`` i.e. runs forever.
+        fine_tune (bool): whether to numerically optimize candidates.
+        acquisition_function (str): currently only ``'ei'`` for expected improvement.
+
+    """
     def __init__(self, num_random_seeds=10, max_num_trials=None,
                  fine_tune=True, acquisition_function='ei'):
         self.num_random_seeds = num_random_seeds
@@ -274,7 +286,6 @@ class BayesianOptimization(Algorithm):
                                                 "as acquisition function.")
         self.acquisition_function = acquisition_function
 
-
     def load(self, num_trials):
         self.count = num_trials
 
@@ -293,7 +304,7 @@ class BayesianOptimization(Algorithm):
             return self.seed_configurations[self.count-1]
         
         if len(results) == 0 or len(results.loc[results['Status'] != 'INTERMEDIATE', :]) < 1:
-            # Warn user: more workers than seed configurations
+            # TODO: Warn user: more workers than seed configurations
             return self.random_sampler.get_suggestion(parameters, results, lower_is_better)
 
         x, y = self._get_input_output_pairs(results, parameters)
@@ -305,11 +316,9 @@ class BayesianOptimization(Algorithm):
         ycand, ycand_std = self.gp.predict(xcand, return_std=True)
 
         u = self._get_acquisition_function_value(ycand, ycand_std)
-        # print("Max EI: ", ei.max(), paramscand.iloc[numpy.argmax(ei)].to_dict())
-        max_u_idxs = u.argsort()[-50:][::-1]  # use top 5
 
         if self.fine_tune:
-            return self._fine_tune_candidates(xcand, paramscand, max_u_idxs, u)
+            return self._fine_tune_candidates(xcand, paramscand, u)
         else:
             return paramscand.iloc[numpy.argmax(u)].to_dict()
 
@@ -367,7 +376,7 @@ class BayesianOptimization(Algorithm):
                 col += 1
             else:
                 for i, val in enumerate(p.range):
-                    x[:, col] = numpy.array(1.*(df[p.name] == val))
+                    x[:, col] = numpy.array(1. * (df[p.name] == val))
                     self.xtypes[col] = 'discrete'
                     self.xnames[col] = p.name + '_' + str(i)
                     col += 1
@@ -382,7 +391,7 @@ class BayesianOptimization(Algorithm):
                                                          self.epsilon)*scipy.stats.norm.cdf(z)
             return expected_improvement
 
-    def _fine_tune_candidates(self, xcand, paramscand, cand_idxs, ei):
+    def _fine_tune_candidates(self, xcand, paramscand, utility, num_candidates=50):
         """
         Numerically optimizes the top k candidates.
 
@@ -411,11 +420,13 @@ class BayesianOptimization(Algorithm):
                 float: expected improvement for x and args.
             """
             y, y_std = self.gp.predict(designrow(x, row), return_std=True)
-            return -self.get_expected_improvement(y, y_std)
+            return -self._get_acquisition_function_value(y, y_std)
+
+        max_utility_idxs = utility.argsort()[-num_candidates:][::-1]
 
         best_idx = None
         max_ei = -numpy.inf
-        for idx in cand_idxs:
+        for idx in max_utility_idxs:
             candidate = xcand[idx]
 
             res = scipy.optimize.minimize(fun=eval_neg_ei,
@@ -440,9 +451,10 @@ class PopulationBasedTraining(Algorithm):
     """
     Population based training as introduced by Jaderberg et al. 2017.
     """
-    def __init__(self, population_size=20, parameter_range={}):
+    def __init__(self, population_size=20, parameter_range={}, perturbation_factors=(0.8, 1.0, 1.2)):
         self.population_size = population_size
         self.parameter_range = parameter_range
+        self.perturbation_factors = perturbation_factors
         self.generation = 0
         self.count = 0
         self.random_sampler = RandomSearch()
@@ -499,7 +511,7 @@ class PopulationBasedTraining(Algorithm):
     def _perturb(self, candidate, parameters):
         for param in parameters:
             if isinstance(param, Continuous) or isinstance(param, Discrete):
-                factor = numpy.random.choice([0.8, 1.0, 1.2])
+                factor = numpy.random.choice(self.perturbation_factors)
 
 #                 if param.scale == 'log':
 #                     candidate[param.name] = 10**(numpy.log10(candidate[param.name]) * factor)
