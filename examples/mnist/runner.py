@@ -15,9 +15,6 @@ def run_example(FLAGS):
                   sherpa.Choice('act', ['tanh']),
                   sherpa.Choice('arch', [[100, 100]]),
                   sherpa.Choice('epochs', [10])]
-
-
-    # alg = sherpa.algorithms.GridSearch()
     
     if FLAGS.algorithm == 'BayesianOptimization':  
         print('Running Bayesian Optimization')
@@ -26,20 +23,19 @@ def run_example(FLAGS):
     else:
         print('Running Random Search')
         alg = sherpa.algorithms.RandomSearch(max_num_trials=150)
-    # stopping_rule = sherpa.algorithms.MedianStoppingRule(min_iterations=10, min_trials=5)
+
     stopping_rule = None
     f = './trial.py' # Python script to run.
     dir = './output_' + FLAGS.studyname + '_' + str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 
     if not FLAGS.local:
         # Submit to SGE queue.
-        # env = '/home/pjsadows/profiles/auto.profile'  # Script specifying environment variables.
-        env = FLAGS.env
+        env = FLAGS.env  # Script specifying environment variables.
         opt = '-N MNISTExample -P {} -q {} -l {}'.format(FLAGS.P, FLAGS.q, FLAGS.l)
         sched = SGEScheduler(environment=env, submit_options=opt, output_dir=dir)
     else:
         # Run on local machine.
-        sched = LocalScheduler()  # Run on local machine without SGE.
+        sched = LocalScheduler()
 
     rval = sherpa.optimize(parameters=parameters,
                            algorithm=alg,

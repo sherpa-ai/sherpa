@@ -176,7 +176,7 @@ class SGEScheduler(Scheduler):
         """
         with self.drmaa.Session() as s:
             try:
-                status = s._JobStatus(str(job_id))
+                status = s.jobStatus(str(job_id))
             except self.drmaa.errors.InvalidJobException:
                 return _JobStatus.finished
         s = self.decode_status.get(status)
