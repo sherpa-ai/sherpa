@@ -43,8 +43,8 @@ class Study(object):
         algorithm (sherpa.algorithms.Algorithm): takes results table and returns
             parameter set.
         results (pandas.DataFrame): contains results from this study.
-        parameters (list[sherpa.Parameter]): parameters being optimized.
-        stopping_rule (sherpa.stopping_rules.StoppingRule): rule for stopping
+        parameters (list[sherpa.core.Parameter]): parameters being optimized.
+        stopping_rule (sherpa.algorithms.StoppingRule): rule for stopping
             trials prematurely.
         lower_is_better (bool): whether lower objective values are better.
         dashboard_port (int): port to run the dashboard web-server on.
@@ -58,10 +58,10 @@ class Study(object):
                  output_dir=None):
         """
         Args:
-            parameters (list[sherpa.Parameter]): a list of parameter ranges.
-            algorithm (sherpa.algorithm): the optimization algorithm.
+            parameters (list[sherpa.core.Parameter]): a list of parameter ranges.
+            algorithm (sherpa.algorithms.Algorithm): the optimization algorithm.
             lower_is_better (bool): whether to minimizer or maximize objective.
-            stopping_rule (sherpa.StoppingRule): algorithm to stop badly
+            stopping_rule (sherpa.algorithms.StoppingRule): algorithm to stop badly
                 performing trials.
             dashboard_port (int): the port for the dashboard web-server.
             disable_dashboard (bool): option to not run the dashboard.
@@ -93,12 +93,12 @@ class Study(object):
         Add a single observation of the objective value for a given trial.
         
         Args:
-            trial (sherpa.Trial): trial for which an observation is to be added.
+            trial (sherpa.core.Trial): trial for which an observation is to be added.
             iteration (int): iteration number e.g. epoch.
             objective (float): objective value.
             context (dict): other metrics or values to record.
         """
-        assert isinstance(trial, Trial), "Trial must be sherpa.Trial"
+        assert isinstance(trial, Trial), "Trial must be sherpa.core.Trial"
 
         row = [
             ('Trial-ID', trial.id),
@@ -128,10 +128,10 @@ class Study(object):
         must be finalized with this function.
         
         Args:
-            trial (sherpa.Trial): trial that is completed.
+            trial (sherpa.core.Trial): trial that is completed.
             status (str): one of 'COMPLETED', 'FAILED', 'STOPPED'.
         """
-        assert isinstance(trial, Trial), "Trial must be sherpa.Trial"
+        assert isinstance(trial, Trial), "Trial must be sherpa.core.Trial"
         assert status in ['COMPLETED', 'FAILED', 'STOPPED']
 
         try:
@@ -187,12 +187,12 @@ class Study(object):
         study.
         
         Args:
-            trial (sherpa.Trial): trial to be evaluated.
+            trial (sherpa.core.Trial): trial to be evaluated.
 
         Returns:
             bool: decision.
         """
-        assert isinstance(trial, Trial), "Trial must be sherpa.Trial"
+        assert isinstance(trial, Trial), "Trial must be sherpa.core.Trial"
         if self.dashboard_process:
             while not self._stopping_channel.empty():
                 self._ids_to_stop.add(self._stopping_channel.get())
@@ -216,7 +216,7 @@ class Study(object):
         basis.
         
         Args:
-            trial (sherpa.Trial): the trial to be enqueued.
+            trial (sherpa.core.Trial): the trial to be enqueued.
         """
         self._trial_queue.append(trial)
         
@@ -324,7 +324,7 @@ class _Runner(object):
     -Check if new trials need to be submitted, get parameters and submit as a job.
 
     Attributes:
-        study (sherpa.Study): the study that is run.
+        study (sherpa.core.Study): the study that is run.
         scheduler (sherpa.schedulers.Scheduler): a scheduler.
         database (sherpa.database._Database): the database.
         max_concurrent (int): how many trials to run in parallel.
@@ -496,16 +496,16 @@ def optimize(parameters, algorithm, lower_is_better,
     Args:
         algorithm (sherpa.algorithms.Algorithm): takes results table and returns
             parameter set.
-        parameters (list[sherpa.Parameter]): parameters being optimized.
+        parameters (list[sherpa.core.Parameter]): parameters being optimized.
         lower_is_better (bool): whether lower objective values are better.
         filename (str): the name of the file which is called to evaluate
             configurations
         output_dir (str): where scheduler and database files will be stored.
-        scheduler (sherpa.Scheduler): a scheduler.
+        scheduler (sherpa.schedulers.Scheduler): a scheduler.
         max_concurrent (int): the number of trials that will be evaluated in
             parallel.
         db_port (int): port to run the database on.
-        stopping_rule (sherpa.stopping_rules.StoppingRule): rule for stopping
+        stopping_rule (sherpa.algorithms.StoppingRule): rule for stopping
             trials prematurely.
         dashboard_port (int): port to run the dashboard web-server on.
         resubmit_failed_trials (bool): whether to resubmit a trial if it failed.
@@ -597,7 +597,7 @@ class Parameter(object):
              'scale': <'log' to sample continuous/discrete from log-scale>}
 
         Returns:
-            sherpa.Parameter: the parameter range object.
+            sherpa.core.Parameter: the parameter range object.
 
         """
         if config.get('type') == 'continuous':
@@ -632,7 +632,7 @@ class Parameter(object):
                  ...}
 
         Returns:
-            list[sherpa.Parameter]: list of parameter ranges for SHERPA.
+            list[sherpa.core.Parameter]: list of parameter ranges for SHERPA.
         """
         plist = []
         for pname, prange in parameter_grid.items():
