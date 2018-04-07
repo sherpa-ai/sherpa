@@ -81,7 +81,7 @@ From Keras to Sherpa in 30 seconds
 ===================================
 
 Here we will show how to adapt a minimal Keras script so it can 
-be used with Sherpa. This uses the getting started in 30 seconds
+be used with Sherpa. As starting point we use the "getting started in 30 seconds"
 tutorial from the Keras webpage.
 
 As mentioned in the previous section you need a trial-script and a 
@@ -100,6 +100,7 @@ different, for example the number of hidden units.
 Before:
 
 ::
+
     from keras.models import Sequential
     from keras.layers import Dense
     model = Sequential()
@@ -112,6 +113,7 @@ Before:
 After:
 
 ::
+
     from keras.models import Sequential
     from keras.layers import Dense
     def define_model(params):
@@ -132,11 +134,13 @@ Here you can include all the usual Keras callbacks as well.
 Before:
 
 ::
+
     model.fit(x_train, y_train, epochs=5, batch_size=32)
 
 After:
 
 :: 
+
     import sherpa
     client = sherpa.Client()
     trial = client.get_trial()
@@ -156,21 +160,19 @@ Now we are going to create the runner-script and specify our hyperparameter
 case Random Search.
 
 ::
+
     import sherpa
-    import datetime
     parameters = [sherpa.Choice('num_units', [100, 200, 300]),]
     alg = sherpa.algorithms.RandomSearch(max_num_trials=150)
     rval = sherpa.optimize(parameters=parameters,
                            algorithm=alg,
-                           stopping_rule=None,
-                           output_dir='./output_'+ str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S")),
                            lower_is_better=False,
                            filename='./trial.py', # Python script to run, where the model was defined
                            scheduler=sherpa.schedulers.LocalScheduler(), # Run on local machine
-                           max_concurrent=1, # maximum concurrent training models)
-
+                           )
 And that's it! Now to run your model you just have to do:
 
 ::
+
     python runner.py
 
