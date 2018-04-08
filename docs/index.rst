@@ -15,3 +15,5 @@
    bayesianoptimization
    apimode
    api
+   newschedulers
+   contributing
