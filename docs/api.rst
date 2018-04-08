@@ -23,6 +23,10 @@ Parameters
 Algorithms
 ----------
 
+.. autoclass:: sherpa.algorithms.Algorithm
+   :noindex:
+   :members:
+
 .. autoclass:: sherpa.algorithms.RandomSearch
    :noindex:
 
@@ -36,13 +40,22 @@ Algorithms
   :noindex:
 
 .. autoclass:: sherpa.algorithms.PopulationBasedTraining
-  :noindex:
+   :noindex:
 
 Stopping Rules
 --------------
 
 .. autoclass:: sherpa.algorithms.MedianStoppingRule
-   :noindex:
+    :noindex:
+    :members:
+
+Client
+------
+
+.. autoclass:: sherpa.database.Client
+    :noindex:
+    :members:
+
 
 Schedulers
 ----------
@@ -51,7 +64,7 @@ Schedulers
    :noindex:
 
 .. autoclass:: sherpa.schedulers.LocalScheduler
-  :noindex:
+   :noindex:
 
 Running the Optimization
 ------------------------
