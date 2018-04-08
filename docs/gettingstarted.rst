@@ -78,7 +78,7 @@ The code for this example can be run as
 
 
 From Keras to Sherpa in 30 seconds
-===================================
+==================================
 
 Here we will show how to adapt a minimal Keras script so it can 
 be used with Sherpa. As starting point we use the "getting started in 30 seconds"
@@ -90,9 +90,9 @@ will probably be very similar to the one you already have for Keras.
 The second one will specify information about Sherpa and the optimization.
 
 Trial-script
---------------
+------------
 
-For the trial.py we need a define_model() function which initializes 
+For the ``trial.py`` we need a ``define_model()`` function which initializes
 and returns a compiled Keras model. The function receives a dictionary
 of hyperparameters which can be used to specify how each model will be
 different, for example the number of hidden units.
@@ -125,9 +125,9 @@ After:
                   metrics=['accuracy'])
         return model
 
-Next we will get the information about the parameters from sherpa and
+Next we will get the information about the parameters from SHERPA and
 specify how to train the model in this specific trial. We include a
-callback to send the information back to Sherpa at the end of each epoch
+callback to send the information back to SHERPA at the end of each epoch
 so it can update the state of it and decide if it should continue training.
 Here you can include all the usual Keras callbacks as well.
 
@@ -153,10 +153,10 @@ After:
     model.fit(x_train, y_train, epochs=5, batch_size=32, callbacks=callbacks)
 
 Runner-script
---------------
+-------------
 
 Now we are going to create the runner-script and specify our hyperparameter
-'num_units' along with information for the hyperparameter algorithm, in this
+``num_units`` along with information for the hyperparameter algorithm, in this
 case Random Search.
 
 ::
@@ -170,9 +170,11 @@ case Random Search.
                            filename='./trial.py', # Python script to run, where the model was defined
                            scheduler=sherpa.schedulers.LocalScheduler(), # Run on local machine
                            )
-And that's it! Now to run your model you just have to do:
+
+And that's it! Now to run your hyperparameter optimization you just have to do:
 
 ::
 
     python runner.py
+
 
