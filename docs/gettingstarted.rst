@@ -176,3 +176,27 @@ And that's it! Now to run your model you just have to do:
 
     python runner.py
 
+
+Creating a new hyperparameter optimization algorithm
+=====================================================
+
+Now we will take a look at how to create a new algorithm which will
+define the hyper-parameters we will use to train the models. It defines
+the hyperparameters to use in the trials. It does not define the algorithm 
+to train the model used in the trial, e.g. Stochasting Gradient Descent or Adam.
+
+Every new algorithm inherits from the Algorithm Class and the main function we
+need to define is get_suggestion(). This function will receive information about
+the parameters it needs to define and returns the new set of hyperparameter values
+needed to train the next trial. The function get_suggestion() receives:
+- Parameters: List of Parameter objects (sherpa.core.parameter).
+- Results: Dataframe storing the results of past trials.
+- Lower_is_better: Specifies if lower is better in performance metric of trials.
+
+::
+    import sherpa
+    class MyAlgorithm(sherpa.algorithms.Algorithm):
+        def get_suggestion(self, parameters, results, lower_is_better):
+            # your code here
+
+
