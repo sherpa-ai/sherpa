@@ -28,7 +28,7 @@ def test_sge_scheduler():
         f.write(trial_script)
 
     env = '/home/lhertel/profiles/python3env.profile'
-    sge_options = '-N sherpaSchedTest -P arcus.p -q arcus.q -l hostname=\'({})\''.format(os.environ['HOSTNAME'])
+    sge_options = '-N sherpaSchedTest -P arcus_cpu.p -q arcus.q -l hostname=\'({})\''.format(os.environ['HOSTNAME'])
 
     s = sherpa.schedulers.SGEScheduler(environment=env,
                                        submit_options=sge_options,
@@ -50,7 +50,7 @@ def test_sge_scheduler():
         s.kill_job(job_id)
         time.sleep(3)
         testlogger.debug(s.get_status(job_id))
-        assert s.get_status(job_id) == sherpa.schedulers.JobStatus.finished
+        assert s.get_status(job_id) == sherpa.schedulers._JobStatus.finished
 
     finally:
         shutil.rmtree(test_dir)
