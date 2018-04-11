@@ -193,10 +193,16 @@ needed to train the next trial. The function get_suggestion() receives:
 - Results: Dataframe storing the results of past trials.
 - Lower_is_better: Specifies if lower is better in performance metric of trials.
 
+With this information you are free do select the new hyper-parameters in any way
+you want.
+
 ::
     import sherpa
     class MyAlgorithm(sherpa.algorithms.Algorithm):
         def get_suggestion(self, parameters, results, lower_is_better):
             # your code here
+
+For example let's create an algorithm which takes the trials of the top 2 algorithms
+and combines them to create the new set of hyper-parameters.
 
 
