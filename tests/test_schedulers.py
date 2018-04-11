@@ -57,7 +57,7 @@ def test_sge_scheduler():
         s.kill_job(job_id)
         time.sleep(3)
         testlogger.debug(s.get_status(job_id))
-        assert s.get_status(job_id) == sherpa.schedulers.JobStatus.finished
+        assert s.get_status(job_id) == sherpa.schedulers._JobStatus.finished
 
     finally:
         shutil.rmtree(test_dir)
