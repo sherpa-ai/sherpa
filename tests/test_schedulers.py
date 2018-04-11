@@ -6,6 +6,7 @@ import tempfile
 import time
 import logging
 import shutil
+from test_sherpa import test_dir
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -27,7 +28,7 @@ def test_sge_scheduler():
         f.write(trial_script)
 
     env = '/home/lhertel/profiles/python3env.profile'
-    sge_options = '-N sherpaSchedTest -P arcus.p -q arcus-ubuntu.q -l hostname=\'(arcus-5)\''
+    sge_options = '-N sherpaSchedTest -P arcus.p -q arcus.q -l hostname=\'({})\''.format(os.environ['HOSTNAME'])
 
     s = sherpa.schedulers.SGEScheduler(environment=env,
                                        submit_options=sge_options,
@@ -43,6 +44,13 @@ def test_sge_scheduler():
         time.sleep(10)
         testlogger.debug(s.get_status(job_id))
         assert s.get_status(job_id) == sherpa.schedulers._JobStatus.finished
+        
+        job_id = s.submit_job("python {}/test.py".format(test_dir))
+        time.sleep(1)
+        s.kill_job(job_id)
+        time.sleep(3)
+        testlogger.debug(s.get_status(job_id))
+        assert s.get_status(job_id) == sherpa.schedulers.JobStatus.finished
 
     finally:
         shutil.rmtree(test_dir)
@@ -65,4 +73,12 @@ def test_local_scheduler(test_dir):
 
     time.sleep(5)
     testlogger.debug(s.get_status(job_id))
-    assert s.get_status(job_id) != sherpa.schedulers._JobStatus.running
+    assert s.get_status(job_id) == sherpa.schedulers._JobStatus.finished
+
+    job_id = s.submit_job("python {}/test.py".format(test_dir))
+    time.sleep(1)
+    s.kill_job(job_id)
+    time.sleep(1)
+    testlogger.debug(s.get_status(job_id))
+    assert s.get_status(job_id) == sherpa.schedulers._JobStatus.killed
+
