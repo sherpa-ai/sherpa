@@ -428,7 +428,8 @@ class _Runner(object):
                 continue
             if self.study.should_trial_stop(self._all_trials[tid].get('trial')):
                 logger.info("Stopping Trial {}".format(tid))
-                self.database.add_for_stopping(tid)
+                self.scheduler.kill_job(self.all_trials[tid].get('job_id'))
+                # self.database.add_for_stopping(tid)
                 self._queued_for_stopping.add(tid)
 
     def submit_new_trials(self):
@@ -513,6 +514,9 @@ def optimize(parameters, algorithm, lower_is_better,
     """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+
+    if not scheduler.output_dir:
+        scheduler.output_dir = output_dir
         
     if verbose == 0:
         logger.setLevel(level=logging.INFO)
