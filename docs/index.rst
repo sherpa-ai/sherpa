@@ -9,11 +9,35 @@
    :maxdepth: 1
 
    self
-   installation
-   gettingstarted
-   pbt
-   bayesianoptimization
-   apimode
-   api
-   newschedulers
-   contributing
+
+.. toctree::
+   :caption: Getting Started
+   :maxdepth: 1
+
+   gettingstarted/installation
+   gettingstarted/kerastosherpa
+   gettingstarted/gettingstarted
+
+.. toctree::
+   :caption: Tutorials
+   :maxdepth: 1
+
+   tutorials/pbt
+   tutorials/bayesianoptimization
+   tutorials/apimode
+
+.. toctree::
+   :caption: API
+   :maxdepth: 1
+
+   api/coreapi
+   api/schedulersapi
+   api/algorithmsapi
+
+.. toctree::
+   :caption: Contributing
+   :maxdepth: 1
+
+   contributing/contributing
+   contributing/newalgorithms
+   contributing/newschedulers
