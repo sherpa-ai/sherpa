@@ -521,17 +521,15 @@ class PopulationBasedTraining(Algorithm):
                 if isinstance(param, Discrete):
                     candidate[param.name] = int(candidate[param.name])
 
-                candidate[param.name] = max(
-                    [candidate[param.name], min(self.parameter_range.get(param.name) or param.range)])
-                candidate[param.name] = min(
-                    [candidate[param.name], max(self.parameter_range.get(param.name) or param.range)])
+                candidate[param.name] = numpy.clip(candidate[param.name],
+                                                   min(self.parameter_range.get(param.name) or param.range),
+                                                   max(self.parameter_range.get(param.name) or param.range))
 
             elif isinstance(param, Ordinal):
                 shift = numpy.random.choice([-1, 0, +1])
                 values = self.parameter_range.get(param.name) or param.range
                 newidx = values.index(candidate[param.name]) + shift
-                newidx = min([newidx, len(values)-1])
-                newidx = max([newidx, 0])
+                newidx = numpy.clip(newidx, 0, len(values)-1)
                 candidate[param.name] = values[newidx]
 
             elif isinstance(param, Choice):
