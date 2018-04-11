@@ -4,7 +4,7 @@ Development
 How to contribute
 -----------------
 
-The easiest way to contribute to SHERPA is to implement new algorithms or
+The easiest way to contribute to SHERPA is to implement :ref:`new algorithms <writing-algorithms>` or
 :ref:`new schedulers <writing-schedulers>`.
 
 
@@ -52,7 +52,6 @@ In order to propose new trials or decide whether a trial should stop, the
 study holds an ``sherpa.algorithms.Algorithm`` instance that yields new trials
 and a ``sherpa.algorithms.StoppingRule`` that yields decisions about
 performance. When using Sherpa in API-mode the user directly interacts with the study.
-
 
 Runner
 ~~~~~~
