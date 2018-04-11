@@ -12,6 +12,12 @@ from test_sherpa import test_dir
 logging.basicConfig(level=logging.DEBUG)
 testlogger = logging.getLogger(__name__)
 
+
+SGE_QUEUE_NAME = 'arcus.q'
+SGE_PROJECT_NAME = 'arcus_cpu.p'
+SGE_ENV_PROFILE = '/home/lhertel/profiles/python3env.profile'
+
+
 def test_sge_scheduler():
     host = socket.gethostname()
     if (not host == "nimbus") and (not host.startswith('arcus')):
@@ -27,8 +33,9 @@ def test_sge_scheduler():
     with open(os.path.join(test_dir, "test.py"), 'w') as f:
         f.write(trial_script)
 
-    env = '/home/lhertel/profiles/python3env.profile'
-    sge_options = '-N sherpaSchedTest -P arcus.p -q arcus.q -l hostname=\'({})\''.format(os.environ['HOSTNAME'])
+    env = SGE_ENV_PROFILE
+    sge_options = '-N sherpaSchedTest -P {} -q {} -l hostname=\'({})\''.format(
+        SGE_PROJECT_NAME, SGE_QUEUE_NAME, os.environ['HOSTNAME'])
 
     s = sherpa.schedulers.SGEScheduler(environment=env,
                                        submit_options=sge_options,
@@ -44,7 +51,7 @@ def test_sge_scheduler():
         time.sleep(10)
         testlogger.debug(s.get_status(job_id))
         assert s.get_status(job_id) == sherpa.schedulers._JobStatus.finished
-        
+
         job_id = s.submit_job("python {}/test.py".format(test_dir))
         time.sleep(1)
         s.kill_job(job_id)
