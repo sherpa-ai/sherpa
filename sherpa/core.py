@@ -23,7 +23,7 @@ class Trial(object):
     """
     Represents one parameter-configuration here referred to as one trial.
 
-    Attributes
+    Args:
         id (int): the Trial ID.
         parameters (dict): parameter-name, parameter-value pairs.
     """
@@ -39,34 +39,22 @@ class Study(object):
     Includes functionality to get new suggested trials and add observations
     for those. Used internally but can also be used directly by the user.
 
-    Attributes:
-        algorithm (sherpa.algorithms.Algorithm): takes results table and returns
-            parameter set.
-        results (pandas.DataFrame): contains results from this study.
-        parameters (list[sherpa.core.Parameter]): parameters being optimized.
-        stopping_rule (sherpa.algorithms.StoppingRule): rule for stopping
-            trials prematurely.
-        lower_is_better (bool): whether lower objective values are better.
-        dashboard_port (int): port to run the dashboard web-server on.
-        disable_dashboard (bool): whether to not run the dashboard.
-        output_dir (str): directory to store web-app output and results-CSV.
+    Args:
+        parameters (list[sherpa.core.Parameter]): a list of parameter ranges.
+        algorithm (sherpa.algorithms.Algorithm): the optimization algorithm.
+        lower_is_better (bool): whether to minimize or maximize the objective.
+        stopping_rule (sherpa.algorithms.StoppingRule): algorithm to stop badly
+            performing trials.
+        dashboard_port (int): the port for the dashboard web-server, if ``None``
+            the first free port in the range `8880` to `9999` is found and used.
+        disable_dashboard (bool): option to not run the dashboard.
+        output_dir (str): directory path for CSV results.
 
     """
     def __init__(self, parameters, algorithm, lower_is_better,
                  stopping_rule=None, dashboard_port=None,
                  disable_dashboard=False,
                  output_dir=None):
-        """
-        Args:
-            parameters (list[sherpa.core.Parameter]): a list of parameter ranges.
-            algorithm (sherpa.algorithms.Algorithm): the optimization algorithm.
-            lower_is_better (bool): whether to minimizer or maximize objective.
-            stopping_rule (sherpa.algorithms.StoppingRule): algorithm to stop badly
-                performing trials.
-            dashboard_port (int): the port for the dashboard web-server.
-            disable_dashboard (bool): option to not run the dashboard.
-            output_dir (str): directory path for CSV results.
-        """
         self.parameters = parameters
         self.algorithm = algorithm
         self.stopping_rule = stopping_rule
@@ -318,14 +306,14 @@ class _Runner(object):
 
     Responsibilities:
     
-    -Get rows from database and check if any new observations need to be added to study.
-    -Update active trials, finalize any completed/stopped/failed trials.
-    -Check what trials should be stopped and tell database to send stop signal.
-    -Check if new trials need to be submitted, get parameters and submit as a job.
+    * Get rows from database and check if any new observations need to be added to ``Study``.
+    * Update active trials, finalize any completed/stopped/failed trials.
+    * Check what trials should be stopped and call scheduler ``kill_job`` method.
+    * Check if new trials need to be submitted, get parameters and submit as a job.
 
-    Attributes:
+    Args:
         study (sherpa.core.Study): the study that is run.
-        scheduler (sherpa.schedulers.Scheduler): a scheduler.
+        scheduler (sherpa.schedulers.Scheduler): a scheduler object.
         database (sherpa.database._Database): the database.
         max_concurrent (int): how many trials to run in parallel.
         command (str): the command that runs a trial script e.g. "python train_nn.py".
@@ -576,6 +564,13 @@ def _port_finder(start, end):
 class Parameter(object):
     """
     Defines a hyperparameter with a name, type and associated range.
+
+    Args:
+        name (str): the parameter name.
+        range (list): either ``[low, high]`` or ``[value1, value2, value3]``.
+        scale (str): `linear` or `log`, defines sampling from linear or
+            log-scale. Not defined for all parameter types.
+
     """
     def __init__(self, name, range):
         assert isinstance(name, str), "Parameter-Name needs to be a string."
@@ -592,7 +587,6 @@ class Parameter(object):
             config (dict): parameter config.
 
         Example:
-
         ::
 
             {'name': '<name>',
@@ -628,7 +622,6 @@ class Parameter(object):
             parameter_grid (dict): grid dictionary.
 
         Example:
-
             ::
 
                 {'parameter_a': [aValue1, aValue2, ...],

@@ -15,16 +15,16 @@ alglogger = logging.getLogger(__name__)
 
 class Algorithm(object):
     """
-    Abstract algorithm that returns next parameters conditional on parameter
-    ranges and previous results.
+    Abstract algorithm that generates new set of parameters.
     """
     def get_suggestion(self, parameters, results, lower_is_better):
         """
-        Returns a suggestion for parameter values based on results.
+        Returns a suggestion for parameter values.
 
         Args:
             parameters (list[sherpa.Parameter]): the parameters.
             results (pandas.DataFrame): all results so far.
+            lower_is_better (bool): whether lower objective values are better.
 
         Returns:
             dict: parameter values.
@@ -45,7 +45,8 @@ class RandomSearch(Algorithm):
     """
     Regular Random Search.
 
-    Expects to set a number of trials to yield.
+    Args:
+        max_num_trials (int): number of trials, otherwise runs indefinitely.
     """
     def __init__(self, max_num_trials=None):
         self.max_num_trials = max_num_trials
@@ -61,7 +62,7 @@ class RandomSearch(Algorithm):
 
 class GridSearch(Algorithm):
     """
-    Regular Grid Search. Expects Choice parameters.
+    Regular Grid Search. Expects ``Choice`` or ``Ordinal`` parameters.
     
     Example:
     ::
@@ -78,7 +79,9 @@ class GridSearch(Algorithm):
         self.grid = None
 
     def get_suggestion(self, parameters, results=None, lower_is_better=True):
-        assert all(isinstance(p, Choice) for p in parameters), "Only Choice Parameters can be used with GridSearch"
+        assert (all(isinstance(p, Choice) or isinstance(p, Ordinal)
+                    for p in parameters)),\
+            "Only Choice Parameters can be used with GridSearch"
         if self.count == 0:
             param_dict = {p.name: p.range for p in parameters}
             self.grid = list(sklearn.model_selection.ParameterGrid(param_dict))
@@ -92,7 +95,7 @@ class GridSearch(Algorithm):
 
 class LocalSearch(Algorithm):
     """
-    Local Search by Peter with perturbation modified
+    Local Search by Peter.
     """
     def __init__(self, num_random_seeds=10, seed_configurations=[]):
         # num_random_seeds + len(seed_configurations) needs to be larger than max_concurrent
@@ -158,12 +161,10 @@ class MedianStoppingRule(StoppingRule):
     Median Stopping-Rule similar to Golovin et al.
     "Google Vizier: A Service for Black-Box Optimization".
 
-    For a Trial `t`, the best objective value is found.
-
-    Then the best objective value for every other trial is found.
-
-    Finally, the best-objective for the trial is compared to
-    the median of the best-objectives of all other trials.
+    * For a Trial `t`, the best objective value is found.
+    * Then the best objective value for every other trial is found.
+    * Finally, the best-objective for the trial is compared to the median of
+      the best-objectives of all other trials.
 
     If trial `t`'s best objective is worse than that median, it is
     stopped.
@@ -171,6 +172,12 @@ class MedianStoppingRule(StoppingRule):
     If `t` has not reached the minimum iterations or there are not
     yet the requested number of comparison trials, `t` is not
     stopped. If `t` is all nan's it is stopped by default.
+
+    Args:
+        min_iterations (int): the minimum number of iterations a trial runs for
+            before it is considered for stopping.
+        min_trials (int): the minimum number of comparison trials needed for a
+            trial to be stopped.
     """
     def __init__(self, min_iterations=0, min_trials=1):
         self.min_iterations = min_iterations
@@ -450,6 +457,15 @@ class BayesianOptimization(Algorithm):
 class PopulationBasedTraining(Algorithm):
     """
     Population based training as introduced by Jaderberg et al. 2017.
+
+    Args:
+        population_size (int): the number of randomly intialized trials at the
+            beginning and number of concurrent trials after that.
+        parameter_range (dict[Union[list,tuple]): upper and lower bounds beyond
+            which parameters cannot be perturbed.
+        perturbation_factors (tuple[float]): the factors by which continuous
+            parameters are multiplied upon perturbation; one is sampled randomly
+            at a time.
     """
     def __init__(self, population_size=20, parameter_range={}, perturbation_factors=(0.8, 1.0, 1.2)):
         self.population_size = population_size
