@@ -13,14 +13,14 @@ def define_model(params):
     """
     nin = 784
     nout = 10
-    act = params.get('act', 'tanh')
+    act = params.get('act', 'relu')
     init = 'glorot_normal'
     arch = params.get('arch', [100, 100])
     input = Input(shape=(nin,), dtype='float32', name='input')
     x = input
     for units in arch:
         x = Dense(units, kernel_initializer=init, activation=act)(x)
-    output = Dense(nout, kernel_initializer=init, activation='linear', name='output')(x)
+    output = Dense(nout, kernel_initializer=init, activation='softmax', name='output')(x)
     model = Model(inputs=input, outputs=output)
 
     # Learning Algorithm
@@ -38,7 +38,7 @@ def define_model(params):
 def main(client, trial):
     batch_size = 32
     num_classes = 10
-    epochs = trial.parameters.get('epochs', 10)
+    epochs = trial.parameters.get('epochs', 3)
 
     # the data, shuffled and split between train and test sets
     (x_train, y_train), (x_test, y_test) = mnist.load_data()

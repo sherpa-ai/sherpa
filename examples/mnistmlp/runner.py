@@ -16,7 +16,7 @@ def run_example(FLAGS):
     if FLAGS.algorithm == 'BayesianOptimization':  
         print('Running Bayesian Optimization')
         alg = sherpa.algorithms.BayesianOptimization(num_random_seeds=10,
-                                                  max_num_trials=150, fine_tune=False)
+                                                     max_num_trials=150)
     else:
         print('Running Random Search')
         alg = sherpa.algorithms.RandomSearch(max_num_trials=150)

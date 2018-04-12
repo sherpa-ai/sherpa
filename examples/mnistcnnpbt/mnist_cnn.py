@@ -80,7 +80,7 @@ model.fit(x_train, y_train,
           batch_size=batch_size,
           epochs=epochs,
           verbose=1,
-          callbacks=[client.keras_send_metrics(trial, objective_name='val_loss')],
+          callbacks=[client.keras_send_metrics(trial, objective_name='val_loss', context_names=['val_acc'])],
           validation_data=(x_test, y_test))
 score = model.evaluate(x_test, y_test, verbose=0)
 print('Test loss:', score[0])

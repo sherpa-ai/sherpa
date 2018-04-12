@@ -70,11 +70,12 @@ class LocalScheduler(Scheduler):
     Args:
         submit_options (str): options appended before the command.
     """
-    def __init__(self, submit_options=''):
+    def __init__(self, submit_options='', output_dir=''):
         self.jobs = {}
         self.submit_options = submit_options
         self.decode_status = {0: _JobStatus.finished,
                               -15: _JobStatus.killed}
+        self.output_dir = output_dir
 
     def submit_job(self, command, env={}, job_name=''):
         env.update(os.environ.copy())
