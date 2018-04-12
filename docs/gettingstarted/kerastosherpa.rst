@@ -66,11 +66,8 @@ After:
     client = sherpa.Client()
     trial = client.get_trial()
     model   = define_model(trial.parameters)
-    send_call = lambda epoch, logs: client.send_metrics(trial=trial,
-                                                        iteration=epoch,
-                                                        objective=logs['val_acc'],
-                                                        context={'val_loss': logs['val_loss']})
-    callbacks = [keras.callbacks.LambdaCallback(on_epoch_end=send_call)]
+    callbacks = [client.keras_send_metrics(trial, objective_name='val_loss',
+                 context_names=['val_acc'])]
     model.fit(x_train, y_train, epochs=5, batch_size=32, callbacks=callbacks)
 
 Runner-script

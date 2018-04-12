@@ -14,6 +14,7 @@ from keras import backend as K
 from keras.models import load_model
 import numpy as np
 
+
 ################## Sherpa trial ##################
 import sherpa
 client = sherpa.Client()
@@ -74,20 +75,12 @@ else:
     K.set_value(model.optimizer.momentum, trial.parameters['momentum'])
     assert np.isclose(K.get_value(model.optimizer.momentum), trial.parameters['momentum'])
 
-########### Submit metrics every epoch ###########
-def send_call(epoch, logs):
-    client.send_metrics(trial=trial,
-                        objective=logs['val_loss'],
-                        iteration=epoch)
-    
-callbacks = [keras.callbacks.LambdaCallback(on_epoch_end=send_call)]
-##################################################
 
 model.fit(x_train, y_train,
           batch_size=batch_size,
           epochs=epochs,
           verbose=1,
-          callbacks=callbacks,
+          callbacks=[client.keras_send_metrics(trial, objective_name='val_loss')],
           validation_data=(x_test, y_test))
 score = model.evaluate(x_test, y_test, verbose=0)
 print('Test loss:', score[0])
