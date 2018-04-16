@@ -7,6 +7,7 @@ import scipy.optimize
 import sklearn.gaussian_process
 from .core import Choice, Continuous, Discrete, Ordinal
 import sklearn.model_selection
+import warnings
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -264,6 +265,11 @@ class BayesianOptimization(Algorithm):
     """
     Bayesian optimization using Gaussian Process and Expected Improvement.
 
+    Bayesian optimization is a black-box optimization method that uses a
+    probabilistic model to build a surrogate of the unknown objective function.
+    It chooses points to evaluate using an acquisition function that trades off
+    exploitation (e.g. high mean) and exploration (e.g. high variance).
+
     Args:
         num_random_seeds (int): the number of random starting configurations,
             default to 10.
@@ -273,13 +279,11 @@ class BayesianOptimization(Algorithm):
         acquisition_function (str): currently only ``'ei'`` for expected improvement.
 
     """
-    def __init__(self, num_random_seeds=10, max_num_trials=None,
-                 fine_tune=True, acquisition_function='ei'):
+    def __init__(self, num_random_seeds=10, max_num_trials=None, acquisition_function='ei', fine_tune=True):
         self.num_random_seeds = num_random_seeds
         self.count = 0
         self.seed_configurations = []
         self.num_spray_samples = 10000
-        self.fine_tune = fine_tune
         self.max_num_trials = max_num_trials
         self.random_sampler = RandomSearch()
         self.xtypes = {}
@@ -316,7 +320,10 @@ class BayesianOptimization(Algorithm):
 
         x, y = self._get_input_output_pairs(results, parameters)
         self.best_y = y.min() if lower_is_better else y.max()
-        self.gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=sklearn.gaussian_process.kernels.Matern(nu=2.5))
+        self.gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=sklearn.gaussian_process.kernels.Matern(nu=2.5),
+                                                                    alpha=1e-4,
+                                                                    n_restarts_optimizer=10,
+                                                                    normalize_y=True)
         self.gp.fit(X=x, y=y)
 
         xcand, paramscand = self._generate_candidates(parameters)
@@ -456,7 +463,13 @@ class BayesianOptimization(Algorithm):
 
 class PopulationBasedTraining(Algorithm):
     """
-    Population based training as introduced by Jaderberg et al. 2017.
+    Population based training (PBT) as introduced by Jaderberg et al. 2017.
+
+    PBT trains a generation of ``population_size`` seed trials (randomly initialized) for a user
+    specified number of iterations. After that the same number of trials are
+    sampled from the top 33% of the seed generation. Those trials are perturbed
+    in their hyperparameter configuration and continue training. After that
+    trials are sampled from that generation etc.
 
     Args:
         population_size (int): the number of randomly intialized trials at the
@@ -493,8 +506,8 @@ class PopulationBasedTraining(Algorithm):
             trial['save_to'] = str(self.count)  # TODO: unifiy with Trial-ID
         else:
             candidate = self._get_candidate(parameters=parameters,
-                                           results=results,
-                                           lower_is_better=lower_is_better)
+                                            results=results,
+                                            lower_is_better=lower_is_better)
             trial = self._perturb(candidate=candidate, parameters=parameters)
             trial['load_from'] = str(int(trial['save_to']))
             trial['save_to'] = str(int(self.count))
@@ -525,6 +538,16 @@ class PopulationBasedTraining(Algorithm):
         return trial
 
     def _perturb(self, candidate, parameters):
+        """
+        Randomly perturbs candidate parameters by perturbation factors.
+
+        Args:
+            candidate (dict): candidate parameter configuration.
+            parameters (list[sherpa.core.Parameter]): parameter ranges.
+
+        Returns:
+            dict: perturbed parameter configuration.
+        """
         for param in parameters:
             if isinstance(param, Continuous) or isinstance(param, Discrete):
                 factor = numpy.random.choice(self.perturbation_factors)
@@ -549,12 +572,10 @@ class PopulationBasedTraining(Algorithm):
                 candidate[param.name] = values[newidx]
 
             elif isinstance(param, Choice):
-                continue
+                warnings.warn("Choice parameter is not supported by SHERPA "
+                              "Population Based Training. Skipping parameter.")
 
             else:
                 raise ValueError("Unrecognized Parameter Object.")
 
         return candidate
-
-
-
