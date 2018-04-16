@@ -11,15 +11,12 @@ def run_example(FLAGS):
     """
     parameters = [sherpa.Continuous('lrinit', [0.1, 0.01], 'log'),
                   sherpa.Continuous('momentum', [0., 0.99]),
-                  sherpa.Continuous('lrdecay', [1e-2, 1e-7], 'log'),
-                  sherpa.Choice('act', ['tanh']),
-                  sherpa.Choice('arch', [[100, 100]]),
-                  sherpa.Choice('epochs', [10])]
+                  sherpa.Continuous('lrdecay', [1e-2, 1e-7], 'log')]
     
     if FLAGS.algorithm == 'BayesianOptimization':  
         print('Running Bayesian Optimization')
         alg = sherpa.algorithms.BayesianOptimization(num_random_seeds=10,
-                                                  max_num_trials=150, fine_tune=False)
+                                                     max_num_trials=150)
     else:
         print('Running Random Search')
         alg = sherpa.algorithms.RandomSearch(max_num_trials=150)
@@ -52,7 +49,7 @@ def run_example(FLAGS):
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--local', help='Run locally', action='store_true', default=False)
+    parser.add_argument('--local', help='Run locally', action='store_true', default=True)
     parser.add_argument('--max_concurrent',
                         help='Number of concurrent processes',
                         type=int, default=1)

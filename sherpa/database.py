@@ -152,19 +152,15 @@ class Client(object):
         self.client = MongoClient(host, int(port), **mongo_client_args)
         self.db = self.client.sherpa
 
-    def get_trial(self, id=None):
+    def get_trial(self):
         """
         Returns the next trial from a Sherpa Study.
 
-        Args:
-            client (sherpa.SherpaClient): the client obtained from registering with
-                a study.
-
         Returns:
-            sherpa.Trial: The trial to run.
+            sherpa.core.Trial: The trial to run.
         """
-        assert id or os.environ.get('SHERPA_TRIAL_ID'), "Environment-variable SHERPA_TRIAL_ID not found. Scheduler needs to set this variable in the environment when submitting a job"
-        trial_id = int(id or os.environ.get('SHERPA_TRIAL_ID'))
+        assert os.environ.get('SHERPA_TRIAL_ID'), "Environment-variable SHERPA_TRIAL_ID not found. Scheduler needs to set this variable in the environment when submitting a job"
+        trial_id = int(os.environ.get('SHERPA_TRIAL_ID'))
         for _ in range(5):
             g = (entry for entry in self.db.trials.find({'trial_id': trial_id}))
             t = next(g)
@@ -180,8 +176,7 @@ class Client(object):
         Sends metrics for a trial to database.
 
         Args:
-            client (sherpa.SherpaClient): client to the database.
-            trial (sherpa.Trial): trial to send metrics for.
+            trial (sherpa.core.Trial): trial to send metrics for.
             iteration (int): the iteration e.g. epoch the metrics are for.
             objective (float): the objective value.
             context (dict): other metric-values.
@@ -196,3 +191,21 @@ class Client(object):
         for entry in self.db.stop.find():
             if entry.get('trial_id') == trial.id:
                 raise StopIteration("Trial listed for stopping.")
+
+    def keras_send_metrics(self, trial, objective_name, context_names=[]):
+        """
+        Keras Callbacks to send metrics to SHERPA.
+
+        Args:
+            trial (sherpa.core.Trial): trial to send metrics for.
+            objective_name (str): the name of the objective e.g. ``loss``,
+                ``val_loss``, or any of the submitted metrics.
+            context_names (list[str]): names of all other metrics to be
+                monitored.
+        """
+        import keras.callbacks
+        send_call = lambda epoch, logs: self.send_metrics(trial=trial,
+                                                          iteration=epoch,
+                                                          objective=logs[objective_name],
+                                                          context={n: logs[n] for n in context_names})
+        return keras.callbacks.LambdaCallback(on_epoch_end=send_call)

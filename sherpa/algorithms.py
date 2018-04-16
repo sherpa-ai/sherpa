@@ -7,6 +7,7 @@ import scipy.optimize
 import sklearn.gaussian_process
 from .core import Choice, Continuous, Discrete, Ordinal
 import sklearn.model_selection
+import warnings
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -15,16 +16,16 @@ alglogger = logging.getLogger(__name__)
 
 class Algorithm(object):
     """
-    Abstract algorithm that returns next parameters conditional on parameter
-    ranges and previous results.
+    Abstract algorithm that generates new set of parameters.
     """
     def get_suggestion(self, parameters, results, lower_is_better):
         """
-        Returns a suggestion for parameter values based on results.
+        Returns a suggestion for parameter values.
 
         Args:
             parameters (list[sherpa.Parameter]): the parameters.
             results (pandas.DataFrame): all results so far.
+            lower_is_better (bool): whether lower objective values are better.
 
         Returns:
             dict: parameter values.
@@ -45,7 +46,8 @@ class RandomSearch(Algorithm):
     """
     Regular Random Search.
 
-    Expects to set a number of trials to yield.
+    Args:
+        max_num_trials (int): number of trials, otherwise runs indefinitely.
     """
     def __init__(self, max_num_trials=None):
         self.max_num_trials = max_num_trials
@@ -61,7 +63,7 @@ class RandomSearch(Algorithm):
 
 class GridSearch(Algorithm):
     """
-    Regular Grid Search. Expects Choice parameters.
+    Regular Grid Search. Expects ``Choice`` or ``Ordinal`` parameters.
     
     Example:
     ::
@@ -78,7 +80,9 @@ class GridSearch(Algorithm):
         self.grid = None
 
     def get_suggestion(self, parameters, results=None, lower_is_better=True):
-        assert all(isinstance(p, Choice) for p in parameters), "Only Choice Parameters can be used with GridSearch"
+        assert (all(isinstance(p, Choice) or isinstance(p, Ordinal)
+                    for p in parameters)),\
+            "Only Choice Parameters can be used with GridSearch"
         if self.count == 0:
             param_dict = {p.name: p.range for p in parameters}
             self.grid = list(sklearn.model_selection.ParameterGrid(param_dict))
@@ -92,7 +96,7 @@ class GridSearch(Algorithm):
 
 class LocalSearch(Algorithm):
     """
-    Local Search by Peter with perturbation modified
+    Local Search by Peter.
     """
     def __init__(self, num_random_seeds=10, seed_configurations=[]):
         # num_random_seeds + len(seed_configurations) needs to be larger than max_concurrent
@@ -158,12 +162,10 @@ class MedianStoppingRule(StoppingRule):
     Median Stopping-Rule similar to Golovin et al.
     "Google Vizier: A Service for Black-Box Optimization".
 
-    For a Trial `t`, the best objective value is found.
-
-    Then the best objective value for every other trial is found.
-
-    Finally, the best-objective for the trial is compared to
-    the median of the best-objectives of all other trials.
+    * For a Trial `t`, the best objective value is found.
+    * Then the best objective value for every other trial is found.
+    * Finally, the best-objective for the trial is compared to the median of
+      the best-objectives of all other trials.
 
     If trial `t`'s best objective is worse than that median, it is
     stopped.
@@ -171,6 +173,12 @@ class MedianStoppingRule(StoppingRule):
     If `t` has not reached the minimum iterations or there are not
     yet the requested number of comparison trials, `t` is not
     stopped. If `t` is all nan's it is stopped by default.
+
+    Args:
+        min_iterations (int): the minimum number of iterations a trial runs for
+            before it is considered for stopping.
+        min_trials (int): the minimum number of comparison trials needed for a
+            trial to be stopped.
     """
     def __init__(self, min_iterations=0, min_trials=1):
         self.min_iterations = min_iterations
@@ -257,6 +265,11 @@ class BayesianOptimization(Algorithm):
     """
     Bayesian optimization using Gaussian Process and Expected Improvement.
 
+    Bayesian optimization is a black-box optimization method that uses a
+    probabilistic model to build a surrogate of the unknown objective function.
+    It chooses points to evaluate using an acquisition function that trades off
+    exploitation (e.g. high mean) and exploration (e.g. high variance).
+
     Args:
         num_random_seeds (int): the number of random starting configurations,
             default to 10.
@@ -266,13 +279,11 @@ class BayesianOptimization(Algorithm):
         acquisition_function (str): currently only ``'ei'`` for expected improvement.
 
     """
-    def __init__(self, num_random_seeds=10, max_num_trials=None,
-                 fine_tune=True, acquisition_function='ei'):
+    def __init__(self, num_random_seeds=10, max_num_trials=None, acquisition_function='ei', fine_tune=True):
         self.num_random_seeds = num_random_seeds
         self.count = 0
         self.seed_configurations = []
         self.num_spray_samples = 10000
-        self.fine_tune = fine_tune
         self.max_num_trials = max_num_trials
         self.random_sampler = RandomSearch()
         self.xtypes = {}
@@ -309,7 +320,10 @@ class BayesianOptimization(Algorithm):
 
         x, y = self._get_input_output_pairs(results, parameters)
         self.best_y = y.min() if lower_is_better else y.max()
-        self.gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=sklearn.gaussian_process.kernels.Matern(nu=2.5))
+        self.gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=sklearn.gaussian_process.kernels.Matern(nu=2.5),
+                                                                    alpha=1e-4,
+                                                                    n_restarts_optimizer=10,
+                                                                    normalize_y=True)
         self.gp.fit(X=x, y=y)
 
         xcand, paramscand = self._generate_candidates(parameters)
@@ -449,7 +463,22 @@ class BayesianOptimization(Algorithm):
 
 class PopulationBasedTraining(Algorithm):
     """
-    Population based training as introduced by Jaderberg et al. 2017.
+    Population based training (PBT) as introduced by Jaderberg et al. 2017.
+
+    PBT trains a generation of ``population_size`` seed trials (randomly initialized) for a user
+    specified number of iterations. After that the same number of trials are
+    sampled from the top 33% of the seed generation. Those trials are perturbed
+    in their hyperparameter configuration and continue training. After that
+    trials are sampled from that generation etc.
+
+    Args:
+        population_size (int): the number of randomly intialized trials at the
+            beginning and number of concurrent trials after that.
+        parameter_range (dict[Union[list,tuple]): upper and lower bounds beyond
+            which parameters cannot be perturbed.
+        perturbation_factors (tuple[float]): the factors by which continuous
+            parameters are multiplied upon perturbation; one is sampled randomly
+            at a time.
     """
     def __init__(self, population_size=20, parameter_range={}, perturbation_factors=(0.8, 1.0, 1.2)):
         self.population_size = population_size
@@ -477,8 +506,8 @@ class PopulationBasedTraining(Algorithm):
             trial['save_to'] = str(self.count)  # TODO: unifiy with Trial-ID
         else:
             candidate = self._get_candidate(parameters=parameters,
-                                           results=results,
-                                           lower_is_better=lower_is_better)
+                                            results=results,
+                                            lower_is_better=lower_is_better)
             trial = self._perturb(candidate=candidate, parameters=parameters)
             trial['load_from'] = str(int(trial['save_to']))
             trial['save_to'] = str(int(self.count))
@@ -509,6 +538,16 @@ class PopulationBasedTraining(Algorithm):
         return trial
 
     def _perturb(self, candidate, parameters):
+        """
+        Randomly perturbs candidate parameters by perturbation factors.
+
+        Args:
+            candidate (dict): candidate parameter configuration.
+            parameters (list[sherpa.core.Parameter]): parameter ranges.
+
+        Returns:
+            dict: perturbed parameter configuration.
+        """
         for param in parameters:
             if isinstance(param, Continuous) or isinstance(param, Discrete):
                 factor = numpy.random.choice(self.perturbation_factors)
@@ -521,26 +560,22 @@ class PopulationBasedTraining(Algorithm):
                 if isinstance(param, Discrete):
                     candidate[param.name] = int(candidate[param.name])
 
-                candidate[param.name] = max(
-                    [candidate[param.name], min(self.parameter_range.get(param.name) or param.range)])
-                candidate[param.name] = min(
-                    [candidate[param.name], max(self.parameter_range.get(param.name) or param.range)])
+                candidate[param.name] = numpy.clip(candidate[param.name],
+                                                   min(self.parameter_range.get(param.name) or param.range),
+                                                   max(self.parameter_range.get(param.name) or param.range))
 
             elif isinstance(param, Ordinal):
                 shift = numpy.random.choice([-1, 0, +1])
                 values = self.parameter_range.get(param.name) or param.range
                 newidx = values.index(candidate[param.name]) + shift
-                newidx = min([newidx, len(values)-1])
-                newidx = max([newidx, 0])
+                newidx = numpy.clip(newidx, 0, len(values)-1)
                 candidate[param.name] = values[newidx]
 
             elif isinstance(param, Choice):
-                continue
+                warnings.warn("Choice parameter is not supported by SHERPA "
+                              "Population Based Training. Skipping parameter.")
 
             else:
                 raise ValueError("Unrecognized Parameter Object.")
 
         return candidate
-
-
-

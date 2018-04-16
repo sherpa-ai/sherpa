@@ -100,7 +100,7 @@ def test_grid_search():
 
 
 def test_gp_ei_seeds():
-    alg = sherpa.algorithms.GaussianProcessEI()
+    alg = sherpa.algorithms.BayesianOptimization()
 
     parameters = sherpa.Parameter.grid({'a': [1, 2],
                                         'b': ['a', 'b']})
@@ -114,13 +114,14 @@ def test_gp_ei_seeds():
 
     assert len(left) == 0
 
+
 def test_gp_ei():
     parameters = [sherpa.Choice(name="param_a",
                                 range=[1, 2, 3]),
                   sherpa.Continuous(name="param_b",
                                     range=[0, 1])]
 
-    algorithm = sherpa.algorithms.GaussianProcessEI(num_random_seeds=10)
+    algorithm = sherpa.algorithms.BayesianOptimization(num_random_seeds=10)
 
     study = sherpa.Study(parameters=parameters,
                          algorithm=algorithm,
