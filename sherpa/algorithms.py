@@ -291,6 +291,7 @@ class BayesianOptimization(Algorithm):
         self.best_y = None
         self.epsilon = 0.00001
         self.lower_is_better = None
+        self.fine_tune = fine_tune
         self.gp = None
         assert acquisition_function in ['ei'], (str(acquisition_function) +
                                                 " is currently not implemented "
@@ -303,7 +304,7 @@ class BayesianOptimization(Algorithm):
     def get_suggestion(self, parameters, results=None,
                        lower_is_better=True):
         self.count += 1
-        if self.max_num_trials and self.max_num_trials == self.count:
+        if self.max_num_trials and self.max_num_trials >= self.count:
             return None
 
         self.lower_is_better = lower_is_better
