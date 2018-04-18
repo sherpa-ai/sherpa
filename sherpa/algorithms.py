@@ -1,4 +1,5 @@
 import os
+import random
 import numpy
 import logging
 import pandas
@@ -96,47 +97,93 @@ class GridSearch(Algorithm):
 
 class LocalSearch(Algorithm):
     """
-    Local Search by Peter.
+    Local Search Algorithm by Peter.
+
+    This algorithm expects to start with a very good hyperparameter
+    configuration. It changes one hyperparameter at a time to see if better
+    results can be obtained.
+
+    Args:
+        seed_configuration (dict): hyperparameter configuration to start with.
+        perturbation_factors (Union[tuple,list]): continuous parameters will be
+            multiplied by these.
     """
-    def __init__(self, num_random_seeds=10, seed_configurations=[]):
-        # num_random_seeds + len(seed_configurations) needs to be larger than max_concurrent
-        self.num_random_seeds = num_random_seeds
-        self.seed_configurations = seed_configurations
+    def __init__(self, seed_configuration, perturbation_factors=(0.8, 1.2)):
+        self.seed_configuration = seed_configuration
         self.count = 0
-        self.random_sampler = RandomSearch(self.num_random_seeds)
+        self.submitted = []
+        self.perturbation_factors = perturbation_factors
 
     def get_suggestion(self, parameters, results, lower_is_better):
-        self.count += 1
-        if self.count <= len(self.seed_configurations) + self.num_random_seeds:
-            if len(self.seed_configurations) >= self.count:
-                return self.seed_configurations[self.count-1]
-            else:
-                return self.random_sampler.get_suggestion(parameters, results,
-                                                          lower_is_better)
+        assert all((isinstance(p, Continuous) or isinstance(p, Ordinal)
+                    or isinstance(p, Discrete)) for p in parameters),\
+                    "Only Continuous, Discrete, and Ordinal parameters are " \
+                    "allowed for the HillClimb algorithm."
 
-        # Get best result so far
-        try:
-            best_idx = (results.loc[:, 'Objective'].argmin() if lower_is_better
-                        else results.loc[:, 'Objective'].argmax())
-        except ValueError:
-            return self.random_sampler.get_suggestion(parameters,
-                                                      results, lower_is_better)
+        self.count += 1
+        if self.count == 1:
+            return self.seed_configuration
 
         parameter_names = [p.name for p in parameters]
-        best_params = results.loc[best_idx,
-                                  parameter_names].to_dict()
-        new_params = best_params
-        # randomly choose one of the parameters and perturb it
-        # while parameter in existing results
-        # choose one dimension randomly and resample it
-        alglogger.debug(new_params)
-        while results.loc[:, parameter_names].isin({key: [value] for key, value in new_params.items()}).apply(all, axis=1).any():
-            new_params = best_params.copy()
-            p = numpy.random.choice(list(parameters))
-            new_params[p.name] = p.sample()
-            alglogger.debug(new_params)
 
-        return new_params
+        # Get best result so far
+        if len(results) > 0:
+            best_idx = (results.loc[:, 'Objective'].argmin() if lower_is_better
+                        else results.loc[:, 'Objective'].argmax())
+            self.seed_configuration = results.loc[best_idx,
+                                                  parameter_names].to_dict()
+
+        # Randomly sample perturbations and return first that hasn't been tried
+        for pname in random.sample(parameter_names, len(parameter_names)):
+            for incr in random.sample([True, False], 2):
+                new_params = self._perturb(parameters=parameters,
+                                           candidate=self.seed_configuration.copy(),
+                                           param_name=pname,
+                                           increase=incr)
+                if new_params not in self.submitted:
+                    self.submitted.append(new_params)
+                    alglogger.debug(new_params)
+                    return new_params
+        else:
+            alglogger.debug("All local perturbations have been exhausted and "
+                            "no better local optimum was found.")
+            return None
+
+    def _perturb(self, parameters, candidate, param_name, increase):
+        """
+        Randomly choose one parameter and perturb it.
+
+        For Ordinal this is increased/decreased, for continuous/discrete this is
+        times 0.8/1.2.
+
+        Args:
+            parameters (list[sherpa.core.Parameter]): parameter ranges.
+            configuration (dict): a parameter configuration to be perturbed.
+            param_name (str): the name of the parameter to perturb.
+            increase (bool): whether to increase or decrease the parameter.
+
+        Returns:
+            dict: perturbed configuration
+        """
+        for param in parameters:
+            if param.name == param_name:
+                if isinstance(param, Ordinal):
+                    shift = +1 if increase else -1
+                    values = param.range
+                    newidx = values.index(candidate[param.name]) + shift
+                    newidx = numpy.clip(newidx, 0, len(values) - 1)
+                    candidate[param.name] = values[newidx]
+
+                else:
+                    factor = self.perturbation_factors[1 if increase else 0]
+                    candidate[param.name] *= factor
+
+                    if isinstance(param, Discrete):
+                        candidate[param.name] = int(candidate[param.name])
+
+                    candidate[param.name] = numpy.clip(candidate[param.name],
+                                                       min(param.range),
+                                                       max(param.range))
 
 
 class StoppingRule(object):
