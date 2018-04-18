@@ -416,7 +416,7 @@ class _Runner(object):
                 continue
             if self.study.should_trial_stop(self._all_trials[tid].get('trial')):
                 logger.info("Stopping Trial {}".format(tid))
-                self.scheduler.kill_job(self.all_trials[tid].get('job_id'))
+                self.scheduler.kill_job(self._all_trials[tid].get('job_id'))
                 # self.database.add_for_stopping(tid)
                 self._queued_for_stopping.add(tid)
 
