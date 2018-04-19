@@ -108,21 +108,31 @@ class LocalSearch(Algorithm):
         perturbation_factors (Union[tuple,list]): continuous parameters will be
             multiplied by these.
     """
-    def __init__(self, seed_configuration, perturbation_factors=(0.8, 1.2)):
+    def __init__(self, seed_configuration, perturbation_factors=(0.8, 1.2), repeat_trials=1):
         self.seed_configuration = seed_configuration
         self.count = 0
         self.submitted = []
         self.perturbation_factors = perturbation_factors
-
+        self.next_trial = []
+        self.repeat_trials = repeat_trials
+        
     def get_suggestion(self, parameters, results, lower_is_better):
         assert all((isinstance(p, Continuous) or isinstance(p, Ordinal)
                     or isinstance(p, Discrete)) for p in parameters),\
                     "Only Continuous, Discrete, and Ordinal parameters are " \
                     "allowed for the HillClimb algorithm."
+                
+        if self.next_trial == []:
+            self.next_trial = self.get_next_trials(parameters, results, lower_is_better)
+
+        return self.next_trial.pop()
+
+    def get_next_trials(self, parameters, results, lower_is_better):
 
         self.count += 1
         if self.count == 1:
-            return self.seed_configuration
+            self.submitted.append(self.seed_configuration)
+            return [self.seed_configuration] * self.repeat_trials
 
         parameter_names = [p.name for p in parameters]
 
@@ -140,14 +150,15 @@ class LocalSearch(Algorithm):
                                            candidate=self.seed_configuration.copy(),
                                            param_name=pname,
                                            increase=incr)
+                alglogger.debug("New Parameters: ", new_params)
                 if new_params not in self.submitted:
                     self.submitted.append(new_params)
                     alglogger.debug(new_params)
-                    return new_params
+                    return [new_params] * self.repeat_trials
         else:
             alglogger.debug("All local perturbations have been exhausted and "
                             "no better local optimum was found.")
-            return None
+            return [None] * self.repeat_trials
 
     def _perturb(self, parameters, candidate, param_name, increase):
         """
@@ -184,6 +195,7 @@ class LocalSearch(Algorithm):
                     candidate[param.name] = numpy.clip(candidate[param.name],
                                                        min(param.range),
                                                        max(param.range))
+        return candidate
 
 
 class StoppingRule(object):
@@ -507,6 +519,10 @@ class BayesianOptimization(Algorithm):
                                              value=10**candidate[col])
 
         return paramscand.iloc[best_idx].to_dict()
+    
+    def load(self, count):
+        self.count = count
+        
 
 
 class PopulationBasedTraining(Algorithm):
