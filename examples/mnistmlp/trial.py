@@ -1,8 +1,10 @@
 from __future__ import print_function
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = ''
 import sherpa
 import keras
 from keras.models import Model
-from keras.layers import Dense, Input
+from keras.layers import Dense, Input, Dropout
 from keras.optimizers import SGD
 from keras.datasets import mnist
 
@@ -16,10 +18,13 @@ def define_model(params):
     act = params.get('act', 'relu')
     init = 'glorot_normal'
     arch = params.get('arch', [100, 100])
+    dropout = params.get('dropout')
     input = Input(shape=(nin,), dtype='float32', name='input')
     x = input
     for units in arch:
         x = Dense(units, kernel_initializer=init, activation=act)(x)
+        if dropout:
+            x = Dropout(dropout)(x)
     output = Dense(nout, kernel_initializer=init, activation='softmax', name='output')(x)
     model = Model(inputs=input, outputs=output)
 
@@ -38,7 +43,7 @@ def define_model(params):
 def main(client, trial):
     batch_size = 32
     num_classes = 10
-    epochs = trial.parameters.get('epochs', 3)
+    epochs = trial.parameters.get('epochs', 15)
 
     # the data, shuffled and split between train and test sets
     (x_train, y_train), (x_test, y_test) = mnist.load_data()

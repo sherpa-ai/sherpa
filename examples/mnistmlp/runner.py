@@ -9,9 +9,10 @@ def run_example(FLAGS):
     """
     Run parallel Sherpa optimization over a set of discrete hp combinations.
     """
-    parameters = [sherpa.Continuous('lrinit', [0.1, 0.01], 'log'),
+    parameters = [sherpa.Continuous('lrinit', [0.1, 0.001], 'log'),
                   sherpa.Continuous('momentum', [0., 0.99]),
-                  sherpa.Continuous('lrdecay', [1e-2, 1e-7], 'log')]
+                  sherpa.Continuous('lrdecay', [1e-2, 1e-7], 'log'),
+                  sherpa.Continuous('dropout', [0., 0.5])]
     
     if FLAGS.algorithm == 'BayesianOptimization':  
         print('Running Bayesian Optimization')
@@ -19,9 +20,11 @@ def run_example(FLAGS):
                                                      max_num_trials=150)
     elif FLAGS.algorithm == 'LocalSearch':
         print('Running Local Search')
-        alg = sherpa.algorithms.LocalSearch(seed_configuration={'lrinit': 0.02,
-                                                                'momentum': 0.9,
-                                                                'lrdecay': 1e-5})
+        alg = sherpa.algorithms.LocalSearch(seed_configuration={'lrinit': 0.038,
+                                                                'momentum': 0.92,
+                                                                'lrdecay': 0.0001,
+                                                                'dropout': 0.},
+                                            perturbation_factors=(0.9, 1.1))
     else:
         print('Running Random Search')
         alg = sherpa.algorithms.RandomSearch(max_num_trials=150)
@@ -30,7 +33,7 @@ def run_example(FLAGS):
     f = './trial.py' # Python script to run.
     dir = './output_' + FLAGS.studyname + '_' + str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
 
-    if not FLAGS.local:
+    if FLAGS.sge:
         # Submit to SGE queue.
         env = FLAGS.env  # Script specifying environment variables.
         opt = '-N MNISTExample -P {} -q {} -l {}'.format(FLAGS.P, FLAGS.q, FLAGS.l)
@@ -43,7 +46,7 @@ def run_example(FLAGS):
                            algorithm=alg,
                            stopping_rule=stopping_rule,
                            output_dir=dir,
-                           lower_is_better=False,
+                           lower_is_better=True,
                            filename=f,
                            scheduler=sched,
                            max_concurrent=FLAGS.max_concurrent)
@@ -54,7 +57,7 @@ def run_example(FLAGS):
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--local', help='Run locally', action='store_true', default=True)
+    parser.add_argument('--sge', help='Run on SGE', action='store_true', default=False)
     parser.add_argument('--max_concurrent',
                         help='Number of concurrent processes',
                         type=int, default=1)
