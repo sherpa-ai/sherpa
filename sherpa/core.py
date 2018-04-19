@@ -279,6 +279,8 @@ class Study(object):
         self.results = pandas.read_csv(results_path)
         self.num_trials = self.results['Trial-ID'].max()
         self.algorithm.load(self.num_trials)
+        if self.dashboard_process:
+            self._results_channel.df = self.results
 
     def __iter__(self):
         """
