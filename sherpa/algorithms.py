@@ -500,10 +500,9 @@ class BayesianOptimization(Algorithm):
                 best_idx = idx
                 for col in range(len(candidate)):
                     if self.xtypes[col] == 'continuous' and self.xscales[col] == 'linear':
-                        paramscand.set_value(index=idx, col=self.xnames[col], value=candidate[col])
+                        paramscand.at[idx, self.xnames[col]] = candidate[col]
                     elif self.xtypes[col] == 'continuous' and self.xscales[col] == 'log':
-                        paramscand.set_value(index=idx, col=self.xnames[col],
-                                             value=10**candidate[col])
+                        paramscand.at[idx, self.xnames[col]] = 10**candidate[col]
 
         return paramscand.iloc[best_idx].to_dict()
 
