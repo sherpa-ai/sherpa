@@ -108,7 +108,7 @@ class LocalSearch(Algorithm):
         perturbation_factors (Union[tuple,list]): continuous parameters will be
             multiplied by these.
     """
-    def __init__(self, seed_configuration, perturbation_factors=(0.8, 1.2)):
+    def __init__(self, seed_configuration, perturbation_factors=(0.9, 1.1)):
         self.seed_configuration = seed_configuration
         self.count = 0
         self.submitted = []
@@ -118,7 +118,7 @@ class LocalSearch(Algorithm):
         assert all((isinstance(p, Continuous) or isinstance(p, Ordinal)
                     or isinstance(p, Discrete)) for p in parameters),\
                     "Only Continuous, Discrete, and Ordinal parameters are " \
-                    "allowed for the HillClimb algorithm."
+                    "allowed for the LocalSearch algorithm."
 
         self.count += 1
         if self.count == 1:
