@@ -17,6 +17,11 @@ def run_example(FLAGS):
         print('Running Bayesian Optimization')
         alg = sherpa.algorithms.BayesianOptimization(num_random_seeds=10,
                                                      max_num_trials=150)
+    elif FLAGS.algorithm == 'LocalSearch':
+        print('Running Local Search')
+        alg = sherpa.algorithms.LocalSearch(seed_configuration={'lrinit': 0.02,
+                                                                'momentum': 0.9,
+                                                                'lrdecay': 1e-5})
     else:
         print('Running Random Search')
         alg = sherpa.algorithms.RandomSearch(max_num_trials=150)
