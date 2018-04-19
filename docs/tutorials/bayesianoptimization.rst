@@ -1,3 +1,5 @@
+.. _bayesian-optimization:
+
 Bayesian Optimization
 =====================
 
@@ -71,7 +73,14 @@ in which we want to minimize the loss, then we run the optimization as
                     lower_is_better=True,
                     filename='trial_script.py')
 
-A full example for MNIST can be found in ``examples/mnist/`` from the SHERPA root.
+A full example for MNIST can be found in ``examples/mnistmlp/`` from the SHERPA
+root. Below are the results for one run of this:
+
+.. figure:: bayesopt-dashboard.jpg
+   :alt: Dashboard after running Bayesian Optimization
+
+The :ref:`LocalSearch tutorial <local-search>` will build on this result and
+show how this can be refined and validated.
 
 
     Snoek, Jasper, Hugo Larochelle, and Ryan P. Adams. “Practical
