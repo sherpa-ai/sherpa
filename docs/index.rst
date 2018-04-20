@@ -26,6 +26,7 @@
    tutorials/localsearch
    tutorials/pbt
    tutorials/apimode
+   tutorials/sge
 
 .. toctree::
    :caption: API

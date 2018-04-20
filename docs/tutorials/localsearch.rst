@@ -19,6 +19,15 @@ Perturbations are applied as multiplication by a factor in the case of
 case of ``Ordinal`` variables, the parameter is shifted one up or down in the
 provided values. ``Choice`` variables are not allowed.
 
+Due to the fact that the Local Search algorithm is meant to fine-tune a
+hyperparameter configuration, it also has an option to repeat trials. The
+``repeat_trials`` argument takes an integer that indicates how often a specific
+hyperparameter configuration should be repeated. Since performance differences
+caused by local changes may be small, this can help to establish significance.
+
+.. autoclass:: sherpa.algorithms.LocalSearch
+  :noindex:
+
 Example
 -------
 
@@ -36,6 +45,17 @@ rounded to two digits. We use this as ``seed_configuration`` in the Local Search
 We set the ``perturbation_factors`` as ``(0.9, 1.1)``. The algorithm will
 multiply one parameter by `0.9` or `1.1` at a time and see if these local
 changes can improve performance. If all changes have been tried and none improves
-on the seed configuration the algorithm stops.
+on the seed configuration the algorithm stops. The example can be run as
 
-From the dashboard we can find the best results as:
+::
+
+    cd sherpa/examples/mnistmlp/
+    python runner.py --algorithm LocalSearch
+
+After running, we can inspect the results in the dashboard:
+
+.. figure:: localsearch-dashboard.jpg
+   :alt: Local Search Dashboard
+
+We find that fluctuations in performance due to random initialization are
+larger than small changes to the hyperparameters.

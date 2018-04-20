@@ -8,7 +8,7 @@ Trial-script
 ------------
 
 The trial-script trains your machine learning model with a given
-parameter-configuration and sends metrics to SHERPA. To get a trial:
+parameter-configuration and sends metrics to SHERPA. To get a trial, use the ``Client``:
 
 ::
 
@@ -17,6 +17,8 @@ parameter-configuration and sends metrics to SHERPA. To get a trial:
     client = sherpa.Client()
     trial = client.get_trial()
 
+The client will connect to the MongoDB instance created by the Runner-script (more below).
+From that it obtains a hyperparameter configuration i.e. a trial.
 The trial contains the parameter configuration for your training:
 
 ::
@@ -27,17 +29,17 @@ The trial contains the parameter configuration for your training:
         pseudo_objective = trial.parameters['param_a'] / float(i + 1) * trial.parameters['param_b']
         client.send_metrics(trial=trial, iteration=i+1,
                             objective=pseudo_objective)
-        # print("Trial {} Iteration {}.".format(trial.id, i+1))
-    # print("Trial {} finished.".format(trial.id))
 
 During training ``send_metrics`` is used every iteration to return
-objective values to SHERPA
+objective values to SHERPA i.e. send them to the MongoDB instance. When using
+Keras the client also has a callback ``Client.keras_send_metrics`` that can be
+used directly.
 
 Runner-script
 -------------
 
 The runner-script defines the optimization and runs SHERPA. Parameters
-are defined as a list:
+are defined as a list of Parameter-objects:
 
 ::
 
