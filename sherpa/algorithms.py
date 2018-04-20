@@ -107,6 +107,8 @@ class LocalSearch(Algorithm):
         seed_configuration (dict): hyperparameter configuration to start with.
         perturbation_factors (Union[tuple,list]): continuous parameters will be
             multiplied by these.
+        repeat_trials (int): number of times that identical configurations are
+            repeated to test for random fluctuations.
     """
     def __init__(self, seed_configuration, perturbation_factors=(0.9, 1.1), repeat_trials=1):
         self.seed_configuration = seed_configuration
@@ -121,7 +123,7 @@ class LocalSearch(Algorithm):
                     or isinstance(p, Discrete)) for p in parameters),\
                     "Only Continuous, Discrete, and Ordinal parameters are " \
                     "allowed for the LocalSearch algorithm."
-                
+
         if not self.next_trial:
             self.next_trial = self.get_next_trials(parameters, results,
                                                    lower_is_better)
@@ -139,8 +141,8 @@ class LocalSearch(Algorithm):
 
         # Get best result so far
         if len(results) > 0:
-            best_idx = (results.loc[:, 'Objective'].argmin() if lower_is_better
-                        else results.loc[:, 'Objective'].argmax())
+            best_idx = (results.loc[:, 'Objective'].idxmin() if lower_is_better
+                        else results.loc[:, 'Objective'].idxmax())
             self.seed_configuration = results.loc[best_idx,
                                                   parameter_names].to_dict()
 
@@ -335,11 +337,10 @@ class BayesianOptimization(Algorithm):
             default to 10.
         max_num_trials (int): the number of trials after which the algorithm will
             stop. Defaults to ``None`` i.e. runs forever.
-        fine_tune (bool): whether to numerically optimize candidates.
         acquisition_function (str): currently only ``'ei'`` for expected improvement.
 
     """
-    def __init__(self, num_random_seeds=10, max_num_trials=None, acquisition_function='ei', fine_tune=True):
+    def __init__(self, num_random_seeds=10, max_num_trials=None, acquisition_function='ei'):
         self.num_random_seeds = num_random_seeds
         self.count = 0
         self.seed_configurations = []
@@ -351,7 +352,6 @@ class BayesianOptimization(Algorithm):
         self.best_y = None
         self.epsilon = 0.00001
         self.lower_is_better = None
-        self.fine_tune = fine_tune
         self.gp = None
         assert acquisition_function in ['ei'], (str(acquisition_function) +
                                                 " is currently not implemented "
@@ -392,10 +392,7 @@ class BayesianOptimization(Algorithm):
 
         u = self._get_acquisition_function_value(ycand, ycand_std)
 
-        if self.fine_tune:
-            return self._fine_tune_candidates(xcand, paramscand, u)
-        else:
-            return paramscand.iloc[numpy.argmax(u)].to_dict()
+        return self._fine_tune_candidates(xcand, paramscand, u)
 
     def _generate_seeds(self, parameters):
         choice_grid_search = GridSearch()
