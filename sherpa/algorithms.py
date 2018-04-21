@@ -65,6 +65,11 @@ class RandomSearch(Algorithm):
 class GridSearch(Algorithm):
     """
     Regular Grid Search. Expects ``Choice`` or ``Ordinal`` parameters.
+
+    For continuous and discrete parameters grid points are picked within the
+    range. For example, a continuous parameter with range [1, 2] with two grid
+    points would have points 1 1/3 and 1 2/3. For three points, 1 1/4, 1 1/2,
+    and 1 3/4.
     
     Example:
     ::
@@ -75,17 +80,18 @@ class GridSearch(Algorithm):
         parameters = sherpa.Parameter.grid(hp_space)
         alg = sherpa.algorithms.GridSearch()
 
+    Args:
+        num_grid_points (int): number of grid points for continuous / discrete.
+
     """
-    def __init__(self):
+    def __init__(self, num_grid_points=2):
         self.count = 0
         self.grid = None
+        self.num_grid_points = num_grid_points
 
     def get_suggestion(self, parameters, results=None, lower_is_better=True):
-        assert (all(isinstance(p, Choice) or isinstance(p, Ordinal)
-                    for p in parameters)),\
-            "Only Choice Parameters can be used with GridSearch"
         if self.count == 0:
-            param_dict = {p.name: p.range for p in parameters}
+            param_dict = self._get_param_dict(parameters)
             self.grid = list(sklearn.model_selection.ParameterGrid(param_dict))
         if self.count == len(self.grid):
             return None
@@ -93,6 +99,32 @@ class GridSearch(Algorithm):
             params = self.grid[self.count]
             self.count += 1
             return params
+
+    def _get_param_dict(self, parameters):
+        param_dict = {}
+        for p in parameters:
+            if isinstance(p, Continuous) or isinstance(p, Discrete):
+                values = []
+                for i in range(self.num_grid_points):
+                    if p.scale == 'log':
+                        v = numpy.log10(p.range[1]) - numpy.log10(p.range[0])
+                        v *= (i + 1) / (self.num_grid_points + 1)
+                        v += numpy.log10(p.range[0])
+                        v = 10**v
+                        if isinstance(p, Discrete):
+                            v = int(v)
+                        values.append(v)
+                    else:
+                        v = p.range[1]-p.range[0]
+                        v *= (i + 1)/(self.num_grid_points + 1)
+                        v += p.range[0]
+                        if isinstance(p, Discrete):
+                            v = int(v)
+                        values.append(v)
+            else:
+                values = p.range
+            param_dict[p.name] = values
+        return param_dict
 
 
 class LocalSearch(Algorithm):
@@ -333,15 +365,15 @@ class BayesianOptimization(Algorithm):
     exploitation (e.g. high mean) and exploration (e.g. high variance).
 
     Args:
-        num_random_seeds (int): the number of random starting configurations,
-            default to 10.
+        num_grid_points (int): the number of grid points for continuous/discrete
+            parameters. These will be evaluated first.
         max_num_trials (int): the number of trials after which the algorithm will
             stop. Defaults to ``None`` i.e. runs forever.
         acquisition_function (str): currently only ``'ei'`` for expected improvement.
 
     """
-    def __init__(self, num_random_seeds=10, max_num_trials=None, acquisition_function='ei'):
-        self.num_random_seeds = num_random_seeds
+    def __init__(self, num_grid_points=2, max_num_trials=None, acquisition_function='ei'):
+        self.num_grid_points = num_grid_points
         self.count = 0
         self.seed_configurations = []
         self.num_spray_samples = 10000
@@ -395,18 +427,11 @@ class BayesianOptimization(Algorithm):
         return self._fine_tune_candidates(xcand, paramscand, u)
 
     def _generate_seeds(self, parameters):
-        choice_grid_search = GridSearch()
-        choice_params = [p for p in parameters if isinstance(p, Choice)]
-        other_params = [p for p in parameters if not isinstance(p, Choice)]
-        p = choice_grid_search.get_suggestion(choice_params)
+        grid_search = GridSearch(num_grid_points=self.num_grid_points)
+        p = grid_search.get_suggestion(parameters)
         while p:
-            p.update(self.random_sampler.get_suggestion(other_params))
             self.seed_configurations.append(p)
-            p = choice_grid_search.get_suggestion(choice_params)
-
-        while len(self.seed_configurations) < self.num_random_seeds:
-            p = self.random_sampler.get_suggestion(parameters)
-            self.seed_configurations.append(p)
+            p = grid_search.get_suggestion(parameters)
 
     def _get_input_output_pairs(self, results, parameters):
         completed = results.loc[results['Status'] != 'INTERMEDIATE', :]
