@@ -29,31 +29,24 @@ def run_example(FLAGS):
         print('Running Random Search')
         alg = sherpa.algorithms.RandomSearch(max_num_trials=150)
 
-    stopping_rule = None
-    f = './trial.py' # Python script to run.
-    dir = './output_' + FLAGS.studyname + '_' + str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-
     if FLAGS.sge:
+        assert FLAGS.env, "For SGE use, you need to set an environment path."
         # Submit to SGE queue.
         env = FLAGS.env  # Script specifying environment variables.
         opt = '-N MNISTExample -P {} -q {} -l {}'.format(FLAGS.P, FLAGS.q, FLAGS.l)
-        sched = SGEScheduler(environment=env, submit_options=opt, output_dir=dir)
+        sched = SGEScheduler(environment=env, submit_options=opt)
     else:
         # Run on local machine.
         sched = LocalScheduler()
 
     rval = sherpa.optimize(parameters=parameters,
                            algorithm=alg,
-                           stopping_rule=stopping_rule,
-                           output_dir=dir,
                            lower_is_better=True,
-                           filename=f,
+                           filename='trial.py',
                            scheduler=sched,
                            max_concurrent=FLAGS.max_concurrent)
-    print()
     print('Best results:')
     print(rval)
-
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
@@ -70,7 +63,7 @@ if __name__=='__main__':
     parser.add_argument('-l', help='the given resource list.',
                         default="hostname=\'(arcus-1|arcus-2|arcus-3|arcus-4|arcus-5|arcus-6|arcus-7|arcus-8|arcus-9)\'")
     parser.add_argument('--env', help='Your environment path.',
-                        default='/home/lhertel/profiles/python3env.profile', type=str)
+                        default='', type=str)
     parser.add_argument('--studyname', help='name for output folder', type=str, default='')
     parser.add_argument('--algorithm', type=str, default='BayesianOptimization')
     FLAGS = parser.parse_args()
