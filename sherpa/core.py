@@ -452,6 +452,7 @@ class _Runner(object):
 
             # Check if algorithm is done.
             if not next_trial:
+                logger.info("Optimization Algorithm finished.")
                 self._done = True
                 break
             
