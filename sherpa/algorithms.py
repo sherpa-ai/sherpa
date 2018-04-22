@@ -396,7 +396,8 @@ class BayesianOptimization(Algorithm):
     def get_suggestion(self, parameters, results=None,
                        lower_is_better=True):
         self.count += 1
-        if self.max_num_trials and self.max_num_trials >= self.count:
+
+        if self.max_num_trials and self.max_num_trials <= self.count:
             return None
 
         self.lower_is_better = lower_is_better
@@ -544,7 +545,6 @@ class BayesianOptimization(Algorithm):
     
     def load(self, count):
         self.count = count
-        
 
 
 class PopulationBasedTraining(Algorithm):
