@@ -84,8 +84,9 @@ def test_local_search():
 
 
 def test_grid_search():
-    parameters = sherpa.Parameter.grid({'a': [1, 2],
-                                        'b': ['a', 'b']})
+    parameters = [sherpa.Choice('a', [1, 2]),
+                  sherpa.Choice('b', ['a', 'b']),
+                  sherpa.Continuous('c', [1, 4])]
 
     alg = sherpa.algorithms.GridSearch()
 
@@ -93,24 +94,38 @@ def test_grid_search():
     seen = set()
 
     while suggestion:
-        seen.add((suggestion['a'], suggestion['b']))
+        seen.add((suggestion['a'], suggestion['b'], suggestion['c']))
         suggestion = alg.get_suggestion(parameters)
 
-    assert seen == {(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')}
+    assert seen == {(1, 'a', 2), (1, 'a', 3),
+                    (1, 'b', 2), (1, 'b', 3),
+                    (2, 'a', 2), (2, 'a', 3),
+                    (2, 'b', 2), (2, 'b', 3)}
+
+
+def test_grid_search_grid_maker():
+    alg = sherpa.algorithms.GridSearch()
+
+    assert alg._get_param_dict([sherpa.Continuous('b', [1, 4])]) == {'b': [2, 3]}
+    assert alg._get_param_dict([sherpa.Continuous('c', [0.0001, 0.1], 'log')]) == {'c': [0.001, 0.01]}
 
 
 def test_gp_ei_seeds():
-    alg = sherpa.algorithms.BayesianOptimization()
+    alg = sherpa.algorithms.BayesianOptimization(num_grid_points=2)
 
     parameters = sherpa.Parameter.grid({'a': [1, 2],
                                         'b': ['a', 'b']})
-    parameters.append(sherpa.Continuous(name='c', range=[0, 1]))
+    parameters.append(sherpa.Continuous(name='c', range=[1, 4]))
 
-    left = {(1, 'a'), (1, 'b'), (2, 'a'), (2, 'b')}
-    for _ in range(4):
+    left = {(1, 'a', 2), (1, 'a', 3),
+            (1, 'b', 2), (1, 'b', 3),
+            (2, 'a', 2), (2, 'a', 3),
+            (2, 'b', 2), (2, 'b', 3)}
+
+    for _ in range(8):
         suggestion = alg.get_suggestion(parameters, None, True)
-        left.remove((suggestion['a'], suggestion['b']))
-        assert 0 <= suggestion['c'] <= 1
+        print(suggestion)
+        left.remove((suggestion['a'], suggestion['b'], suggestion['c']))
 
     assert len(left) == 0
 
@@ -121,7 +136,7 @@ def test_gp_ei():
                   sherpa.Continuous(name="param_b",
                                     range=[0, 1])]
 
-    algorithm = sherpa.algorithms.BayesianOptimization(num_random_seeds=10)
+    algorithm = sherpa.algorithms.BayesianOptimization(num_grid_points=3)
 
     study = sherpa.Study(parameters=parameters,
                          algorithm=algorithm,

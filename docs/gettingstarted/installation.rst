@@ -1,16 +1,6 @@
 Installation
 ============
 
-Setting up your environment
----------------------------
-
-Add MongoDB, DRMAA and SGE to your profile:
-
-::
-
-    module load mongodb/2.6
-    export DRMAA_LIBRARY_PATH=/opt/sge/lib/lx-amd64/libdrmaa.so
-    module load sge
 
 Installation from wheel
 -----------------------
@@ -50,21 +40,13 @@ Clone into ``/your/path/`` from GitLab:
     cd /your/path/
     git clone git@gitlab.ics.uci.edu:uci-igb/sherpa.git
 
-Add SHERPA and GPU_LOCK to Python-path in your profile:
+Add SHERPA to Python-path in your profile:
 
 ::
 
     export PYTHONPATH=$PYTHONPATH:/your/path/sherpa/
-    export PYTHONPATH=$PYTHONPATH:/extra/pjsadows0/libs/shared/gpu_lock/
 
 Install dependencies:
-
-::
-
-    cd /your/path/sherpa
-    pip install -e .
-
-or
 
 ::
 
@@ -77,31 +59,36 @@ or
     pip install drmaa
     pip install enum34  # if on < Python 3.4
 
-Environment
------------
+Mongo DB
+--------
 
-You should have an environment-profile that sets path variables and
-potentially loads a Python Virtual environment. All variable settings
-above should go into that profile. Note that an SGE job will not load
-your ``.bashrc`` so all necessary settings need to be in your profile.
+Training models in parallel with SHERPA requires MongoDB. If you are using
+a cluster, chances are that it is already installed, so check for that. Otherwise
+the  .. _installation guide for Linux: https://docs.mongodb.com/manual/administration/install-on-linux/
+is straightforward. For MacOS, MongoDB can either be installed via Homebrew
 
-SGE
----
+::
 
-SGE requires submit options. In Sherpa, those are defined as a string
-via the ``submit_options`` argument in the scheduler. To run jobs on the
-Arcus machines, typical submit options would be:
-``-N myScript -P arcus.p -q arcus_gpu.q -l hostname='(arcus-1|arcus-2|arcus-3)'``.
-The ``-N`` option defines the name. The SHERPA runner script can run
-from any Arcus machine.
+    brew update
+    brew install mongodb
+
+or via the .. _instructions: https://docs.mongodb.com/manual/tutorial/install-mongodb-on-os-x/ .
+
+
 
 Example
 -------
 
-You can run an example by doing:
+You can run an example to verify SHERPA is working:
 
 ::
 
-    cd /your/path/sherpa/examples/bianchini/
-    python runner.py --env <path/to/your/environment>
+    cd /your/path/sherpa/examples/
+    python api_mode.py
 
+And to verify SHERPA with MongoDB is working:
+
+::
+
+    cd /your/path/sherpa/examples/
+    python runner_mode.py

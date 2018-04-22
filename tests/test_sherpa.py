@@ -240,7 +240,7 @@ def test_runner_stop_bad_performers():
     r.update_active_trials = mock.MagicMock()
     r.study.should_trial_stop.return_value = True
     r.stop_bad_performers()
-    r.database.add_for_stopping.assert_called_with(t.id)
+    r.scheduler.kill_job.assert_called_with('111')
 
     # test that trial is not stopped
     r.study.should_trial_stop.return_value = False

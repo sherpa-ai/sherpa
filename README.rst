@@ -5,19 +5,11 @@ SHERPA is a Python library for hyperparameter tuning of deep neural networks.
 
 Its goal is to provide a platform for the implementation of innovations in
 hyperparameter search algorithms. The tutorials section shows how to use some
-of the implemented algorithms.Installation
+of the implemented algorithms.
+
+Installation
 ============
 
-Setting up your environment
----------------------------
-
-Add MongoDB, DRMAA and SGE to your profile:
-
-::
-
-    module load mongodb/2.6
-    export DRMAA_LIBRARY_PATH=/opt/sge/lib/lx-amd64/libdrmaa.so
-    module load sge
 
 Installation from wheel
 -----------------------
@@ -57,21 +49,13 @@ Clone into ``/your/path/`` from GitLab:
     cd /your/path/
     git clone git@gitlab.ics.uci.edu:uci-igb/sherpa.git
 
-Add SHERPA and GPU_LOCK to Python-path in your profile:
+Add SHERPA to Python-path in your profile:
 
 ::
 
     export PYTHONPATH=$PYTHONPATH:/your/path/sherpa/
-    export PYTHONPATH=$PYTHONPATH:/extra/pjsadows0/libs/shared/gpu_lock/
 
 Install dependencies:
-
-::
-
-    cd /your/path/sherpa
-    pip install -e .
-
-or
 
 ::
 
@@ -84,53 +68,66 @@ or
     pip install drmaa
     pip install enum34  # if on < Python 3.4
 
-Environment
------------
+Mongo DB
+--------
 
-You should have an environment-profile that sets path variables and
-potentially loads a Python Virtual environment. All variable settings
-above should go into that profile. Note that an SGE job will not load
-your ``.bashrc`` so all necessary settings need to be in your profile.
+Training models in parallel with SHERPA requires MongoDB. If you are using
+a cluster, chances are that it is already installed, so check for that. Otherwise
+the  .. _installation guide for Linux: https://docs.mongodb.com/manual/administration/install-on-linux/
+is straightforward. For MacOS, MongoDB can either be installed via Homebrew
 
-SGE
----
+::
 
-SGE requires submit options. In Sherpa, those are defined as a string
-via the ``submit_options`` argument in the scheduler. To run jobs on the
-Arcus machines, typical submit options would be:
-``-N myScript -P arcus.p -q arcus_gpu.q -l hostname='(arcus-1|arcus-2|arcus-3)'``.
-The ``-N`` option defines the name. The SHERPA runner script can run
-from any Arcus machine.
+    brew update
+    brew install mongodb
+
+or via the .. _instructions: https://docs.mongodb.com/manual/tutorial/install-mongodb-on-os-x/ .
+
+
 
 Example
 -------
 
-You can run an example by doing:
+You can run an example to verify SHERPA is working:
 
 ::
 
-    cd /your/path/sherpa/examples/bianchini/
-    python runner.py --env <path/to/your/environment>
+    cd /your/path/sherpa/examples/
+    python api_mode.py
 
-From Keras to Sherpa in 30 seconds
+And to verify SHERPA with MongoDB is working:
+
+::
+
+    cd /your/path/sherpa/examples/
+    python runner_mode.pyFrom Keras to Sherpa in 30 seconds
 ==================================
 
 Here we will show how to adapt a minimal Keras script so it can
 be used with Sherpa. As starting point we use the "getting started in 30 seconds"
 tutorial from the Keras webpage.
 
-As mentioned in the previous section you need a trial-script and a
+To run SHERPA you need a trial-script and a
 runner-script. The first specifies the machine learning model and
 will probably be very similar to the one you already have for Keras.
-The second one will specify information about Sherpa and the optimization.
+The second one will specify information about SHERPA and the optimization.
 
 Trial-script
 ------------
 
-For the ``trial.py`` we need a ``define_model()`` function which initializes
-and returns a compiled Keras model. The function receives a dictionary
-of hyperparameters which can be used to specify how each model will be
-different, for example the number of hidden units.
+For the ``trial.py`` we start by importing SHERPA and obtaining a trial. The
+trial will contain the hyperparameters that we are tuning.
+
+::
+
+    import sherpa
+    client = sherpa.Client()
+    trial = client.get_trial()
+
+
+Now we define the model, but for each tuning parameter we use
+``trial.parameters[<name-of-parameter>]``. For example the number of
+hidden units.
 
 Before:
 
@@ -151,17 +148,14 @@ After:
 
     from keras.models import Sequential
     from keras.layers import Dense
-    def define_model(params):
-        model = Sequential()
-        model.add(Dense(units=params('num_units'), activation='relu', input_dim=100))
-        model.add(Dense(units=10, activation='softmax'))
-        model.compile(loss='categorical_crossentropy',
+    model = Sequential()
+    model.add(Dense(units=trial.parameters['num_units'], activation='relu', input_dim=100))
+    model.add(Dense(units=10, activation='softmax'))
+    model.compile(loss='categorical_crossentropy',
                   optimizer='sgd',
                   metrics=['accuracy'])
-        return model
 
-Next we will get the information about the parameters from SHERPA and
-specify how to train the model in this specific trial. We include a
+For the training of the model, we include a
 callback to send the information back to SHERPA at the end of each epoch
 so it can update the state of it and decide if it should continue training.
 Here you can include all the usual Keras callbacks as well.
@@ -176,10 +170,6 @@ After:
 
 ::
 
-    import sherpa
-    client = sherpa.Client()
-    trial = client.get_trial()
-    model   = define_model(trial.parameters)
     callbacks = [client.keras_send_metrics(trial, objective_name='val_loss',
                  context_names=['val_acc'])]
     model.fit(x_train, y_train, epochs=5, batch_size=32, callbacks=callbacks)

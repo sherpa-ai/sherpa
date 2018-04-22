@@ -7,8 +7,9 @@ parameters = [sherpa.Choice(name="param_a",
               sherpa.Continuous(name="param_b",
                                 range=[0, 1])]
 
-algorithm = sherpa.algorithms.RandomSearch(max_num_trials=40)
+# algorithm = sherpa.algorithms.RandomSearch(max_num_trials=40)
 # algorithm = sherpa.algorithms.LocalSearch(num_random_seeds=20)
+algorithm = sherpa.algorithms.BayesianOptimization(num_grid_points=5)
 stopping_rule = sherpa.algorithms.MedianStoppingRule(min_iterations=2,
                                           min_trials=5)
 study = sherpa.Study(parameters=parameters,

@@ -22,9 +22,11 @@
    :caption: Tutorials
    :maxdepth: 1
 
-   tutorials/pbt
    tutorials/bayesianoptimization
+   tutorials/localsearch
+   tutorials/pbt
    tutorials/apimode
+   tutorials/sge
 
 .. toctree::
    :caption: API

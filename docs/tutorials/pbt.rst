@@ -17,7 +17,9 @@ trained and evaluated again and the process repeats.
 .. figure:: pbt.png
    :alt: PBT Diagram from Jaderberg et al. 2017
 
-   PBT diagram
+Note that only parameters can be tuned that can be changed during training. The
+number of layers in a neural network for example is better tuned with
+:ref:`Bayesian Optimization tutorial <bayesian-optimization>`.
 
 
 SHERPA Implementation
@@ -35,6 +37,9 @@ multiplied by 0.8, 1.0, or 1.2. These numbers can be adjusted via the
 for this perturbation process via the ``parameter_ranges`` argument. These ranges
 operate independently from the ranges specified when defining each parameter. Instead
 this argument limits the range in which each parameter can be perturbed to.
+
+.. autoclass:: sherpa.algorithms.PopulationBasedTraining
+   :noindex:
 
 
 Example
@@ -62,6 +67,7 @@ this trial in terms of trial IDs and can be ignored at this point. The
 example in Keras:
 
 ::
+    import keras.backend as K
 
     if trial.parameters['load_from'] == '':
         model = create_model(trial.parameters)
@@ -108,7 +114,7 @@ to drift in certain directions.
 
 ::
 
-    pbt_ranges = {'lr':[0.0000001, 1.], 'batch_size':[16, 32, 64, 128]}
+    pbt_ranges = {'lr':[0.0000001, 1.], 'batch_size':[16, 32, 64, 128, 256]}
     algorithm = sherpa.algorithms.PopulationBasedTraining(population_size=50,
                                                           parameter_range=pbt_ranges)
 
@@ -123,7 +129,28 @@ And the optimization for trial script ``mnist_cnn.py`` is called as before.
                     filename="mnist_cnn.py",
                     output_dir='./output')
 
-A full example can be found in ``examples/mnistcnnpbt/`` from the SHERPA root.
+A full example can be found in ``examples/mnistcnnpbt/`` from the SHERPA root
+and run with ``python runner.py``. Below are
+some plots generated from the results of the example. The plot below shows seed trials as
+different colors with validation loss on the y-axis and epochs on the x-axis.
+It can be seen how for each trial at each epoch many different
+solutions are tried.
+
+.. figure:: pbt-full.jpg
+   :alt: Overall
+
+For the trial with the best result one can plot the trajectory of the learning
+rate, batch size, and momentum up to that best performance (here achieved at
+epoch 15).
+
+.. figure:: pbt-lr.jpg
+   :alt: Learning Rate
+
+.. figure:: pbt-batch-size.jpg
+   :alt: Batch Size
+
+.. figure:: pbt-momentum.jpg
+   :alt: Momentum
 
 ..
 

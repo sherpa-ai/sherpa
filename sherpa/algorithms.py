@@ -1,4 +1,5 @@
 import os
+import random
 import numpy
 import logging
 import pandas
@@ -64,6 +65,11 @@ class RandomSearch(Algorithm):
 class GridSearch(Algorithm):
     """
     Regular Grid Search. Expects ``Choice`` or ``Ordinal`` parameters.
+
+    For continuous and discrete parameters grid points are picked within the
+    range. For example, a continuous parameter with range [1, 2] with two grid
+    points would have points 1 1/3 and 1 2/3. For three points, 1 1/4, 1 1/2,
+    and 1 3/4.
     
     Example:
     ::
@@ -74,17 +80,18 @@ class GridSearch(Algorithm):
         parameters = sherpa.Parameter.grid(hp_space)
         alg = sherpa.algorithms.GridSearch()
 
+    Args:
+        num_grid_points (int): number of grid points for continuous / discrete.
+
     """
-    def __init__(self):
+    def __init__(self, num_grid_points=2):
         self.count = 0
         self.grid = None
+        self.num_grid_points = num_grid_points
 
     def get_suggestion(self, parameters, results=None, lower_is_better=True):
-        assert (all(isinstance(p, Choice) or isinstance(p, Ordinal)
-                    for p in parameters)),\
-            "Only Choice Parameters can be used with GridSearch"
         if self.count == 0:
-            param_dict = {p.name: p.range for p in parameters}
+            param_dict = self._get_param_dict(parameters)
             self.grid = list(sklearn.model_selection.ParameterGrid(param_dict))
         if self.count == len(self.grid):
             return None
@@ -93,50 +100,137 @@ class GridSearch(Algorithm):
             self.count += 1
             return params
 
+    def _get_param_dict(self, parameters):
+        param_dict = {}
+        for p in parameters:
+            if isinstance(p, Continuous) or isinstance(p, Discrete):
+                values = []
+                for i in range(self.num_grid_points):
+                    if p.scale == 'log':
+                        v = numpy.log10(p.range[1]) - numpy.log10(p.range[0])
+                        v *= (i + 1) / (self.num_grid_points + 1)
+                        v += numpy.log10(p.range[0])
+                        v = 10**v
+                        if isinstance(p, Discrete):
+                            v = int(v)
+                        values.append(v)
+                    else:
+                        v = p.range[1]-p.range[0]
+                        v *= (i + 1)/(self.num_grid_points + 1)
+                        v += p.range[0]
+                        if isinstance(p, Discrete):
+                            v = int(v)
+                        values.append(v)
+            else:
+                values = p.range
+            param_dict[p.name] = values
+        return param_dict
+
 
 class LocalSearch(Algorithm):
     """
-    Local Search by Peter.
+    Local Search Algorithm by Peter.
+
+    This algorithm expects to start with a very good hyperparameter
+    configuration. It changes one hyperparameter at a time to see if better
+    results can be obtained.
+
+    Args:
+        seed_configuration (dict): hyperparameter configuration to start with.
+        perturbation_factors (Union[tuple,list]): continuous parameters will be
+            multiplied by these.
+        repeat_trials (int): number of times that identical configurations are
+            repeated to test for random fluctuations.
     """
-    def __init__(self, num_random_seeds=10, seed_configurations=[]):
-        # num_random_seeds + len(seed_configurations) needs to be larger than max_concurrent
-        self.num_random_seeds = num_random_seeds
-        self.seed_configurations = seed_configurations
+    def __init__(self, seed_configuration, perturbation_factors=(0.9, 1.1), repeat_trials=1):
+        self.seed_configuration = seed_configuration
         self.count = 0
-        self.random_sampler = RandomSearch(self.num_random_seeds)
-
+        self.submitted = []
+        self.perturbation_factors = perturbation_factors
+        self.next_trial = []
+        self.repeat_trials = repeat_trials
+        
     def get_suggestion(self, parameters, results, lower_is_better):
-        self.count += 1
-        if self.count <= len(self.seed_configurations) + self.num_random_seeds:
-            if len(self.seed_configurations) >= self.count:
-                return self.seed_configurations[self.count-1]
-            else:
-                return self.random_sampler.get_suggestion(parameters, results,
-                                                          lower_is_better)
+        assert all((isinstance(p, Continuous) or isinstance(p, Ordinal)
+                    or isinstance(p, Discrete)) for p in parameters),\
+                    "Only Continuous, Discrete, and Ordinal parameters are " \
+                    "allowed for the LocalSearch algorithm."
 
-        # Get best result so far
-        try:
-            best_idx = (results.loc[:, 'Objective'].argmin() if lower_is_better
-                        else results.loc[:, 'Objective'].argmax())
-        except ValueError:
-            return self.random_sampler.get_suggestion(parameters,
-                                                      results, lower_is_better)
+        if not self.next_trial:
+            self.next_trial = self.get_next_trials(parameters, results,
+                                                   lower_is_better)
+
+        return self.next_trial.pop()
+
+    def get_next_trials(self, parameters, results, lower_is_better):
+
+        self.count += 1
+        if self.count == 1:
+            self.submitted.append(self.seed_configuration)
+            return [self.seed_configuration] * self.repeat_trials
 
         parameter_names = [p.name for p in parameters]
-        best_params = results.loc[best_idx,
-                                  parameter_names].to_dict()
-        new_params = best_params
-        # randomly choose one of the parameters and perturb it
-        # while parameter in existing results
-        # choose one dimension randomly and resample it
-        alglogger.debug(new_params)
-        while results.loc[:, parameter_names].isin({key: [value] for key, value in new_params.items()}).apply(all, axis=1).any():
-            new_params = best_params.copy()
-            p = numpy.random.choice(list(parameters))
-            new_params[p.name] = p.sample()
-            alglogger.debug(new_params)
 
-        return new_params
+        # Get best result so far
+        if len(results) > 0:
+            best_idx = (results.loc[:, 'Objective'].idxmin() if lower_is_better
+                        else results.loc[:, 'Objective'].idxmax())
+            self.seed_configuration = results.loc[best_idx,
+                                                  parameter_names].to_dict()
+
+        # Randomly sample perturbations and return first that hasn't been tried
+        for pname in random.sample(parameter_names, len(parameter_names)):
+            for incr in random.sample([True, False], 2):
+                new_params = self._perturb(parameters=parameters,
+                                           candidate=self.seed_configuration.copy(),
+                                           param_name=pname,
+                                           increase=incr)
+                alglogger.debug("New Parameters: ", new_params)
+                if new_params not in self.submitted:
+                    self.submitted.append(new_params)
+                    alglogger.debug(new_params)
+                    return [new_params] * self.repeat_trials
+        else:
+            alglogger.debug("All local perturbations have been exhausted and "
+                            "no better local optimum was found.")
+            return [None] * self.repeat_trials
+
+    def _perturb(self, parameters, candidate, param_name, increase):
+        """
+        Randomly choose one parameter and perturb it.
+
+        For Ordinal this is increased/decreased, for continuous/discrete this is
+        times 0.8/1.2.
+
+        Args:
+            parameters (list[sherpa.core.Parameter]): parameter ranges.
+            configuration (dict): a parameter configuration to be perturbed.
+            param_name (str): the name of the parameter to perturb.
+            increase (bool): whether to increase or decrease the parameter.
+
+        Returns:
+            dict: perturbed configuration
+        """
+        for param in parameters:
+            if param.name == param_name:
+                if isinstance(param, Ordinal):
+                    shift = +1 if increase else -1
+                    values = param.range
+                    newidx = values.index(candidate[param.name]) + shift
+                    newidx = numpy.clip(newidx, 0, len(values) - 1)
+                    candidate[param.name] = values[newidx]
+
+                else:
+                    factor = self.perturbation_factors[1 if increase else 0]
+                    candidate[param.name] *= factor
+
+                    if isinstance(param, Discrete):
+                        candidate[param.name] = int(candidate[param.name])
+
+                    candidate[param.name] = numpy.clip(candidate[param.name],
+                                                       min(param.range),
+                                                       max(param.range))
+        return candidate
 
 
 class StoppingRule(object):
@@ -271,16 +365,15 @@ class BayesianOptimization(Algorithm):
     exploitation (e.g. high mean) and exploration (e.g. high variance).
 
     Args:
-        num_random_seeds (int): the number of random starting configurations,
-            default to 10.
+        num_grid_points (int): the number of grid points for continuous/discrete
+            parameters. These will be evaluated first.
         max_num_trials (int): the number of trials after which the algorithm will
             stop. Defaults to ``None`` i.e. runs forever.
-        fine_tune (bool): whether to numerically optimize candidates.
         acquisition_function (str): currently only ``'ei'`` for expected improvement.
 
     """
-    def __init__(self, num_random_seeds=10, max_num_trials=None, acquisition_function='ei', fine_tune=True):
-        self.num_random_seeds = num_random_seeds
+    def __init__(self, num_grid_points=2, max_num_trials=None, acquisition_function='ei'):
+        self.num_grid_points = num_grid_points
         self.count = 0
         self.seed_configurations = []
         self.num_spray_samples = 10000
@@ -303,7 +396,8 @@ class BayesianOptimization(Algorithm):
     def get_suggestion(self, parameters, results=None,
                        lower_is_better=True):
         self.count += 1
-        if self.max_num_trials and self.max_num_trials == self.count:
+
+        if self.max_num_trials and self.max_num_trials <= self.count:
             return None
 
         self.lower_is_better = lower_is_better
@@ -331,24 +425,14 @@ class BayesianOptimization(Algorithm):
 
         u = self._get_acquisition_function_value(ycand, ycand_std)
 
-        if self.fine_tune:
-            return self._fine_tune_candidates(xcand, paramscand, u)
-        else:
-            return paramscand.iloc[numpy.argmax(u)].to_dict()
+        return self._fine_tune_candidates(xcand, paramscand, u)
 
     def _generate_seeds(self, parameters):
-        choice_grid_search = GridSearch()
-        choice_params = [p for p in parameters if isinstance(p, Choice)]
-        other_params = [p for p in parameters if not isinstance(p, Choice)]
-        p = choice_grid_search.get_suggestion(choice_params)
+        grid_search = GridSearch(num_grid_points=self.num_grid_points)
+        p = grid_search.get_suggestion(parameters)
         while p:
-            p.update(self.random_sampler.get_suggestion(other_params))
             self.seed_configurations.append(p)
-            p = choice_grid_search.get_suggestion(choice_params)
-
-        while len(self.seed_configurations) < self.num_random_seeds:
-            p = self.random_sampler.get_suggestion(parameters)
-            self.seed_configurations.append(p)
+            p = grid_search.get_suggestion(parameters)
 
     def _get_input_output_pairs(self, results, parameters):
         completed = results.loc[results['Status'] != 'INTERMEDIATE', :]
@@ -453,12 +537,14 @@ class BayesianOptimization(Algorithm):
                 best_idx = idx
                 for col in range(len(candidate)):
                     if self.xtypes[col] == 'continuous' and self.xscales[col] == 'linear':
-                        paramscand.set_value(index=idx, col=self.xnames[col], value=candidate[col])
+                        paramscand.at[idx, self.xnames[col]] = candidate[col]
                     elif self.xtypes[col] == 'continuous' and self.xscales[col] == 'log':
-                        paramscand.set_value(index=idx, col=self.xnames[col],
-                                             value=10**candidate[col])
+                        paramscand.at[idx, self.xnames[col]] = 10**candidate[col]
 
         return paramscand.iloc[best_idx].to_dict()
+    
+    def load(self, count):
+        self.count = count
 
 
 class PopulationBasedTraining(Algorithm):
