@@ -454,7 +454,6 @@ class BayesianOptimization(Algorithm):
         self.xtypes = {}
         self.xscales = {}
         self.xnames = {}
-        self.xbounds = []
         num_samples = len(df)
         num_features = sum(len(p.range) if isinstance(p, Choice) else 1 for p in parameters)
         x = numpy.zeros((num_samples, num_features))
@@ -462,16 +461,20 @@ class BayesianOptimization(Algorithm):
         for p in parameters:
             if isinstance(p, Choice) and len(p.range) == 1:
                 continue
-            if not isinstance(p, Choice):
+            if isinstance(p, Continuous) or isinstance(p, Discrete):
                 x[:, col] = numpy.array(df[p.name])
                 if p.scale == 'log':
                     x[:, col] = numpy.log10(x[:, col])
-                self.xtypes[col] = 'continuous' if isinstance(p, Continuous) else 'discrete'
+                self.xtypes[col] = ('continuous' if isinstance(p, Continuous)
+                                    else 'discrete')
                 self.xscales[col] = p.scale
                 self.xnames[col] = p.name
-                if isinstance(p, Continuous):
-                    self.xbounds.append((p.range[0], p.range[1]))
                 col += 1
+            elif isinstance(p, Ordinal):
+                x[:, col] = [p.range.index(val) for val in df[p.name]]
+                self.xtypes[col] = 'discrete'
+                self.xnames[col] = p.name
+                self.xscales[col] = 'linear'
             else:
                 for i, val in enumerate(p.range):
                     x[:, col] = numpy.array(1. * (df[p.name] == val))
@@ -637,10 +640,6 @@ class PopulationBasedTraining(Algorithm):
         for param in parameters:
             if isinstance(param, Continuous) or isinstance(param, Discrete):
                 factor = numpy.random.choice(self.perturbation_factors)
-
-#                 if param.scale == 'log':
-#                     candidate[param.name] = 10**(numpy.log10(candidate[param.name]) * factor)
-#                 else:
                 candidate[param.name] *= factor
 
                 if isinstance(param, Discrete):
