@@ -11,6 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 class _JobStatus(Enum):
+    """
+    Job status used internally to classify jobs into categories.
+    """
     finished = 1
     running = 2
     failed = 3
@@ -39,12 +42,15 @@ class Scheduler(object):
                 directory.
 
         Returns:
-            str: job ID, used for getting the status or killing the job.
+            str: a job ID, used for getting the status or killing the job.
         """
         pass
 
     def get_status(self, job_id):
         """
+        Obtains the current status of the job.
+
+
         Args:
             job_id (str): identifier returned when submitting the job.
 
@@ -55,7 +61,7 @@ class Scheduler(object):
 
     def kill_job(self, job_id):
         """
-        Kills a given jobs.
+        Kills a given job.
 
         Args:
             job_id (str): identifier returned when submitting the job.
