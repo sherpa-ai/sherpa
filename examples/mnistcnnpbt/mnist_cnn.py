@@ -5,6 +5,16 @@ Gets to 99.25% test accuracy after 12 epochs
 '''
 from __future__ import print_function
 import os
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+import tensorflow as tf
+CONFIG = tf.ConfigProto(device_count = {'GPU': 1}, log_device_placement=False, allow_soft_placement=False)
+CONFIG.gpu_options.allow_growth = True # Prevents tf from grabbing all gpu memory.
+sess = tf.Session(config=CONFIG)
+from keras import backend as K
+K.set_session(sess)
+
+
 import keras
 from keras.datasets import mnist
 from keras.models import Sequential
@@ -23,7 +33,7 @@ trial = client.get_trial()  # contains ID and parameters
 
 batch_size = trial.parameters['batch_size']
 num_classes = 10
-epochs = 1
+epochs = trial.parameters['epochs']
 
 # input image dimensions
 img_rows, img_cols = 28, 28
@@ -52,21 +62,23 @@ print(x_test.shape[0], 'test samples')
 y_train = keras.utils.to_categorical(y_train, num_classes)
 y_test = keras.utils.to_categorical(y_test, num_classes)
 
-if trial.parameters['load_from'] == '':
+if trial.parameters.get('load_from', '') == '':
     model = Sequential()
     model.add(Conv2D(32, kernel_size=(3, 3),
                      activation='relu',
                      input_shape=input_shape))
     model.add(Conv2D(64, (3, 3), activation='relu'))
     model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(0.25))
+    model.add(Dropout(trial.parameters.get('dropout', 0.25)))
     model.add(Flatten())
     model.add(Dense(128, activation='relu'))
-    model.add(Dropout(0.5))
+    model.add(Dropout(2*trial.parameters.get('dropout', 0.25)))
     model.add(Dense(num_classes, activation='softmax'))
 
     model.compile(loss=keras.losses.categorical_crossentropy,
-                  optimizer=keras.optimizers.SGD(lr=trial.parameters['lr'], momentum=trial.parameters['momentum']),
+                  optimizer=keras.optimizers.SGD(lr=trial.parameters['lr'],
+                                                 momentum=trial.parameters.get('momentum', 0.7),
+                                                 decay=trial.parameters.get('lr_decay', 0.)),
                   metrics=['accuracy'])
 else:
     model = load_model(os.path.join('./output', trial.parameters['load_from']))
