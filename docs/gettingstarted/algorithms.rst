@@ -10,24 +10,34 @@ Every new algorithm inherits from the Algorithm Class and the main function we
 need to define is get_suggestion(). This function will receive information about
 the parameters it needs to define and returns a dictionary of hyperparameter values
 needed to train the next trial. The function get_suggestion() receives:
-- Parameters: List of Parameter objects (sherpa.core.parameter).
-- Results: Dataframe storing the results of past trials.
-- Lower_is_better: Specifies if lower is better in performance metric of trials.
+
+Parameters: List of Parameter objects (sherpa.core.parameter).
+
+Results: Dataframe storing the results of past trials.
+
+Lower_is_better: Specifies if lower is better in performance metric of trials.
 
 With this information you are free do select the new hyper-parameters in any way 
 you want.
 
 ::
+
     import sherpa
     class MyAlgorithm(sherpa.algorithms.Algorithm):
         def get_suggestion(self, parameters, results, lower_is_better):
             # your code here
             return params_values_for_next_trial
 
-For example let's create an algorithm which takes the trials from the top 1/3 of the 
-trials and combines them to create the new set of hyper-parameters.
+For example let's create a genetic-like algorithm which takes the trials from the top 1/3 of the 
+trials and combines them to create the new set of hyper-parameters. It will also 
+randomly introduce a mutation 1/3 of the time.
+
+The function get_candidate() will get the hyper-parameters
+of a random trial among the top 1/3 and if there are very few trials, then it will generate them
+randomly. Get_suggestion() is where the values for the hyper-parameters of the new trial will be decided. 
 
 ::
+
     import sherpa
     import numpy as np
     class MyAlgorithm(sherpa.algorithms.Algorithm):
@@ -75,3 +85,5 @@ trials and combines them to create the new set of hyper-parameters.
             trial_all_values = population.iloc[idx].to_dict()  # extract the trial values on results table 
             trial_param_values = {param.name: d[param.name] for param in parameters} # Select only parameter values
             return trial_param_values
+
+
