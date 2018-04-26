@@ -251,9 +251,9 @@ def test_genetic():
             results = results[results['Status'] == 'COMPLETED']
             mean_values.append(results['Objective'].mean())
         trial = study.get_suggestion()
-        #print("Trial-ID={}".format(trial.id))
-        #print(trial.parameters)
-        #print()
+        print("Trial-ID={}".format(trial.id))
+        print(trial.parameters)
+        print()
         study.add_observation(trial=trial, iteration=1, objective=trial.parameters['param_a']*0.1+trial.parameters['param_c']*0.1)
         study.finalize(trial=trial,
                        status='COMPLETED')
