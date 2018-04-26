@@ -420,8 +420,9 @@ class _Runner(object):
                 except ValueError as e:
                     warn_msg = str(e)
                     warn_msg += ("\nRelevant results not found in database."
-                                 " Check that Client has correct host/port, is"
-                                 " submitting metrics and did not crash."
+                                 " Check whether:\n"
+                                 "(1)\tTrial is submitting metrics via e.g. sherpa.Client.send_metrics()\n"
+                                 "(2)\tTrial crashed\n"
                                  " Trial script output is in: ")
                     warn_msg += os.path.join(self.study.output_dir, 'sge', 'trial_{}.out'.format(tid))
                     warnings.warn(warn_msg, RuntimeWarning)
