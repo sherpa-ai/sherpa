@@ -234,14 +234,21 @@ trials and combines them to create the new set of hyper-parameters.
                             params_values_for_next_trial[param_name] = parameter_object.sample()        
             return params_values_for_next_trial
 
-        def _get_candidate(self, parameters, results, lower_is_better):
+        def _get_candidate(self, parameters, results, lower_is_better, min_candidates=10):
             """
             Samples candidates parameters from the top 33% of population.
     
             Returns
             dict: parameter dictionary.
             """
-            population = results.loc[results['Status'] != 'INTERMEDIATE', :]  # select only completed trials
+            if results.shape[0] > 0: # In case this is the first trial
+                population = results.loc[results['Status'] != 'INTERMEDIATE', :]  # select only completed trials
+            else: # In case this is the first trial
+                population = None
+            if population is None or population.shape[0] < min_candidates: # Generate random values
+                for parameter_object in parameters:
+                    trial_param_values[parameter_object.name] = parameter_object.sample()
+                        return trial_param_values    
             population = population.sort_values(by='Objective', ascending=lower_is_better) 
             idx = numpy.random.randint(low=0, high=population.shape[0]//3)  # pick randomly among top 33%
             trial_all_values = population.iloc[idx].to_dict()  # extract the trial values on results table 
