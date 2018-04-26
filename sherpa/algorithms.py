@@ -7,7 +7,7 @@ import scipy.optimize
 import sklearn.gaussian_process
 from .core import Choice, Continuous, Discrete, Ordinal
 import sklearn.model_selection
-
+import sherpa
 
 logging.basicConfig(level=logging.DEBUG)
 alglogger = logging.getLogger(__name__)
@@ -543,4 +543,58 @@ class PopulationBasedTraining(Algorithm):
         return candidate
 
 
+class Genetic(Algorithm):
+    def __init__(self, mutation_rate=0.1, max_num_trials=None):
+        self.mutation_rate = mutation_rate
+        self.max_num_trials = max_num_trials
+        self.count = 0 
 
+    def get_suggestion(self, parameters, results, lower_is_better):
+        """ 
+        Create a new parameter value as a random mixture of some of the best
+        trials and sampling from original distribution.
+ 
+        Return
+        dict: parameter values dictionary
+        """
+        if self.max_num_trials and self.count >= self.max_num_trials:
+            return None
+        # Choose 2 of the top trials and get their parameter values
+        trial_1_params = self._get_candidate(parameters, results, lower_is_better)
+        trial_2_params = self._get_candidate(parameters, results, lower_is_better)
+        params_values_for_next_trial = {}
+        for param_name in trial_1_params.keys():
+            param_origin = numpy.random.random()  # randomly choose where to get the value from
+            if param_origin < self.mutation_rate: # Use mutation
+                for parameter_object in parameters:
+                    if param_name == parameter_object.name:
+                        params_values_for_next_trial[param_name] = parameter_object.sample()
+            elif self.mutation_rate <= param_origin and param_origin < self.mutation_rate + (1-self.mutation_rate)/2:
+                params_values_for_next_trial[param_name] = trial_1_params[param_name]
+            else: 
+                params_values_for_next_trial[param_name] = trial_2_params[param_name]
+        self.count += 1
+        return params_values_for_next_trial
+
+    def _get_candidate(self, parameters, results, lower_is_better, min_candidates=10):
+        """
+        Samples candidates parameters from the top 33% of population. If less than min_candidates
+        then use a random sample
+ 
+        Returns
+        dict: parameter dictionary.
+        """
+        if results.shape[0] > 0:
+            population = results.loc[results['Status'] != 'INTERMEDIATE', :]  # select only completed trials
+        else:
+            population = None
+        if population is None or population.shape[0] < min_candidates:
+            trial_param_values = {}
+            for parameter_object in parameters:
+                trial_param_values[parameter_object.name] = parameter_object.sample()
+            return trial_param_values
+        population = population.sort_values(by='Objective', ascending=lower_is_better)
+        idx = numpy.random.randint(low=0, high=population.shape[0]//3)  # pick randomly among top 33%
+        trial_all_values = population.iloc[idx].to_dict()  # extract the trial values on results table
+        trial_param_values = {param.name: trial_all_values[param.name] for param in parameters} # Select only parameter values
+        return trial_param_values
