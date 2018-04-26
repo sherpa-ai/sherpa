@@ -220,6 +220,7 @@ With this information you are free do select the new hyper-parameters in any way
 you want.
 
 ::
+
     import sherpa
     class MyAlgorithm(sherpa.algorithms.Algorithm):
         def get_suggestion(self, parameters, results, lower_is_better):
@@ -230,6 +231,7 @@ For example let's create an algorithm which takes the trials from the top 1/3 of
 trials and combines them to create the new set of hyper-parameters.
 
 ::
+
     import sherpa
     import numpy as np
     class MyAlgorithm(sherpa.algorithms.Algorithm):
@@ -277,3 +279,5 @@ trials and combines them to create the new set of hyper-parameters.
             trial_all_values = population.iloc[idx].to_dict()  # extract the trial values on results table 
             trial_param_values = {param.name: d[param.name] for param in parameters} # Select only parameter values
             return trial_param_values
+
+
