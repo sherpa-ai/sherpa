@@ -5,7 +5,6 @@ import pandas
 import collections
 import time
 import logging
-from logging.handlers import RotatingFileHandler
 import socket
 import multiprocessing
 import warnings
@@ -23,7 +22,7 @@ class Trial(object):
     """
     Represents one parameter-configuration here referred to as one trial.
 
-    Attributes
+    Args:
         id (int): the Trial ID.
         parameters (dict): parameter-name, parameter-value pairs.
     """
@@ -39,34 +38,22 @@ class Study(object):
     Includes functionality to get new suggested trials and add observations
     for those. Used internally but can also be used directly by the user.
 
-    Attributes:
-        algorithm (sherpa.algorithms.Algorithm): takes results table and returns
-            parameter set.
-        results (pandas.DataFrame): contains results from this study.
-        parameters (list[sherpa.Parameter]): parameters being optimized.
-        stopping_rule (sherpa.stopping_rules.StoppingRule): rule for stopping
-            trials prematurely.
-        lower_is_better (bool): whether lower objective values are better.
-        dashboard_port (int): port to run the dashboard web-server on.
-        disable_dashboard (bool): whether to not run the dashboard.
-        output_dir (str): directory to store web-app output and results-CSV.
+    Args:
+        parameters (list[sherpa.core.Parameter]): a list of parameter ranges.
+        algorithm (sherpa.algorithms.Algorithm): the optimization algorithm.
+        lower_is_better (bool): whether to minimize or maximize the objective.
+        stopping_rule (sherpa.algorithms.StoppingRule): algorithm to stop badly
+            performing trials.
+        dashboard_port (int): the port for the dashboard web-server, if ``None``
+            the first free port in the range `8880` to `9999` is found and used.
+        disable_dashboard (bool): option to not run the dashboard.
+        output_dir (str): directory path for CSV results.
 
     """
     def __init__(self, parameters, algorithm, lower_is_better,
                  stopping_rule=None, dashboard_port=None,
                  disable_dashboard=False,
                  output_dir=None):
-        """
-        Args:
-            parameters (list[sherpa.Parameter]): a list of parameter ranges.
-            algorithm (sherpa.algorithm): the optimization algorithm.
-            lower_is_better (bool): whether to minimizer or maximize objective.
-            stopping_rule (sherpa.StoppingRule): algorithm to stop badly
-                performing trials.
-            dashboard_port (int): the port for the dashboard web-server.
-            disable_dashboard (bool): option to not run the dashboard.
-            output_dir (str): directory path for CSV results.
-        """
         self.parameters = parameters
         self.algorithm = algorithm
         self.stopping_rule = stopping_rule
@@ -93,12 +80,13 @@ class Study(object):
         Add a single observation of the objective value for a given trial.
         
         Args:
-            trial (sherpa.Trial): trial for which an observation is to be added.
+            trial (sherpa.core.Trial): trial for which an observation is to be
+                added.
             iteration (int): iteration number e.g. epoch.
             objective (float): objective value.
             context (dict): other metrics or values to record.
         """
-        assert isinstance(trial, Trial), "Trial must be sherpa.Trial"
+        assert isinstance(trial, Trial), "Trial must be sherpa.core.Trial"
 
         row = [
             ('Trial-ID', trial.id),
@@ -128,10 +116,10 @@ class Study(object):
         must be finalized with this function.
         
         Args:
-            trial (sherpa.Trial): trial that is completed.
+            trial (sherpa.core.Trial): trial that is completed.
             status (str): one of 'COMPLETED', 'FAILED', 'STOPPED'.
         """
-        assert isinstance(trial, Trial), "Trial must be sherpa.Trial"
+        assert isinstance(trial, Trial), "Trial must be sherpa.core.Trial"
         assert status in ['COMPLETED', 'FAILED', 'STOPPED']
 
         try:
@@ -139,14 +127,17 @@ class Study(object):
             if len(rows) == 0:
                 raise KeyError
         except KeyError:
-            raise ValueError("Trial {} does not exist or did not submit metrics.".format(trial.id))
+            raise ValueError("Trial {} does not exist or did not "
+                             "submit metrics.".format(trial.id))
+
         # Find best row as minimum or maximum objective
         best_idx = (rows['Objective'].idxmin() if self.lower_is_better
                     else rows['Objective'].idxmax())
         try:
             best_row = rows.ix[best_idx].copy()
         except TypeError:
-            warnings.warn("Could not finalize trial {}. Only NaNs encountered.".format(trial.id), RuntimeWarning)
+            warnings.warn("Could not finalize trial {}. Only NaNs "
+                          "encountered.".format(trial.id), RuntimeWarning)
             return
 
         # Set status and append
@@ -187,12 +178,12 @@ class Study(object):
         study.
         
         Args:
-            trial (sherpa.Trial): trial to be evaluated.
+            trial (sherpa.core.Trial): trial to be evaluated.
 
         Returns:
             bool: decision.
         """
-        assert isinstance(trial, Trial), "Trial must be sherpa.Trial"
+        assert isinstance(trial, Trial), "Trial must be sherpa.core.Trial"
         if self.dashboard_process:
             while not self._stopping_channel.empty():
                 self._ids_to_stop.add(self._stopping_channel.get())
@@ -216,7 +207,7 @@ class Study(object):
         basis.
         
         Args:
-            trial (sherpa.Trial): the trial to be enqueued.
+            trial (sherpa.core.Trial): the trial to be enqueued.
         """
         self._trial_queue.append(trial)
         
@@ -228,8 +219,11 @@ class Study(object):
             output_dir (str): directory to store CSV to.
         """
         if not output_dir:
-            assert self.output_dir, "If no output-directory is specified, a directory needs to be passed as argument"
-        self.results.to_csv(os.path.join(self.output_dir or output_dir, 'results.csv'), index=False)
+            assert self.output_dir, "If no output-directory is specified, " \
+                                    "a directory needs to be passed as argument"
+
+        self.results.to_csv(os.path.join(self.output_dir or output_dir,
+                                         'results.csv'), index=False)
 
     def get_best_result(self):
         """
@@ -239,12 +233,16 @@ class Study(object):
             pandas.DataFrame: row of the best result.
         """
         # Get best result so far
-        best_idx = (self.results.loc[:, 'Objective'].idxmin() if self.lower_is_better
+        best_idx = (self.results.loc[:, 'Objective'].idxmin()
+                    if self.lower_is_better
                     else self.results.loc[:, 'Objective'].idxmax())
+
         if not numpy.isfinite(best_idx):
-            # Can happen if there are no valid results, best_idx=nan when results are nan. 
+            # Can happen if there are no valid results,
+            # best_idx=nan when results are nan.
             logger.warning('Empty results file! Returning empty dictionary.')
             return {}
+
         best_result = self.results.loc[best_idx, :].to_dict()
         best_result.pop('Status')
         return best_result
@@ -276,9 +274,14 @@ class Study(object):
         app.set_stopping_channel(self._stopping_channel)
         
         proc = multiprocessing.Process(target=app.run,
-                                       kwargs={'port': port, 'debug': True, 'use_reloader': False, 'host': '', 'threaded': True})
+                                       kwargs={'port': port,
+                                               'debug': True,
+                                               'use_reloader': False,
+                                               'host': '',
+                                               'threaded': True})
         msg = "\n" + "-"*55 + "\n"
-        msg += "SHERPA Dashboard running on http://{}:{}".format(socket.gethostbyname(socket.gethostname()), port)
+        msg += "SHERPA Dashboard running on http://{}:{}".format(
+            socket.gethostbyname(socket.gethostname()), port)
         msg += "\n" + "-"*55
         logger.info(msg)
         
@@ -291,6 +294,8 @@ class Study(object):
         self.results = pandas.read_csv(results_path)
         self.num_trials = self.results['Trial-ID'].max()
         self.algorithm.load(self.num_trials)
+        if self.dashboard_process:
+            self._results_channel.df = self.results
 
     def __iter__(self):
         """
@@ -318,18 +323,23 @@ class _Runner(object):
 
     Responsibilities:
     
-    -Get rows from database and check if any new observations need to be added to study.
-    -Update active trials, finalize any completed/stopped/failed trials.
-    -Check what trials should be stopped and tell database to send stop signal.
-    -Check if new trials need to be submitted, get parameters and submit as a job.
+    * Get rows from database and check if any new observations need to be added
+        to ``Study``.
+    * Update active trials, finalize any completed/stopped/failed trials.
+    * Check what trials should be stopped and call scheduler ``kill_job``
+        method.
+    * Check if new trials need to be submitted, get parameters and submit as a
+        job.
 
-    Attributes:
-        study (sherpa.Study): the study that is run.
-        scheduler (sherpa.schedulers.Scheduler): a scheduler.
+    Args:
+        study (sherpa.core.Study): the study that is run.
+        scheduler (sherpa.schedulers.Scheduler): a scheduler object.
         database (sherpa.database._Database): the database.
         max_concurrent (int): how many trials to run in parallel.
-        command (str): the command that runs a trial script e.g. "python train_nn.py".
-        resubmit_failed_trials (bool): whether a failed trial should be resubmitted.
+        command (str): the command that runs a trial script e.g.
+            "python train_nn.py".
+        resubmit_failed_trials (bool): whether a failed trial should be
+            resubmitted.
         
     """
     def __init__(self, study, scheduler, database, max_concurrent,
@@ -364,24 +374,26 @@ class _Runner(object):
 
         for r in results:
             try:
-                new_trial = r.get('trial_id') not in set(self.study.results['Trial-ID'])
+                # Check if trial has already been collected.
+                new_trial = (r.get('trial_id') not in
+                             set(self.study.results['Trial-ID']))
             except KeyError:
                 new_trial = True
 
             if not new_trial:
                 trial_idxs = self.study.results['Trial-ID'] == r.get('trial_id')
                 trial_rows = self.study.results[trial_idxs]
-                new_observation = r.get('iteration') not in set(trial_rows['Iteration'])
+                new_observation = (r.get('iteration') not in
+                                   set(trial_rows['Iteration']))
             else:
                 new_observation = True
-            # logger.debug("Collected Result:\n\tTrial ID: {}\n\tIteration: {}"
-            #              "\n\tNew Trial: {}\n\tNew Observation: {}"
-            #              "".format(r.get('trial_id'), r.get('iteration'),
-            #                        new_trial, new_observation))
+
             if new_trial or new_observation:
+                # Retrieve the Trial object
                 tid = r.get('trial_id')
                 tdict = self._all_trials[tid]
                 t = tdict.get('trial')
+
                 self.study.add_observation(trial=t,
                                            iteration=r.get('iteration'),
                                            objective=r.get('objective'),
@@ -391,20 +403,20 @@ class _Runner(object):
         """
         Update active trials, finalize any completed/stopped/failed trials.
         """
-        # logger.debug("Updating trials")
-        for i in range(len(self._active_trials)-1, -1, -1):
+        for i in reversed(range(len(self._active_trials))):
             tid = self._active_trials[i]
             status = self.scheduler.get_status(self._all_trials[tid].get('job_id'))
-            # logger.debug("Trial with ID {} has status {}".format(tid, status))
+
             if status in [_JobStatus.finished, _JobStatus.failed,
                           _JobStatus.killed, _JobStatus.other]:
-                # self.update_results()
+
                 if tid in self._queued_for_stopping:
                     self._queued_for_stopping.remove(tid)
                 try:
                     self.study.finalize(trial=self._all_trials[tid].get('trial'),
                                         status=self._trial_status[status])
                     self.study.to_csv()
+
                 except ValueError as e:
                     warn_msg = str(e)
                     warn_msg += ("\nRelevant results not found in database."
@@ -428,7 +440,7 @@ class _Runner(object):
                 continue
             if self.study.should_trial_stop(self._all_trials[tid].get('trial')):
                 logger.info("Stopping Trial {}".format(tid))
-                self.database.add_for_stopping(tid)
+                self.scheduler.kill_job(self._all_trials[tid].get('job_id'))
                 self._queued_for_stopping.add(tid)
 
     def submit_new_trials(self):
@@ -440,6 +452,7 @@ class _Runner(object):
 
             # Check if algorithm is done.
             if not next_trial:
+                logger.info("Optimization Algorithm finished.")
                 self._done = True
                 break
             
@@ -464,8 +477,7 @@ class _Runner(object):
         """
         Run the optimization loop.
         """
-        logger.debug("Running Loop")
-        while not self._done or len(self._active_trials) != 0:
+        while not self._done or self._active_trials:
             self.update_results()
 
             self.update_active_trials()
@@ -474,10 +486,6 @@ class _Runner(object):
 
             self.submit_new_trials()
 
-            # logger.info("Best results so far:\n"
-            #             "{}".format(self.study.get_best_result()))
-
-            # logger.info(self.study.results)
             time.sleep(5)
 
 
@@ -496,16 +504,16 @@ def optimize(parameters, algorithm, lower_is_better,
     Args:
         algorithm (sherpa.algorithms.Algorithm): takes results table and returns
             parameter set.
-        parameters (list[sherpa.Parameter]): parameters being optimized.
+        parameters (list[sherpa.core.Parameter]): parameters being optimized.
         lower_is_better (bool): whether lower objective values are better.
         filename (str): the name of the file which is called to evaluate
             configurations
         output_dir (str): where scheduler and database files will be stored.
-        scheduler (sherpa.Scheduler): a scheduler.
+        scheduler (sherpa.schedulers.Scheduler): a scheduler.
         max_concurrent (int): the number of trials that will be evaluated in
             parallel.
         db_port (int): port to run the database on.
-        stopping_rule (sherpa.stopping_rules.StoppingRule): rule for stopping
+        stopping_rule (sherpa.algorithms.StoppingRule): rule for stopping
             trials prematurely.
         dashboard_port (int): port to run the dashboard web-server on.
         resubmit_failed_trials (bool): whether to resubmit a trial if it failed.
@@ -513,6 +521,9 @@ def optimize(parameters, algorithm, lower_is_better,
     """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+
+    if not scheduler.output_dir:
+        scheduler.output_dir = output_dir
         
     if verbose == 0:
         logger.setLevel(level=logging.INFO)
@@ -533,11 +544,11 @@ def optimize(parameters, algorithm, lower_is_better,
 
     with _Database(db_dir=output_dir, port=db_port, reinstantiated=load) as db:
         runner = _Runner(study=study,
-                        scheduler=scheduler,
-                        database=db,
-                        max_concurrent=max_concurrent,
-                        command=' '.join(['python', filename]),
-                        resubmit_failed_trials=resubmit_failed_trials)
+                         scheduler=scheduler,
+                         database=db,
+                         max_concurrent=max_concurrent,
+                         command=' '.join(['python', filename]),
+                         resubmit_failed_trials=resubmit_failed_trials)
         runner.run_loop()
     return study.get_best_result()
 
@@ -572,6 +583,13 @@ def _port_finder(start, end):
 class Parameter(object):
     """
     Defines a hyperparameter with a name, type and associated range.
+
+    Args:
+        name (str): the parameter name.
+        range (list): either ``[low, high]`` or ``[value1, value2, value3]``.
+        scale (str): `linear` or `log`, defines sampling from linear or
+            log-scale. Not defined for all parameter types.
+
     """
     def __init__(self, name, range):
         assert isinstance(name, str), "Parameter-Name needs to be a string."
@@ -588,7 +606,6 @@ class Parameter(object):
             config (dict): parameter config.
 
         Example:
-
         ::
 
             {'name': '<name>',
@@ -597,7 +614,7 @@ class Parameter(object):
              'scale': <'log' to sample continuous/discrete from log-scale>}
 
         Returns:
-            sherpa.Parameter: the parameter range object.
+            sherpa.core.Parameter: the parameter range object.
 
         """
         if config.get('type') == 'continuous':
@@ -624,7 +641,6 @@ class Parameter(object):
             parameter_grid (dict): grid dictionary.
 
         Example:
-
             ::
 
                 {'parameter_a': [aValue1, aValue2, ...],
@@ -632,7 +648,7 @@ class Parameter(object):
                  ...}
 
         Returns:
-            list[sherpa.Parameter]: list of parameter ranges for SHERPA.
+            list[sherpa.core.Parameter]: list of parameter ranges for SHERPA.
         """
         plist = []
         for pname, prange in parameter_grid.items():

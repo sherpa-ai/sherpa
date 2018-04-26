@@ -1,49 +1,11 @@
 # Train simple network on 2D data.
 # Author: Peter Sadowski
 from __future__ import print_function
-import os
 import numpy as np
 import sherpa
-
-os.environ['KERAS_BACKEND'] = 'tensorflow'
-
-if True:
-    # Before importing keras, decide which gpu to use.
-    try:
-        # gpu_lock module located at /home/pjsadows/libs
-        import gpu_lock
-        GPUIDX = gpu_lock.obtain_lock_id() # Return gpuid, or -1 if there was a problem.
-    except:
-        print('Could not import gpu_lock. Prepend /extra/pjsadows0/libs/shared/gpu_lock/ to PYTHONPATH.')
-        GPUIDX = 0
-    assert GPUIDX >= 0, '\nNo gpu available.'
-    print('Running from GPU %s' % str(GPUIDX))
-    # Carefully import backend.
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(GPUIDX)
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-    import tensorflow as tf
-    CONFIG = tf.ConfigProto(device_count = {'GPU': 1}, log_device_placement=False, allow_soft_placement=False)
-    CONFIG.gpu_options.allow_growth = True # Prevents tf from grabbing all gpu memory.
-    sess = tf.Session(config=CONFIG)
-    from keras import backend as K
-    K.set_session(sess)
-else:
-    print('Running on CPU')
-    os.environ['CUDA_VISIBLE_DEVICES'] = ''
-
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-import tensorflow as tf
-CONFIG = tf.ConfigProto(device_count = {'GPU': 1}, log_device_placement=False, allow_soft_placement=False) 
-CONFIG.gpu_options.allow_growth = True # Prevents tf from grabbing all gpu memory.
-sess = tf.Session(config=CONFIG)
-from keras import backend as K
-K.set_session(sess)
-
-import keras
 from keras.models import Model
 from keras.layers import Dense, Input
 from keras.optimizers import SGD
-
 
  
 def dataset_bianchini(batchsize, k=1):
@@ -99,36 +61,18 @@ def main(client, trial):
     # Define dataset.
     gtrain = dataset_bianchini(batchsize=100, k=3)
     gvalid = dataset_bianchini(batchsize=100, k=3)
-    
-    # Train model. 
-    initial_epoch = 0
 
-    send_call = lambda epoch, logs: client.send_metrics(trial=trial,
-                                                           iteration=epoch,
-                                                           objective=logs['val_loss'],
-                                                           context={'val_accuracy': logs['val_acc']})
-    callbacks = [keras.callbacks.LambdaCallback(on_epoch_end=send_call)]
-
-    history = model.fit_generator(gtrain, 
+    model.fit_generator(gtrain,
                         steps_per_epoch=100,
-                        validation_data = gvalid, 
-                        validation_steps = 10,
-                        initial_epoch = initial_epoch,
-                        callbacks=callbacks,
-                        epochs = trial.parameters['epochs'] + initial_epoch,
+                        validation_data=gvalid,
+                        validation_steps=10,
+                        callbacks=[client.keras_send_metrics(trial, objective_name='val_loss', context_names=['val_acc'])],
+                        epochs = trial.parameters['epochs'],
                         verbose=2)
-    
-    if 'modelfile' in trial.parameters:
-        # Save model file.
-        model.save(trial.parameters['modelfile'])
-        
-    return
 
-if __name__=='__main__':
+
+if __name__ == '__main__':
     client = sherpa.Client()
-    try:
-        trial = client.get_trial()
-        main(client, trial)
-    finally:
-        gpu_lock.free_lock(GPUIDX)
+    trial = client.get_trial()
+    main(client, trial)
 

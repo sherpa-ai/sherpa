@@ -21,25 +21,44 @@ class _JobStatus(Enum):
 
 class Scheduler(object):
     """
-    The job scheduler gives an API to submit jobs, retrieve statuses of all
-    jobs and kill a job.
+    The job scheduler gives an API to submit jobs, retrieve statuses of specific
+    jobs, and kill a job.
     """
     def __init__(self):
         pass
 
     def submit_job(self, command, env={}, job_name=''):
         """
-        Submits a command to the scheduler.
+        Submits a job to the scheduler.
 
         Args:
-            command (str): the command to run by the scheduler.
+            command (str): the command to run by the scheduler e.g.
+                ``python train.py``
+            env (dict): environment variables to pass to the job.
+            job_name (str): this specifies a name for the job and its output
+                directory.
+
+        Returns:
+            str: job ID, used for getting the status or killing the job.
         """
         pass
 
     def get_status(self, job_id):
         """
+        Args:
+            job_id (str): identifier returned when submitting the job.
+
         Returns:
-            dict: of job_id keys to respective status
+            sherpa.schedulers._JobStatus: the job-status.
+        """
+        pass
+
+    def kill_job(self, job_id):
+        """
+        Kills a given jobs.
+
+        Args:
+            job_id (str): identifier returned when submitting the job.
         """
         pass
 
@@ -47,12 +66,16 @@ class Scheduler(object):
 class LocalScheduler(Scheduler):
     """
     Runs jobs locally as a subprocess.
+
+    Args:
+        submit_options (str): options appended before the command.
     """
-    def __init__(self, submit_options=''):
+    def __init__(self, submit_options='', output_dir=''):
         self.jobs = {}
         self.submit_options = submit_options
         self.decode_status = {0: _JobStatus.finished,
                               -15: _JobStatus.killed}
+        self.output_dir = output_dir
 
     def submit_job(self, command, env={}, job_name=''):
         env.update(os.environ.copy())
@@ -71,15 +94,30 @@ class LocalScheduler(Scheduler):
         else:
             return self.decode_status.get(status, _JobStatus.other)
 
+    def kill_job(self, job_id):
+        process = self.jobs.get(job_id)
+        if not process:
+            raise ValueError("Job not found.")
+        process.terminate()
+
 
 class SGEScheduler(Scheduler):
     """
-    SGE scheduler.
+    Submits jobs to SGE, can check on their status, and kill jobs.
 
-    Allows to submit jobs to SGE and check on their status. Note: cannot
+    Uses ``drmaa`` Python library. Due to the way SGE works it cannot
     distinguish between a failed and a completed job.
+
+    Args:
+        submit_options (str): command line options such as queue ``-q``, or
+            ``-P`` for project, all written in one string.
+        environment (str): the path to a file that contains environment
+            variables; will be sourced before job is run.
+        output_dir (str): path to directory in which ``stdout`` and ``stderr``
+            will be written to. If not specified this will use the same as
+            defined for the study.
     """
-    def __init__(self, submit_options, environment, output_dir):
+    def __init__(self, submit_options, environment, output_dir=''):
         self.count = 0
         self.submit_options = submit_options
         self.environment = environment
@@ -99,9 +137,6 @@ class SGEScheduler(Scheduler):
             self.drmaa.JobState.FAILED: _JobStatus.failed}
 
     def submit_job(self, command, env={}, job_name=''):
-        """
-        Submit experiment to SGE.
-        """
         # Create temp directory.
         outdir = os.path.join(self.output_dir, 'sge')
         if not os.path.isdir(outdir):
@@ -169,10 +204,10 @@ class SGEScheduler(Scheduler):
     def get_status(self, job_id):
         """
         Args:
-            job_ids (list[str]): list of SGE process IDs.
+            job_ids (str): SGE process ID.
 
         Returns:
-            sherpa._JobStatus: The job status.
+            sherpa.schedulers._JobStatus: The job status.
         """
         with self.drmaa.Session() as s:
             try:
@@ -184,3 +219,15 @@ class SGEScheduler(Scheduler):
             s = _JobStatus.killed
         return s
 
+    def kill_job(self, job_id):
+        """
+        Kills a job submitted to SGE.
+
+        Args:
+            job_id (str): the SGE process ID of the job.
+        """
+        logger.info("Killing job {}".format(job_id))
+        with self.drmaa.Session() as s:
+            s.control(job_id, self.drmaa.JobControlAction.TERMINATE)
+        # TODO: what happens when job doesn't exist - then we don't want to add
+        self.killed_jobs.add(job_id)

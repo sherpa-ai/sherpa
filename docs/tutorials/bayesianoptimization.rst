@@ -1,3 +1,5 @@
+.. _bayesian-optimization:
+
 Bayesian Optimization
 =====================
 
@@ -32,13 +34,17 @@ samples. It is therefore unlikely that the same configuration is
 suggested twice. SHERPA’s ``Discrete`` parameter is treated like a
 continuous variable that is discretized after a value is suggested.
 ``Choice`` parameters are treated as categorical/one-hot variables in
-the GP as justified by Duvenaud’s Kernel Cookbook.
+the GP as justified by Duvenaud’s Kernel Cookbook. The ``BayesianOptimization``
+algorithm takes as argument an optional maximum number of trials.
+
+.. autoclass:: sherpa.algorithms.BayesianOptimization
+  :noindex:
 
 
 Example
 -------
 
-Using Bayesian Optimization is SHERPA is straight forward. The parameter ranges
+Using Bayesian Optimization in SHERPA is straight forward. The parameter ranges
 are defined as usual:
 
 ::
@@ -71,7 +77,22 @@ in which we want to minimize the loss, then we run the optimization as
                     lower_is_better=True,
                     filename='trial_script.py')
 
-A full example for MNIST can be found in ``examples/mnist/`` from the SHERPA root.
+A full example for MNIST can be found in ``examples/mnistmlp/`` from the SHERPA
+root. It can be run as:
+
+::
+
+    cd sherpa/examples/mnistmlp/
+    python runner.py --algorithm BayesianOptimization
+
+
+Below are the results for one run of this:
+
+.. figure:: bayesopt-dashboard.jpg
+   :alt: Dashboard after running Bayesian Optimization
+
+The :ref:`LocalSearch tutorial <local-search>` will build on this result and
+show how this can be refined and validated.
 
 
     Snoek, Jasper, Hugo Larochelle, and Ryan P. Adams. “Practical
