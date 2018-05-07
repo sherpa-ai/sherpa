@@ -2,6 +2,7 @@ import os
 import random
 import numpy
 import logging
+import sherpa
 import pandas
 import scipy.stats
 import scipy.optimize
@@ -61,7 +62,46 @@ class RandomSearch(Algorithm):
             self.count += 1
             return {p.name: p.sample() for p in parameters}
 
+class Iterate(Algorithm):
+    """
+    Iterate over a set of fully-specified hyperparameter combinations.
+    
+    Args:
+        hp_iter (list): list of fully-specified hyperparameter dicts. 
+    """
+    def __init__(self, hp_iter):
+        self.hp_iter = hp_iter
+        self.count = 0
+        
+        # Make sure all hyperparameter values are specified.
+        parameters = self.get_parameters()
+    
+    def get_suggestion(self, parameters, results=None, lower_is_better=True):
+        if self.count >= len(self.hp_iter):
+            # No more combinations to try.
+            return None
+        else:
+            hp = self.hp_iter[self.count]
+            self.count += 1
+            return hp
 
+    def load(self, num_trials):
+        self.count = num_trials
+        
+    def get_parameters(self):
+        """
+        Returns list of parameter objects, which is needed for initializing a Study.
+        """
+        parameters = []
+        keys = self.hp_iter[0].keys()
+        for pname in keys:
+            prange = list(set([hp[pname] for hp in self.hp_iter]))
+            p = sherpa.Parameter.from_dict({'name': pname,
+                                     'type': 'choice',
+                                     'range': prange})
+            parameters.append(p)
+        return parameters
+    
 class GridSearch(Algorithm):
     """
     Regular Grid Search. Expects ``Choice`` or ``Ordinal`` parameters.

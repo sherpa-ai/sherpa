@@ -82,6 +82,27 @@ def test_local_search():
         assert (best_params['param_a'] == p['param_a']
                 or best_params['param_b'] == p['param_b'])
 
+def test_Iterate_search():
+    hp_iter = [{'a': 1, 'b': 'a', 'c': 1},
+               {'a': 1, 'b': 'a', 'c': 1.5},
+               {'a': 1, 'b': 'b', 'c': 1.5},
+               {'a': 2, 'b': 'b', 'c': 4},
+              ]
+    alg = sherpa.algorithms.Iterate(hp_iter)
+    parameters = alg.get_parameters()
+
+    assert len(parameters) == 3
+    assert set([len(p.range) for p in parameters]) == set([2,2,3])
+
+    suggestion = alg.get_suggestion(parameters)
+    seen = set()
+
+    while suggestion:
+        seen.add((suggestion['a'], suggestion['b'], suggestion['c']))
+        suggestion = alg.get_suggestion(parameters)
+
+    assert seen == {(1, 'a', 1), (1, 'a', 1.5),
+                    (1, 'b', 1.5), (2, 'b', 4)}
 
 def test_grid_search():
     parameters = [sherpa.Choice('a', [1, 2]),
