@@ -667,6 +667,9 @@ class Continuous(Parameter):
     def __init__(self, name, range, scale='linear'):
         super(Continuous, self).__init__(name, range)
         self.scale = scale
+        if scale == 'log':
+            assert all(r > 0. for r in range), "Range parameters must be " \
+                                              "positive for log scale."
 
     def sample(self):
         if self.scale == 'log':
@@ -683,6 +686,9 @@ class Discrete(Parameter):
     def __init__(self, name, range, scale='linear'):
         super(Discrete, self).__init__(name, range)
         self.scale = scale
+        if scale == 'log':
+            assert all(r > 0 for r in range), "Range parameters must be " \
+                                              "positive for log scale."
 
     def sample(self):
         if self.scale == 'log':
