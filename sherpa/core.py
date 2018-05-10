@@ -12,6 +12,11 @@ import contextlib
 from .database import _Database
 from .schedulers import _JobStatus
 import datetime
+try:
+    import cPickle as pickle
+except ImportError:  # python 3.x
+    import pickle
+
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -210,20 +215,6 @@ class Study(object):
             trial (sherpa.core.Trial): the trial to be enqueued.
         """
         self._trial_queue.append(trial)
-        
-    def to_csv(self, output_dir=None):
-        """
-        Stores results to CSV.
-        
-        Args:
-            output_dir (str): directory to store CSV to.
-        """
-        if not output_dir:
-            assert self.output_dir, "If no output-directory is specified, " \
-                                    "a directory needs to be passed as argument"
-
-        self.results.to_csv(os.path.join(self.output_dir or output_dir,
-                                         'results.csv'), index=False)
 
     def get_best_result(self):
         """
@@ -289,13 +280,50 @@ class Study(object):
         proc.start()
         return proc
 
-    def load(self):
-        results_path = os.path.join(self.output_dir, 'results.csv')
-        self.results = pandas.read_csv(results_path)
-        self.num_trials = self.results['Trial-ID'].max()
-        self.algorithm.load(self.num_trials)
-        if self.dashboard_process:
-            self._results_channel.df = self.results
+    def save(self, output_dir=None):
+        """
+        Stores results to CSV.
+
+        Args:
+            output_dir (str): directory to store CSV to.
+        """
+        if not output_dir:
+            assert self.output_dir, "If no output-directory is specified, " \
+                                    "a directory needs to be passed as argument"
+        cfg = {'parameters': self.parameters,
+               'lower_is_better': self.lower_is_better,
+               'num_trials': self.num_trials}
+
+        d = self.output_dir or output_dir
+        with open(os.path.join(d, 'config.pkl'), 'wb') as f:
+            pickle.dump(cfg, f)
+
+        self.results.to_csv(os.path.join(self.output_dir or output_dir,
+                                         'results.csv'), index=False)
+
+    @staticmethod
+    def load_dashboard(path):
+        """
+        Loads a study from an output dir without the algorithm.
+
+        Args:
+            path
+
+        Returns:
+            sherpa.core.Study
+        """
+        with open(os.path.join(path, 'config.pkl'), 'rb') as f:
+            cfg = pickle.load(f)
+
+        s = Study(parameters=cfg['parameters'],
+                  lower_is_better=cfg['lower_is_better'],
+                  algorithm=None, output_dir=path)
+
+        results_path = os.path.join(path, 'results.csv')
+        s.results = pandas.read_csv(results_path)
+        s.num_trials = cfg['num_trials']
+        s._results_channel.df = s.results
+        return s
 
     def __iter__(self):
         """
@@ -415,7 +443,7 @@ class _Runner(object):
                 try:
                     self.study.finalize(trial=self._all_trials[tid].get('trial'),
                                         status=self._trial_status[status])
-                    self.study.to_csv()
+                    self.study.save()
 
                 except ValueError as e:
                     warn_msg = str(e)
@@ -551,6 +579,10 @@ def optimize(parameters, algorithm, lower_is_better,
                          resubmit_failed_trials=resubmit_failed_trials)
         runner.run_loop()
     return study.get_best_result()
+
+
+def run_dashboard(path):
+    s = Study.load_dashboard(path)
 
 
 def _port_finder(start, end):
