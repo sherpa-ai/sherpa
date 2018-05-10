@@ -147,6 +147,8 @@ def test_gp_ei():
         if trial.id == 50:
             break
         print("Trial {}:\t{}".format(trial.id, trial.parameters))
+        assert isinstance(trial.parameters['param_a'], int)
+        assert isinstance(trial.parameters['param_b'], float)
 
         pseudo_objective = trial.parameters['param_a'] * trial.parameters['param_b']
 
