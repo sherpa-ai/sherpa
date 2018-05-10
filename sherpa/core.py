@@ -282,10 +282,12 @@ class Study(object):
 
     def save(self, output_dir=None):
         """
-        Stores results to CSV.
+        Stores results to CSV and attributes to config file.
 
         Args:
-            output_dir (str): directory to store CSV to.
+            output_dir (str): directory to store CSV to, only needed if Study
+                output_dir is not defined.
+
         """
         if not output_dir:
             assert self.output_dir, "If no output-directory is specified, " \
@@ -307,10 +309,11 @@ class Study(object):
         Loads a study from an output dir without the algorithm.
 
         Args:
-            path
+            path (str): the path to the output dir.
 
         Returns:
-            sherpa.core.Study
+            sherpa.core.Study: the study running the dashboard, note that
+                currently this study cannot be used to continue the optimization.
         """
         with open(os.path.join(path, 'config.pkl'), 'rb') as f:
             cfg = pickle.load(f)
