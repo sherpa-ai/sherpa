@@ -585,6 +585,12 @@ def optimize(parameters, algorithm, lower_is_better,
 
 
 def run_dashboard(path):
+    """
+    Run the dashboard from a previously run optimization.
+
+    Args:
+        path (str): the output dir of the previous optimization.
+    """
     s = Study.load_dashboard(path)
 
 
