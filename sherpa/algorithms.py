@@ -434,9 +434,11 @@ class BayesianOptimization(Algorithm):
 
         self.best_y = ytrain.min() if lower_is_better else ytrain.max()
 
-        kernel = sklearn.gaussian_process.kernels.Matern(nu=2.5)
+        kernel = sklearn.gaussian_process.kernels.Matern(nu=2.5, length_scale=float(2./len(ytrain)))
+        # kernel = sklearn.gaussian_process.kernels.RBF(length_scale=0.1)
         self.gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=kernel,
-                                                                    alpha=1e-7,
+                                                                    alpha=1e-4,
+                                                                    optimizer='fmin_l_bfgs_b' if len(ytrain) >= 8*len(parameters) else None,
                                                                     n_restarts_optimizer=10,
                                                                     normalize_y=True)
         self.gp.fit(Xtrain, ytrain)
@@ -445,15 +447,16 @@ class BayesianOptimization(Algorithm):
         Xcandidate = self._to_design(candidate_df, parameters)
         EI_Xcandidate = self.get_expected_improvement(Xcandidate)
 
-        # Get indexes of candidates with highest expected improvement
-        best_idxs = EI_Xcandidate.argsort()[-self.num_optimized:][::-1]
+
 
         if (not all(isinstance(p, Choice) for p in parameters)) and self.fine_tune:
+            # Get indexes of candidates with highest expected improvement
+            best_idxs = EI_Xcandidate.argsort()[-self.num_optimized:][::-1]
             Xoptimized, EI_Xoptimized = self._maximize(Xcandidate[best_idxs],
                                                        max_function=self.get_expected_improvement)
 
-            X_total = numpy.concatenate([Xoptimized, Xcandidate[best_idxs]])
-            EI_total = numpy.concatenate([EI_Xoptimized, EI_Xcandidate[best_idxs]])
+            X_total = numpy.concatenate([Xoptimized, Xcandidate])
+            EI_total = numpy.concatenate([EI_Xoptimized, EI_Xcandidate])
         else:
             X_total = Xcandidate
             EI_total = EI_Xcandidate
@@ -464,6 +467,13 @@ class BayesianOptimization(Algorithm):
 
         if self.plot_dir and len(parameters) <= 2:
             self._plot()
+
+        # For debugging
+        self.Xtrain = Xtrain
+        self.ytrain = ytrain
+        self.X_total = X_total
+        self.EI_total = EI_total
+
 
         return df.iloc[0].to_dict()
 
@@ -593,7 +603,7 @@ class BayesianOptimization(Algorithm):
             scaling_factor = (-1) ** self.lower_is_better
             z = scaling_factor * (y - self.best_y - self.epsilon)/y_std
             expected_improvement = scaling_factor * (y - self.best_y -
-                                                     self.epsilon)*scipy.stats.norm.cdf(z)
+                                                     self.epsilon)*scipy.stats.norm.cdf(z) + y_std*scipy.stats.norm.pdf(z)
         return expected_improvement
 
     def get_expected_improvement(self, X):
