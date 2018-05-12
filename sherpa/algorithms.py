@@ -435,7 +435,7 @@ class BayesianOptimization(Algorithm):
         self.best_y = ytrain.min() if lower_is_better else ytrain.max()
 
         kernel = sklearn.gaussian_process.kernels.Matern(nu=2.5, length_scale=float(2./len(ytrain)))
-        # kernel = sklearn.gaussian_process.kernels.RBF(length_scale=0.1)
+
         self.gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=kernel,
                                                                     alpha=1e-4,
                                                                     optimizer='fmin_l_bfgs_b' if len(ytrain) >= 8*len(parameters) else None,
@@ -446,8 +446,6 @@ class BayesianOptimization(Algorithm):
         candidate_df = self._generate_candidates(parameters)
         Xcandidate = self._to_design(candidate_df, parameters)
         EI_Xcandidate = self.get_expected_improvement(Xcandidate)
-
-
 
         if (not all(isinstance(p, Choice) for p in parameters)) and self.fine_tune:
             # Get indexes of candidates with highest expected improvement
