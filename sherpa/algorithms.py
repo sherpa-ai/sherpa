@@ -385,7 +385,7 @@ class BayesianOptimization(Algorithm):
 
     """
     def __init__(self, num_grid_points=2, max_num_trials=None, log_y=False,
-                 fine_tune=True, plot_dir=None):
+                 fine_tune=True):
         self.num_grid_points = num_grid_points
         self.count = 0
         self.num_candidates = 10000
@@ -394,12 +394,11 @@ class BayesianOptimization(Algorithm):
         self.random_sampler = RandomSearch()
         self.grid_search = GridSearch(num_grid_points=num_grid_points)
         self.best_y = None
-        self.epsilon = 0.0000000001
+        self.epsilon = 0.
         self.lower_is_better = None
         self.gp = None
         self.log_y = log_y
         self.fine_tune = fine_tune
-        self.plot_dir = plot_dir
 
         self.Xcolumns = {}  # mapping: param name -> columns in X
         self.transformers = {}  # mapping: param name -> transformation object
@@ -463,15 +462,11 @@ class BayesianOptimization(Algorithm):
         # dictionary form the row needs to be extracted
         df = self._from_design(X_total[EI_total.argmax()])
 
-        if self.plot_dir and len(parameters) <= 2:
-            self._plot()
-
-        # For debugging
+        # For debugging, so that these can be accessed from outside
         self.Xtrain = Xtrain
         self.ytrain = ytrain
         self.X_total = X_total
         self.EI_total = EI_total
-
 
         return df.iloc[0].to_dict()
 
@@ -679,25 +674,6 @@ class BayesianOptimization(Algorithm):
             else:
                 row = numpy.append(row, argsq.popleft())
         return row
-
-    def _plot(self, ):
-        """
-        Makes plots:
-        -Data + predicted values
-        -Acquisition function + fine-tuned points
-
-        Args:
-           Xtrain
-           ytrain
-           Xcandidate
-           ycandidate
-           EI_candidate
-           Xoptimized
-           yoptimized
-           EI_optimized
-        """
-        pass
-
 
 
 class PopulationBasedTraining(Algorithm):
