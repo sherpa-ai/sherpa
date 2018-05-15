@@ -161,10 +161,6 @@ class LocalSearch(Algorithm):
         return self.next_trial.pop()
 
     def _get_next_trials(self, parameters, results, lower_is_better):
-
-        if not self.param_map:
-            self.param_map = {p.name: p for p in parameters}
-
         self.count += 1
         if self.count == 1:
             self.submitted.append(self.seed_configuration)
@@ -180,20 +176,20 @@ class LocalSearch(Algorithm):
                                                   parameter_names].to_dict()
 
         # Randomly sample perturbations and return first that hasn't been tried
-        for pname in random.sample(parameter_names, len(parameter_names)):
-            if isinstance(self.param_map[pname], Choice):
-                values = random.sample(self.param_map[pname].range,
-                                       len(self.param_map[pname].range))
+        for param in random.sample(parameters, len(parameters)):
+            if isinstance(param, Choice):
+                values = random.sample(param.range,
+                                       len(param.range))
                 for val in values:
                     new_params = self.seed_configuration.copy()
-                    new_params[pname] = val
+                    new_params[param.name] = val
                     if new_params not in self.submitted:
                         self.submitted.append(new_params)
                         return [new_params] * self.repeat_trials
             else:
                 for incr in random.sample([True, False], 2):
                     new_params = self._perturb(candidate=self.seed_configuration.copy(),
-                                               param_name=pname,
+                                               parameter=param,
                                                increase=incr)
                     if new_params not in self.submitted:
                         self.submitted.append(new_params)
@@ -203,7 +199,7 @@ class LocalSearch(Algorithm):
                            "no better local optimum was found.")
             return [None] * self.repeat_trials
 
-    def _perturb(self, candidate, param_name, increase):
+    def _perturb(self, candidate, parameter, increase):
         """
         Randomly choose one parameter and perturb it.
 
@@ -219,24 +215,23 @@ class LocalSearch(Algorithm):
         Returns:
             dict: perturbed configuration
         """
-        param = self.param_map[param_name]
-        if isinstance(param, Ordinal):
+        if isinstance(parameter, Ordinal):
             shift = +1 if increase else -1
-            values = param.range
-            newidx = values.index(candidate[param.name]) + shift
+            values = parameter.range
+            newidx = values.index(candidate[parameter.name]) + shift
             newidx = numpy.clip(newidx, 0, len(values) - 1)
-            candidate[param.name] = values[newidx]
+            candidate[parameter.name] = values[newidx]
 
         else:
             factor = self.perturbation_factors[1 if increase else 0]
-            candidate[param.name] *= factor
+            candidate[parameter.name] *= factor
 
-            if isinstance(param, Discrete):
-                candidate[param.name] = int(candidate[param.name])
+            if isinstance(parameter, Discrete):
+                candidate[parameter.name] = int(candidate[parameter.name])
 
-            candidate[param.name] = numpy.clip(candidate[param.name],
-                                               min(param.range),
-                                               max(param.range))
+            candidate[parameter.name] = numpy.clip(candidate[parameter.name],
+                                               min(parameter.range),
+                                               max(parameter.range))
         return candidate
 
 
