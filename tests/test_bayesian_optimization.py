@@ -114,26 +114,6 @@ def test_optimize():
     assert np.isclose(Xoptimized[fun_values.argmax()][0], 0.5)
 
 
-# def test_optimize_choice():
-#     # Test Choice
-#     parameters = [sherpa.Choice('choice', [1, 2, 3, 4])]
-#
-#     bayesian_optimization = BayesianOptimization()
-#     bayesian_optimization.num_candidates = 100
-#
-#     candidates = bayesian_optimization._generate_candidates(parameters)
-#     X = bayesian_optimization._to_design(candidates, parameters)
-#
-#     # Use a function where [1, 1, 1, 1] would be the optimum, but is not
-#     # allowed
-#     fun = lambda x: np.dot(x, np.array([1, 2, 3, 4]))
-#
-#     Xoptimized, fun_values = bayesian_optimization._maximize(X, fun)
-#     print(Xoptimized[fun_values.argmax()])
-#     assert np.all(np.isclose(Xoptimized[fun_values.argmax()],
-#                              np.array([0., 0., 0., 1.])))
-
-
 def test_optimize_mix():
     # Test a mixture of these
     parameters = [sherpa.Continuous('continuous', [0., 1,]),
@@ -189,7 +169,7 @@ def test_strip_add_choice():
 
 def test_1d():
     def obj_func(x):
-        # Global minimum is at x1=3., x2=5.
+        # Global maximum of 4 is at x=4
         return 4. * np.exp(-(x - 4.) ** 2 / 10.) * np.cos(1.5 * (x - 4.)) ** 2
 
     parameters = [sherpa.Continuous('x1', [0., 7.])]
@@ -199,7 +179,7 @@ def test_1d():
                                                  fine_tune=False)
     study = sherpa.Study(algorithm=bayesian_optimization,
                          parameters=parameters,
-                         lower_is_better=True,
+                         lower_is_better=False,
                          disable_dashboard=True)
 
     for trial in study:
@@ -211,9 +191,8 @@ def test_1d():
                               iteration=1,
                               objective=fval)
         study.finalize(trial, status='COMPLETED')
-    print(study.get_best_result())
-    assert False
-
+    rval = study.get_best_result()
+    assert np.isclose(rval['Objective'], 4.)
 
 
 def test_convex():
@@ -226,7 +205,7 @@ def test_convex():
 
     bayesian_optimization = BayesianOptimization(num_grid_points=2,
                                                  max_num_trials=50,
-                                                 fine_tune=False)
+                                                 fine_tune=True)
     study = sherpa.Study(algorithm=bayesian_optimization,
                          parameters=parameters,
                          lower_is_better=True,
@@ -241,8 +220,10 @@ def test_convex():
                               iteration=1,
                               objective=fval)
         study.finalize(trial, status='COMPLETED')
-    print(study.get_best_result())
-    assert False
+
+    rval = study.get_best_result()
+    print(rval)
+    assert np.isclose(rval['Objective'], 0.1, rtol=1e-3)
 
 
 def test_branin():
@@ -275,8 +256,9 @@ def test_branin():
                               iteration=1,
                               objective=fval)
         study.finalize(trial, status='COMPLETED')
+    rval = study.get_best_result()
     print(study.get_best_result())
-    assert False
+    assert np.isclose(rval['Objective'], 0.397887, rtol=1e-3)
 
 
 if __name__ == '__main__':
