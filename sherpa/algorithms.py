@@ -151,7 +151,6 @@ class LocalSearch(Algorithm):
         self.perturbation_factors = perturbation_factors
         self.next_trial = []
         self.repeat_trials = repeat_trials
-        self.param_map = None
         
     def get_suggestion(self, parameters, results, lower_is_better):
         if not self.next_trial:
@@ -166,14 +165,12 @@ class LocalSearch(Algorithm):
             self.submitted.append(self.seed_configuration)
             return [self.seed_configuration] * self.repeat_trials
 
-        parameter_names = [p.name for p in parameters]
-
         # Get best result so far
         if len(results) > 0:
             best_idx = (results.loc[:, 'Objective'].idxmin() if lower_is_better
                         else results.loc[:, 'Objective'].idxmax())
-            self.seed_configuration = results.loc[best_idx,
-                                                  parameter_names].to_dict()
+            self.seed_configuration = results.loc[
+                best_idx, [p.name for p in parameters]].to_dict()
 
         # Randomly sample perturbations and return first that hasn't been tried
         for param in random.sample(parameters, len(parameters)):
