@@ -136,12 +136,6 @@ def test_database(test_dir):
                                 'parameters': {'a': 1, 'b': 2},
                                 'trial_id': 1}]
 
-        db.add_for_stopping(t.id)
-        with pytest.raises(StopIteration):
-            testlogger.debug("Stopping Trial...")
-            client.send_metrics(trial=t, iteration=2,
-                                objective=0.1, context={'other_metric': 0.2})
-
         # test that Sherpa raises correct error if MongoDB exits
         db2 = sherpa.database._Database(test_dir, port=db_port)
         with pytest.raises(OSError):
