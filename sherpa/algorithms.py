@@ -131,7 +131,7 @@ class GridSearch(Algorithm):
 
 class LocalSearch(Algorithm):
     """
-    Local Search Algorithm by Peter.
+    Local Search Algorithm.
 
     This algorithm expects to start with a very good hyperparameter
     configuration. It changes one hyperparameter at a time to see if better
@@ -181,8 +181,6 @@ class LocalSearch(Algorithm):
 
         # Randomly sample perturbations and return first that hasn't been tried
         for pname in random.sample(parameter_names, len(parameter_names)):
-
-            # For
             if isinstance(self.param_map[pname], Choice):
                 values = random.sample(self.param_map[pname].range,
                                        len(self.param_map[pname].range))
@@ -191,21 +189,18 @@ class LocalSearch(Algorithm):
                     new_params[pname] = val
                     if new_params not in self.submitted:
                         self.submitted.append(new_params)
-                        alglogger.debug(new_params)
                         return [new_params] * self.repeat_trials
             else:
                 for incr in random.sample([True, False], 2):
                     new_params = self._perturb(candidate=self.seed_configuration.copy(),
                                                param_name=pname,
                                                increase=incr)
-                    alglogger.debug("New Parameters: ", new_params)
                     if new_params not in self.submitted:
                         self.submitted.append(new_params)
-                        alglogger.debug(new_params)
                         return [new_params] * self.repeat_trials
         else:
-            alglogger.debug("All local perturbations have been exhausted and "
-                            "no better local optimum was found.")
+            alglogger.info("All local perturbations have been exhausted and "
+                           "no better local optimum was found.")
             return [None] * self.repeat_trials
 
     def _perturb(self, candidate, param_name, increase):
@@ -436,7 +431,7 @@ class BayesianOptimization(Algorithm):
         kernel = sklearn.gaussian_process.kernels.Matern(nu=2.5, length_scale=float(2./len(ytrain)))
 
         self.gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=kernel,
-                                                                    alpha=1e-4,
+                                                                    alpha=1e-8,
                                                                     optimizer='fmin_l_bfgs_b' if len(ytrain) >= 8*len(parameters) else None,
                                                                     n_restarts_optimizer=10,
                                                                     normalize_y=True)
