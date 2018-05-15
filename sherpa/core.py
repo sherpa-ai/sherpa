@@ -710,9 +710,13 @@ class Choice(Parameter):
         return self.range[i]
 
 
-class Ordinal(Choice):
+class Ordinal(Parameter):
     """
     Ordinal parameter class. Categorical, ordered variable.
     """
     def __init__(self, name, range):
         super(Ordinal, self).__init__(name, range)
+
+    def sample(self):
+        i = numpy.random.randint(low=0, high=len(self.range))
+        return self.range[i]
