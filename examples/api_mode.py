@@ -9,9 +9,10 @@ parameters = [sherpa.Choice(name="param_a",
 
 # algorithm = sherpa.algorithms.RandomSearch(max_num_trials=40)
 # algorithm = sherpa.algorithms.LocalSearch(num_random_seeds=20)
-algorithm = sherpa.algorithms.BayesianOptimization(num_grid_points=5)
-stopping_rule = sherpa.algorithms.MedianStoppingRule(min_iterations=2,
-                                          min_trials=5)
+algorithm = sherpa.algorithms.BayesianOptimization(num_grid_points=2, max_num_trials=50)
+# stopping_rule = sherpa.algorithms.MedianStoppingRule(min_iterations=2,
+#                                           min_trials=5)
+stopping_rule = None
 study = sherpa.Study(parameters=parameters,
                      algorithm=algorithm,
                      stopping_rule=stopping_rule,
@@ -46,6 +47,4 @@ for trial in study:
         study.finalize(trial=trial,
                        status='COMPLETED')
 
-
-
-print(study.results)
+print(study.get_best_result())

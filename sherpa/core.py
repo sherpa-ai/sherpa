@@ -451,8 +451,9 @@ class _Runner(object):
                 except ValueError as e:
                     warn_msg = str(e)
                     warn_msg += ("\nRelevant results not found in database."
-                                 " Check that Client has correct host/port, is"
-                                 " submitting metrics and did not crash."
+                                 " Check whether:\n"
+                                 "(1)\tTrial is submitting metrics via e.g. sherpa.Client.send_metrics()\n"
+                                 "(2)\tTrial crashed\n"
                                  " Trial script output is in: ")
                     warn_msg += os.path.join(self.study.output_dir, 'sge', 'trial_{}.out'.format(tid))
                     warnings.warn(warn_msg, RuntimeWarning)
@@ -707,6 +708,9 @@ class Continuous(Parameter):
     def __init__(self, name, range, scale='linear'):
         super(Continuous, self).__init__(name, range)
         self.scale = scale
+        if scale == 'log':
+            assert all(r > 0. for r in range), "Range parameters must be " \
+                                              "positive for log scale."
 
     def sample(self):
         if self.scale == 'log':
@@ -723,6 +727,9 @@ class Discrete(Parameter):
     def __init__(self, name, range, scale='linear'):
         super(Discrete, self).__init__(name, range)
         self.scale = scale
+        if scale == 'log':
+            assert all(r > 0 for r in range), "Range parameters must be " \
+                                              "positive for log scale."
 
     def sample(self):
         if self.scale == 'log':
@@ -744,9 +751,13 @@ class Choice(Parameter):
         return self.range[i]
 
 
-class Ordinal(Choice):
+class Ordinal(Parameter):
     """
     Ordinal parameter class. Categorical, ordered variable.
     """
     def __init__(self, name, range):
         super(Ordinal, self).__init__(name, range)
+
+    def sample(self):
+        i = numpy.random.randint(low=0, high=len(self.range))
+        return self.range[i]

@@ -12,15 +12,15 @@ from test_sherpa import test_dir
 logging.basicConfig(level=logging.DEBUG)
 testlogger = logging.getLogger(__name__)
 
-
+# Adjust for testing
 SGE_QUEUE_NAME = 'arcus.q'
 SGE_PROJECT_NAME = 'arcus_cpu.p'
 SGE_ENV_PROFILE = '/home/lhertel/profiles/python3env.profile'
 
 
 def test_sge_scheduler():
-    host = socket.gethostname()
-    if (not host == "nimbus") and (not host.startswith('arcus')):
+    if not os.environ.get('SGE_ROOT'):
+        testlogger.info("SGE ROOT not found. Skipping SGE scheduler test.")
         return
 
     test_dir = tempfile.mkdtemp(dir=".")

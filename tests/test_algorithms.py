@@ -40,47 +40,47 @@ def test_median_stopping_rule():
 
 
 def test_local_search():
-    parameters, results, lower_is_better = sherpa.algorithms.get_sample_results_and_params()
+    parameters = [sherpa.Continuous('cont', [0, 1]),
+                  sherpa.Ordinal('ord', [1, 2, 3])]
 
-    previous_configs = [{'param_a': row['param_a'], 'param_b': row['param_b']}
-                        for _, row in results.iterrows()]
+    seed = {'cont': 0.1, 'ord': 3}
+    alg = sherpa.algorithms.LocalSearch(seed_configuration=seed)
 
-    best_params = results.loc[42, ['param_a', 'param_b']].to_dict()
+    study = sherpa.Study(parameters=parameters, algorithm=alg, lower_is_better=True,
+                         disable_dashboard=True)
 
-    num_random_seeds = 3
-    num_seeds_configs = 5
-    num_test_steps = 10
+    def mock_objective(p):
+        return p['cont']/p['ord']
 
-    rs = sherpa.algorithms.RandomSearch(num_random_seeds)
+    t = study.get_suggestion()
+    assert t.parameters == seed
+    study.add_observation(t, objective=mock_objective(t.parameters),
+                          iteration=1)
+    study.finalize(t)
 
-    seed_configs = [rs.get_suggestion(parameters, results, lower_is_better)
-                    for _ in range(num_seeds_configs)]
+    t = study.get_suggestion()
+    t.parameters['cont'] = round(t.parameters['cont'], 5)
+    print(t.parameters)
+    assert t.parameters in [{'cont': 0.09, 'ord': 3}, {'cont': 0.1, 'ord': 2},
+                            {'cont': 0.11, 'ord': 3}]
+    study.add_observation(t, objective=mock_objective(t.parameters),
+                          iteration=1)
+    study.finalize(t)
 
-    alg = sherpa.algorithms.LocalSearch(num_random_seeds=num_random_seeds,
-                                        seed_configurations=seed_configs)
+    if t.parameters == {'cont': 0.09, 'ord': 3}:
+        t = study.get_suggestion()
+        t.parameters['cont'] = round(t.parameters['cont'], 5)
+        assert t.parameters in [{'cont': 0.081, 'ord': 3},
+                                {'cont': 0.099, 'ord': 3},
+                                {'cont': 0.09, 'ord': 2}]
+    else:
+        t = study.get_suggestion()
+        t.parameters['cont'] = round(t.parameters['cont'], 5)
+        assert t.parameters in [{'cont': 0.09, 'ord': 3},
+                                {'cont': 0.1, 'ord': 2},
+                                {'cont': 0.11, 'ord': 3}]
 
-    # one parameter is continuous so we can assume we don't sample same value
-    # twice
 
-    # seed configs
-    for seed in seed_configs:
-        p = alg.get_suggestion(parameters, results, lower_is_better)
-
-        assert p == seed
-
-    # random seeds
-    for _ in range(num_random_seeds):
-        p = alg.get_suggestion(parameters, results, lower_is_better)
-
-        assert p not in seed_configs
-        assert p not in previous_configs
-
-    # hill climb
-    for _ in range(num_test_steps):
-        p = alg.get_suggestion(parameters, results, lower_is_better)
-
-        assert (best_params['param_a'] == p['param_a']
-                or best_params['param_b'] == p['param_b'])
 
 def test_Iterate_search():
     hp_iter = [{'a': 1, 'b': 'a', 'c': 1},
@@ -122,64 +122,6 @@ def test_grid_search():
                     (1, 'b', 2), (1, 'b', 3),
                     (2, 'a', 2), (2, 'a', 3),
                     (2, 'b', 2), (2, 'b', 3)}
-
-
-def test_grid_search_grid_maker():
-    alg = sherpa.algorithms.GridSearch()
-
-    assert alg._get_param_dict([sherpa.Continuous('b', [1, 4])]) == {'b': [2, 3]}
-    assert alg._get_param_dict([sherpa.Continuous('c', [0.0001, 0.1], 'log')]) == {'c': [0.001, 0.01]}
-
-
-def test_gp_ei_seeds():
-    alg = sherpa.algorithms.BayesianOptimization(num_grid_points=2)
-
-    parameters = sherpa.Parameter.grid({'a': [1, 2],
-                                        'b': ['a', 'b']})
-    parameters.append(sherpa.Continuous(name='c', range=[1, 4]))
-
-    left = {(1, 'a', 2), (1, 'a', 3),
-            (1, 'b', 2), (1, 'b', 3),
-            (2, 'a', 2), (2, 'a', 3),
-            (2, 'b', 2), (2, 'b', 3)}
-
-    for _ in range(8):
-        suggestion = alg.get_suggestion(parameters, None, True)
-        print(suggestion)
-        left.remove((suggestion['a'], suggestion['b'], suggestion['c']))
-
-    assert len(left) == 0
-
-
-def test_gp_ei():
-    parameters = [sherpa.Choice(name="param_a",
-                                range=[1, 2, 3]),
-                  sherpa.Continuous(name="param_b",
-                                    range=[0, 1])]
-
-    algorithm = sherpa.algorithms.BayesianOptimization(num_grid_points=3)
-
-    study = sherpa.Study(parameters=parameters,
-                         algorithm=algorithm,
-                         lower_is_better=True,
-                         disable_dashboard=True)
-
-    for trial in study:
-        if trial.id == 50:
-            break
-        print("Trial {}:\t{}".format(trial.id, trial.parameters))
-
-        pseudo_objective = trial.parameters['param_a'] * trial.parameters['param_b']
-
-        study.add_observation(trial=trial,
-                              iteration=1,
-                              objective=pseudo_objective)
-        study.finalize(trial=trial,
-                       status='COMPLETED')
-
-    rval = study.get_best_result()
-    assert rval['param_a'] == 1.
-    assert rval['param_b'] < 0.001
 
 
 def test_pbt():

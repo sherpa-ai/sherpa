@@ -9,3 +9,4 @@ re-implements its methods ``submit_job``, ``get_status``, and ``kill_job``.
 .. autoclass:: sherpa.schedulers.Scheduler
    :noindex:
    :members:
+

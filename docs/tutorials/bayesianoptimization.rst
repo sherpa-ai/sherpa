@@ -57,13 +57,19 @@ When defining the algorithm the ``BayesianOptimization`` class is used:
 
 ::
 
-    algorithm = sherpa.algorithms.BayesianOptimization(num_random_seeds=10,
+    algorithm = sherpa.algorithms.BayesianOptimization(num_grid_points=3,
                                                        max_num_trials=150)
 
-where ``num_random_seeds`` describes the number of randomly sampled hyperparameter
-configurations at the beginning of the optimization. Random samples are required
-so that the Bayesian Optimization model has data-points to make predictions. The
-``max_num_trials`` argument is optional and specifies the number of trials after
+where ``num_grid_points`` describes the number of grid-search hyperparameter
+configurations at the beginning of the optimization. Such seed configurations are required
+so that the Bayesian Optimization model has data-points to make predictions. By
+picking these configurations off a grid we make it easier for the space to be
+explore subsequently. The ``num_grid_points`` applieds to continuous and discrete
+parameters here. This means that ``num_grid_points=3`` implies ``d^3=3^3=27``
+grid search configurations.
+
+
+The ``max_num_trials`` argument is optional and specifies the number of trials after
 which the algorithm will finish. If not specified the algorithm will keep running
 and has to be cancelled by the user.
 

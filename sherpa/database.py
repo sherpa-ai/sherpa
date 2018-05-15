@@ -188,10 +188,6 @@ class Client(object):
                   'context': context}
         self.db.results.insert_one(result)
 
-        for entry in self.db.stop.find():
-            if entry.get('trial_id') == trial.id:
-                raise StopIteration("Trial listed for stopping.")
-
     def keras_send_metrics(self, trial, objective_name, context_names=[]):
         """
         Keras Callbacks to send metrics to SHERPA.
