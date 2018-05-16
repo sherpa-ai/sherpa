@@ -22,8 +22,8 @@ SHERPA Implementation
 
 SHERPA implements Bayesian optimization using a GP and the Expected
 Improvement acquisition function. SHERPA uses a fixed length scale for the GP kernel
- for the first points. After that the length scale is optimized with respect to
- the marginal likelihood. The acquisition function is maximized by evaluating a
+for the first points. After that the length scale is optimized with respect to
+the marginal likelihood. The acquisition function is maximized by evaluating a
 10000 random samples and numerically optimizing the continuous and
 discrete parameters of the 50 best ones via *L-BFGS*.
 
