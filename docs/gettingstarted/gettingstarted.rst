@@ -1,6 +1,8 @@
 Writing your Optimization
 =========================
 
+This section expands on the :ref:`Keras-to-Sherpa <keras-to-sherpa>` tutorial
+in that it goes more into detail about the configuration options.
 An optimization in SHERPA consists of a trial-script and a
 runner-script.
 
@@ -39,7 +41,8 @@ Runner-script
 -------------
 
 The runner-script defines the optimization and runs SHERPA. Parameters
-are defined as a list of Parameter-objects:
+are defined as a list of Parameter-objects. For a list of the available parameters
+see :ref:`here <parameters-api>`.
 
 ::
 
@@ -50,19 +53,19 @@ are defined as a list of Parameter-objects:
                                     range=[0, 1])]
 
 Once you decided on the parameters and their ranges you can choose an
-optimization algorithm:
+:ref:`optimization algorithm <algorithms>`.
 
 ::
 
     algorithm = sherpa.algorithms.RandomSearch(max_num_trials=10)
 
-Schedulers allow to run an optimization on one machine or a cluster:
+:ref:`Schedulers <schedulers>` allow to run an optimization on one machine or a cluster:
 
 ::
 
     scheduler = sherpa.schedulers.LocalScheduler()
 
-The optimization is run via:
+The optimization is run via :ref:```sherpa.optimize`` <optimize-api>`:
 
 ::
 

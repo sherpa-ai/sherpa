@@ -9,7 +9,7 @@ Background
 The goal for the Local Search algorithm is to start with a good hyperparameter
 configuration and test if it can be improved. The starting configuration could
 have been obtained through one of the other algorithms or from hand-tuning. The
-algorithm starts by evaluating the seed_configuration. It then perturbs one
+algorithm starts by evaluating the ``seed_configuration``. It then perturbs one
 parameter at a time. If a new configuration achieves a better objective value
 than the seed then the new configuration is made the new seed.
 
@@ -17,7 +17,7 @@ Perturbations are applied as multiplication by a factor in the case of
 ``Continuous`` or ``Discrete`` variables. The default values are `0.8` and
 `1.2`. These can be modified via the ``perturbation_factors`` argument. In the
 case of ``Ordinal`` variables, the parameter is shifted one up or down in the
-provided values. ``Choice`` variables are not allowed.
+provided values. For ``Choice`` variables, another choice is randomly sampled.
 
 Due to the fact that the Local Search algorithm is meant to fine-tune a
 hyperparameter configuration, it also has an option to repeat trials. The

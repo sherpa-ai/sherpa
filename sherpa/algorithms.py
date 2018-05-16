@@ -203,7 +203,7 @@ class LocalSearch(Algorithm):
         repeat_trials (int): number of times that identical configurations are
             repeated to test for random fluctuations.
     """
-    def __init__(self, seed_configuration, perturbation_factors=(0.9, 1.1), repeat_trials=1):
+    def __init__(self, seed_configuration, perturbation_factors=(0.8, 1.2), repeat_trials=1):
         self.seed_configuration = seed_configuration
         self.count = 0
         self.submitted = []
@@ -829,8 +829,7 @@ class PopulationBasedTraining(Algorithm):
                 candidate[param.name] = values[newidx]
 
             elif isinstance(param, Choice):
-                warnings.warn("Choice parameter is not supported by SHERPA "
-                              "Population Based Training. Skipping parameter.")
+                candidate[param.name] = param.sample()
 
             else:
                 raise ValueError("Unrecognized Parameter Object.")

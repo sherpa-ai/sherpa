@@ -16,7 +16,7 @@ def run_example(FLAGS):
     
     if FLAGS.algorithm == 'BayesianOptimization':  
         print('Running Bayesian Optimization')
-        alg = sherpa.algorithms.BayesianOptimization(num_grid_points=3,
+        alg = sherpa.algorithms.BayesianOptimization(num_grid_points=2,
                                                      max_num_trials=150)
     elif FLAGS.algorithm == 'LocalSearch':
         print('Running Local Search')

@@ -17,7 +17,7 @@ SHERPA uses Google style Python doc-strings (e.g. `here <http://sphinxcontrib-na
 Unit Testing
 ~~~~~~~~~~~~
 
-Unit tests are organized in three scripts under ``/tests/`` from the SHERPA
+Unit tests are organized in scripts under ``/tests/`` from the SHERPA
 root: ``test_sherpa.py`` tests core features of SHERPA, ``test_algorithms.py``
 tests implemented algorithms, and ``test_schedulers.py`` tests schedulers. The
 file ``long_tests.py`` does high level testing of SHERPA and takes longer to run.
@@ -64,3 +64,10 @@ achieve this it interacts with a ``sherpa.database._Database`` object and a
 
 .. autoclass:: sherpa.core._Runner
    :noindex:
+
+Putting it all together
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The user does not directly interact with the ``_Runner`` class. Instead it is
+wrapped by the function ``sherpa.optimize`` that sets up the database and takes
+algorithm and scheduler as arguments from the user.

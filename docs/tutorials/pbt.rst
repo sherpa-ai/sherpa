@@ -5,8 +5,9 @@ Background
 ----------
 
 Population Based Training (PBT) as introduced by Jaderberg et al. 2017
-is an evolutionary algorithm for hyperparameter search. The figure below shows a diagram of
-how it works. It starts with a random population of hyperparamater
+is an evolutionary algorithm for hyperparameter search. The diagram below is
+taken from Jaderberg et al. 2017 and gives an intuition on the algorithm. It
+starts with a random population of hyperparamater
 configurations. Each population member is trained for a limited amount
 of time and evaluated. When every population member has been evaluated,
 the ones with low scores replace their own weights and hyperparameters
@@ -19,7 +20,7 @@ trained and evaluated again and the process repeats.
 
 Note that only parameters can be tuned that can be changed during training. The
 number of layers in a neural network for example is better tuned with
-:ref:`Bayesian Optimization tutorial <bayesian-optimization>`.
+:ref:`Bayesian Optimization <bayesian-optimization>`.
 
 
 SHERPA Implementation
@@ -37,6 +38,8 @@ multiplied by 0.8, 1.0, or 1.2. These numbers can be adjusted via the
 for this perturbation process via the ``parameter_ranges`` argument. These ranges
 operate independently from the ranges specified when defining each parameter. Instead
 this argument limits the range in which each parameter can be perturbed to.
+Ordinal parameters are moved one up or one down by the perturbation. Choice
+parameters are randomly resampled.
 
 .. autoclass:: sherpa.algorithms.PopulationBasedTraining
    :noindex:
@@ -67,6 +70,7 @@ this trial in terms of trial IDs and can be ignored at this point. The
 example in Keras:
 
 ::
+
     import keras.backend as K
 
     if trial.parameters['load_from'] == '':
@@ -76,8 +80,9 @@ example in Keras:
         K.set_value(model.optimizer.lr, trial.parameters['lr'])
         K.set_value(model.optimizer.momentum, trial.parameters['momentum'])
 
-Note that if the model is loaded then the user may have to change some
-hyperparameters manually.
+Note that when the model is loaded the user may have to change some
+hyperparameters manually like in this case the learning rate ``lr`` and ``momentum``
+of the model.
 
 Save
 ^^^^
@@ -85,7 +90,7 @@ Save
 After the model is trained and evaluated it is crucial that it is saved
 using ``save_to``. The user can choose where to save the models to and what
 exact name to give them so long each is identifiable by the number given
-in ``save_to``.
+in ``save_to`` and the path matches the path that the model is loaded from above.
 
 ::
 
@@ -106,7 +111,8 @@ The runner script has the parameter ranges defined as usual.
 The parameters for the PBT algorithm are
 ``population_size``, ``parameter_range``, and ``perturbation_factors``.
 Population size is the number of models that are randomly initialized at the
-beginning and the size of every generation thereafter. The parameter ranges
+beginning. The ``population_size`` is also the size of every generation thereafter.
+The parameter ranges
 correspond to ranges used by PBT for perturbation. The motivation for this parameter is that
 one may want the initial models to be sampled from the ranges provided
 in the regular way. The PBT parameter ranges may be larger allowing model parameters
@@ -114,11 +120,11 @@ to drift in certain directions.
 
 ::
 
-    pbt_ranges = {'lr':[0.0000001, 1.], 'batch_size':[16, 32, 64, 128, 256]}
+    pbt_ranges = {'lr':[0.0000001, 1.], 'batch_size':[16, 32, 64, 128, 256, 512]}
     algorithm = sherpa.algorithms.PopulationBasedTraining(population_size=50,
                                                           parameter_range=pbt_ranges)
 
-And the optimization for trial script ``mnist_cnn.py`` is called as before.
+And the optimization is called as before.
 
 ::
 

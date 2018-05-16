@@ -1,46 +1,17 @@
 Installation
 ============
 
-
-Installation from wheel
------------------------
-
-Download a copy of the wheel file from the dist folder in
-git@gitlab.ics.uci.edu:uci-igb/sherpa.git
-
-Make sure you have the most updated version of pip
-
-::
-
-    pip install --upgrade pip
-
-Install wheel package if needed
-
-::
-
-    pip install wheel
-
-Go to the directory where you downloaded the wheel and install sherpa
-from wheel
-
-::
-
-    pip install sherpa-0.0.0-py2.py3-none-any.whl
-
-If you used the wheel to install Sherpa you don’t need to set your
-python path.
-
-Installation from gitlab
+Installation from GitHub
 ------------------------
 
-Clone into ``/your/path/`` from GitLab:
+Clone into ``/your/path/`` from GitHub:
 
 ::
 
     cd /your/path/
     git clone git@gitlab.ics.uci.edu:uci-igb/sherpa.git
 
-Add SHERPA to Python-path in your profile:
+Add SHERPA to Python-path:
 
 ::
 
@@ -86,7 +57,7 @@ You can run an example to verify SHERPA is working:
     cd /your/path/sherpa/examples/
     python api_mode.py
 
-And to verify SHERPA with MongoDB is working:
+And to verify SHERPA *with* MongoDB is working:
 
 ::
 

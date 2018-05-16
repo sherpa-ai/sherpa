@@ -1,6 +1,8 @@
 Algorithms
 ==========
 
+.. _algorithms:
+
 Optimization Algorithms
 -----------------------
 

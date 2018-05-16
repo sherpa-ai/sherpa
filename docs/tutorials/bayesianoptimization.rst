@@ -6,7 +6,7 @@ Bayesian Optimization
 Background
 ----------
 
-Bayesian optimization for hyperparameter tuning (e.g. Snoek et al. 2012)
+Bayesian optimization for hyperparameter tuning
 uses a flexible model to map from hyperparameter
 space to objective values. In many cases this model is a Gaussian
 Process (GP) or a Random Forest. This model is fitted to inputs of hyperparameter configurations and outputs
@@ -14,28 +14,28 @@ of objective values. The model is used to
 make predictions about candidate hyperparameter configurations. Each
 candidate-prediction can be evaluated with respect to its utility via an
 acquisiton function. The algorithm therefore consists of fitting the model,
-making predictions for many candidates,
-finding the candidate that maximizes the acquisition function, evaluating the chosen
-candidate hyperparameter configuration, and repeating the process. This yields an
-optimization method that under certain conditions is proven to be
-consistent.
+finding the hyperparameter configuration that maximize the acquisition function,
+evaluating that configuration, and repeating the process.
 
 SHERPA Implementation
 ---------------------
 
-SHERPA implements Bayesian optimization using a GP and an Expected
-Improvement acquisition function. In contrast to Snoek et al. 2012,
-SHERPA obtains the hyperparameters of the Gaussian Process via
-maximization of the marginal likelihood. At this point there is no
-thorough treatment of parallel evaluation in place. However, in practice
-this is not an issue since the optimium of the acquistion function is
-found via random sampling and numerical optimization of the best
-samples. It is therefore unlikely that the same configuration is
-suggested twice. SHERPA’s ``Discrete`` parameter is treated like a
+SHERPA implements Bayesian optimization using a GP and the Expected
+Improvement acquisition function. SHERPA uses a fixed length scale for the GP kernel
+ for the first points. After that the length scale is optimized with respect to
+ the marginal likelihood. The acquisition function is maximized by evaluating a
+10000 random samples and numerically optimizing the continuous and
+discrete parameters of the 50 best ones via *L-BFGS*.
+
+SHERPA’s ``Discrete`` parameter is treated like a
 continuous variable that is discretized after a value is suggested.
 ``Choice`` parameters are treated as categorical/one-hot variables in
-the GP as justified by Duvenaud’s Kernel Cookbook. The ``BayesianOptimization``
-algorithm takes as argument an optional maximum number of trials.
+the GP as justified by Duvenaud’s Kernel Cookbook. All parameters are scaled to
+``[0, 1]`` internally and transformed back for the user.
+
+The ``BayesianOptimization``
+algorithm takes as argument an optional maximum number of trials and the number
+of grid search points to initialize the optimization on.
 
 .. autoclass:: sherpa.algorithms.BayesianOptimization
   :noindex:
@@ -51,13 +51,14 @@ are defined as usual:
 
     parameters = [sherpa.Continuous('lrinit', [0.1, 0.01], 'log'),
                   sherpa.Continuous('momentum', [0., 0.99]),
-                  sherpa.Continuous('lrdecay', [1e-2, 1e-7], 'log')]
+                  sherpa.Continuous('lrdecay', [1e-2, 1e-7], 'log'),
+                  sherpa.Continuous('dropout', [0., 0.5])]
 
 When defining the algorithm the ``BayesianOptimization`` class is used:
 
 ::
 
-    algorithm = sherpa.algorithms.BayesianOptimization(num_grid_points=3,
+    algorithm = sherpa.algorithms.BayesianOptimization(num_grid_points=2,
                                                        max_num_trials=150)
 
 where ``num_grid_points`` describes the number of grid-search hyperparameter
@@ -65,7 +66,7 @@ configurations at the beginning of the optimization. Such seed configurations ar
 so that the Bayesian Optimization model has data-points to make predictions. By
 picking these configurations off a grid we make it easier for the space to be
 explore subsequently. The ``num_grid_points`` applieds to continuous and discrete
-parameters here. This means that ``num_grid_points=3`` implies ``d^3=3^3=27``
+parameters here. This means that ``num_grid_points=2`` implies ``d^2=4^2=16``
 grid search configurations.
 
 
