@@ -1,3 +1,22 @@
+"""
+SHERPA is a Python library for hyperparameter tuning of machine learning models.
+Copyright (C) 2018  Lars Hertel, Peter Sadowski, and Julian Collado.
+
+This file is part of SHERPA.
+
+SHERPA is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+SHERPA is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
+"""
 import os
 import random
 import numpy
@@ -184,7 +203,7 @@ class LocalSearch(Algorithm):
         repeat_trials (int): number of times that identical configurations are
             repeated to test for random fluctuations.
     """
-    def __init__(self, seed_configuration, perturbation_factors=(0.9, 1.1), repeat_trials=1):
+    def __init__(self, seed_configuration, perturbation_factors=(0.8, 1.2), repeat_trials=1):
         self.seed_configuration = seed_configuration
         self.count = 0
         self.submitted = []
@@ -810,8 +829,7 @@ class PopulationBasedTraining(Algorithm):
                 candidate[param.name] = values[newidx]
 
             elif isinstance(param, Choice):
-                warnings.warn("Choice parameter is not supported by SHERPA "
-                              "Population Based Training. Skipping parameter.")
+                candidate[param.name] = param.sample()
 
             else:
                 raise ValueError("Unrecognized Parameter Object.")

@@ -1,6 +1,8 @@
 Schedulers
 ==========
 
+.. _schedulers:
+
 .. autoclass:: sherpa.schedulers.SGEScheduler
    :noindex:
 

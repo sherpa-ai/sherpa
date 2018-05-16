@@ -21,11 +21,11 @@ Your environment profile
 
 In order to use SHERPA with a grid scheduler you will have to set up a profile
 with environment variables. This will be loaded every time a job is submitted.
-an SGE job will not load your ``.bashrc`` so all necessary settings need to be
+An SGE job will not load your ``.bashrc`` so all necessary settings need to be
 in your profile.
 
 For example, in the case of training machine learning models on a GPU, the
-profile might contain environment variables relating to CUDA or activate a
+profile might contain environment variables relating to CUDA or activating a
 container that contains the requirements.
 If you installed SHERPA via Git, then
 the profile also might have to add the SHERPA folder to the ``PYTHONPATH``.

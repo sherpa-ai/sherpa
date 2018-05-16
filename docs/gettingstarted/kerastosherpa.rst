@@ -1,3 +1,5 @@
+.. _keras-to-sherpa:
+
 From Keras to Sherpa in 30 seconds
 ==================================
 
@@ -75,9 +77,9 @@ After:
 Runner-script
 -------------
 
-Now we are going to create the runner-script and specify our hyperparameter
-``num_units`` along with information for the hyperparameter algorithm, in this
-case Random Search.
+Now we are going to create the runner-script in a file called ``runner.py`` and
+specify our hyperparameter ``num_units`` along with information for the
+hyperparameter algorithm, in this case Random Search.
 
 ::
 
@@ -86,7 +88,7 @@ case Random Search.
     alg = sherpa.algorithms.RandomSearch(max_num_trials=150)
     rval = sherpa.optimize(parameters=parameters,
                            algorithm=alg,
-                           lower_is_better=False,
+                           lower_is_better=True,  # Minimize objective
                            filename='./trial.py', # Python script to run, where the model was defined
                            scheduler=sherpa.schedulers.LocalScheduler(), # Run on local machine
                            )
