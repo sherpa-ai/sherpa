@@ -18,7 +18,7 @@ Clone into ``/your/path/`` from GitHub:
 ::
 
     cd /your/path/
-    git clone git@gitlab.ics.uci.edu:uci-igb/sherpa.git
+    git clone https://github.com/LarsHH/sherpa.git
 
 Add SHERPA to Python-path:
 
