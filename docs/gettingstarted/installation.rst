@@ -63,3 +63,4 @@ And to verify SHERPA *with* MongoDB is working:
 
     cd /your/path/sherpa/examples/
     python runner_mode.py
+
