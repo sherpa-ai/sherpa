@@ -18,7 +18,7 @@ Clone into ``/your/path/`` from GitHub:
 ::
 
     cd /your/path/
-    git clone git@gitlab.ics.uci.edu:uci-igb/sherpa.git
+    git clone https://github.com/LarsHH/sherpa.git
 
 Add SHERPA to Python-path:
 
@@ -82,7 +82,7 @@ And to verify SHERPA *with* MongoDB is working:
 ::
 
     cd /your/path/sherpa/examples/
-    python runner_mode.py.. _keras-to-sherpa:
+    python runner_mode.py
 
 From Keras to Sherpa in 30 seconds
 ==================================
