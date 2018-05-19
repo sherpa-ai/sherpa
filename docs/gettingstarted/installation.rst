@@ -39,8 +39,8 @@ You can run an example to verify SHERPA is working:
 
 Note that to run hyperparameter optimizations in parallel with SHERPA requires
 the installation of Mongo DB. If that is not an option take a look at this
-example of optimizing a Random Forest in ``sherpa/examples/randomforest/breastcancer.py`` without parallel computing.
-See the :ref:`Using the SHERPA API <apimode>` tutorial for more information on
+example of optimizing a Random Forest in ``examples/randomforest/breastcancer.py`` without parallel computing.
+See the ``Using the SHERPA API`` tutorial in the documentation for more information on
 how to run SHERPA without Mongo DB.
 
 Mongo DB
