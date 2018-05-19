@@ -30,6 +30,19 @@ Install dependencies:
     pip install drmaa
     pip install enum34  # if on < Python 3.4
 
+You can run an example to verify SHERPA is working:
+
+::
+
+    cd /your/path/sherpa/examples/
+    python api_mode.py
+
+Note that to run hyperparameter optimizations in parallel with SHERPA requires
+the installation of Mongo DB. If that is not an option take a look at this
+example of optimizing a Random Forest in ``sherpa/examples/randomforest/breastcancer.py`` without parallel computing.
+See the :ref:`Using the SHERPA API <apimode>` tutorial for more information on
+how to run SHERPA without Mongo DB.
+
 Mongo DB
 --------
 
@@ -45,19 +58,10 @@ is straightforward. For MacOS, MongoDB can either be installed via Homebrew
 
 or via the .. _instructions: https://docs.mongodb.com/manual/tutorial/install-mongodb-on-os-x/ .
 
-
-
 Example
 -------
 
-You can run an example to verify SHERPA is working:
-
-::
-
-    cd /your/path/sherpa/examples/
-    python api_mode.py
-
-And to verify SHERPA *with* MongoDB is working:
+To verify SHERPA *with* MongoDB is working:
 
 ::
 
