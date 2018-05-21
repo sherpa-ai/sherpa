@@ -638,7 +638,8 @@ class Parameter(object):
         Creates a list of parameters given a parameter grid.
 
         Args:
-            parameter_grid (dict): grid dictionary.
+            parameter_grid (dict): Dictionary mapping hyperparameter names 
+                                   lists of possible values.
 
         Example:
             ::
