@@ -1,3 +1,22 @@
+"""
+SHERPA is a Python library for hyperparameter tuning of machine learning models.
+Copyright (C) 2018  Lars Hertel, Peter Sadowski, and Julian Collado.
+
+This file is part of SHERPA.
+
+SHERPA is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+SHERPA is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
+"""
 import os
 import random
 import numpy
@@ -9,7 +28,9 @@ import scipy.optimize
 import sklearn.gaussian_process
 from .core import Choice, Continuous, Discrete, Ordinal
 import sklearn.model_selection
+from sklearn import preprocessing
 import warnings
+import collections
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -180,7 +201,7 @@ class GridSearch(Algorithm):
 
 class LocalSearch(Algorithm):
     """
-    Local Search Algorithm by Peter.
+    Local Search Algorithm.
 
     This algorithm expects to start with a very good hyperparameter
     configuration. It changes one hyperparameter at a time to see if better
@@ -193,7 +214,7 @@ class LocalSearch(Algorithm):
         repeat_trials (int): number of times that identical configurations are
             repeated to test for random fluctuations.
     """
-    def __init__(self, seed_configuration, perturbation_factors=(0.9, 1.1), repeat_trials=1):
+    def __init__(self, seed_configuration, perturbation_factors=(0.8, 1.2), repeat_trials=1):
         self.seed_configuration = seed_configuration
         self.count = 0
         self.submitted = []
@@ -202,51 +223,50 @@ class LocalSearch(Algorithm):
         self.repeat_trials = repeat_trials
         
     def get_suggestion(self, parameters, results, lower_is_better):
-        assert all((isinstance(p, Continuous) or isinstance(p, Ordinal)
-                    or isinstance(p, Discrete)) for p in parameters),\
-                    "Only Continuous, Discrete, and Ordinal parameters are " \
-                    "allowed for the LocalSearch algorithm."
-
         if not self.next_trial:
-            self.next_trial = self.get_next_trials(parameters, results,
+            self.next_trial = self._get_next_trials(parameters, results,
                                                    lower_is_better)
 
         return self.next_trial.pop()
 
-    def get_next_trials(self, parameters, results, lower_is_better):
-
+    def _get_next_trials(self, parameters, results, lower_is_better):
         self.count += 1
         if self.count == 1:
             self.submitted.append(self.seed_configuration)
             return [self.seed_configuration] * self.repeat_trials
 
-        parameter_names = [p.name for p in parameters]
-
         # Get best result so far
         if len(results) > 0:
             best_idx = (results.loc[:, 'Objective'].idxmin() if lower_is_better
                         else results.loc[:, 'Objective'].idxmax())
-            self.seed_configuration = results.loc[best_idx,
-                                                  parameter_names].to_dict()
+            self.seed_configuration = results.loc[
+                best_idx, [p.name for p in parameters]].to_dict()
 
         # Randomly sample perturbations and return first that hasn't been tried
-        for pname in random.sample(parameter_names, len(parameter_names)):
-            for incr in random.sample([True, False], 2):
-                new_params = self._perturb(parameters=parameters,
-                                           candidate=self.seed_configuration.copy(),
-                                           param_name=pname,
-                                           increase=incr)
-                alglogger.debug("New Parameters: ", new_params)
-                if new_params not in self.submitted:
-                    self.submitted.append(new_params)
-                    alglogger.debug(new_params)
-                    return [new_params] * self.repeat_trials
+        for param in random.sample(parameters, len(parameters)):
+            if isinstance(param, Choice):
+                values = random.sample(param.range,
+                                       len(param.range))
+                for val in values:
+                    new_params = self.seed_configuration.copy()
+                    new_params[param.name] = val
+                    if new_params not in self.submitted:
+                        self.submitted.append(new_params)
+                        return [new_params] * self.repeat_trials
+            else:
+                for incr in random.sample([True, False], 2):
+                    new_params = self._perturb(candidate=self.seed_configuration.copy(),
+                                               parameter=param,
+                                               increase=incr)
+                    if new_params not in self.submitted:
+                        self.submitted.append(new_params)
+                        return [new_params] * self.repeat_trials
         else:
-            alglogger.debug("All local perturbations have been exhausted and "
-                            "no better local optimum was found.")
+            alglogger.info("All local perturbations have been exhausted and "
+                           "no better local optimum was found.")
             return [None] * self.repeat_trials
 
-    def _perturb(self, parameters, candidate, param_name, increase):
+    def _perturb(self, candidate, parameter, increase):
         """
         Randomly choose one parameter and perturb it.
 
@@ -262,25 +282,23 @@ class LocalSearch(Algorithm):
         Returns:
             dict: perturbed configuration
         """
-        for param in parameters:
-            if param.name == param_name:
-                if isinstance(param, Ordinal):
-                    shift = +1 if increase else -1
-                    values = param.range
-                    newidx = values.index(candidate[param.name]) + shift
-                    newidx = numpy.clip(newidx, 0, len(values) - 1)
-                    candidate[param.name] = values[newidx]
+        if isinstance(parameter, Ordinal):
+            shift = +1 if increase else -1
+            values = parameter.range
+            newidx = values.index(candidate[parameter.name]) + shift
+            newidx = numpy.clip(newidx, 0, len(values) - 1)
+            candidate[parameter.name] = values[newidx]
 
-                else:
-                    factor = self.perturbation_factors[1 if increase else 0]
-                    candidate[param.name] *= factor
+        else:
+            factor = self.perturbation_factors[1 if increase else 0]
+            candidate[parameter.name] *= factor
 
-                    if isinstance(param, Discrete):
-                        candidate[param.name] = int(candidate[param.name])
+            if isinstance(parameter, Discrete):
+                candidate[parameter.name] = int(candidate[parameter.name])
 
-                    candidate[param.name] = numpy.clip(candidate[param.name],
-                                                       min(param.range),
-                                                       max(param.range))
+            candidate[parameter.name] = numpy.clip(candidate[parameter.name],
+                                               min(parameter.range),
+                                               max(parameter.range))
         return candidate
 
 
@@ -423,179 +441,296 @@ class BayesianOptimization(Algorithm):
         acquisition_function (str): currently only ``'ei'`` for expected improvement.
 
     """
-    def __init__(self, num_grid_points=2, max_num_trials=None, acquisition_function='ei'):
+    def __init__(self, num_grid_points=2, max_num_trials=None, log_y=False,
+                 fine_tune=True):
         self.num_grid_points = num_grid_points
         self.count = 0
-        self.seed_configurations = []
-        self.num_spray_samples = 10000
+        self.num_candidates = 10000
+        self.num_optimized = 50
         self.max_num_trials = max_num_trials
         self.random_sampler = RandomSearch()
-        self.xtypes = {}
-        self.xnames = {}
+        self.grid_search = GridSearch(num_grid_points=num_grid_points)
         self.best_y = None
-        self.epsilon = 0.00001
+        self.epsilon = 0.
         self.lower_is_better = None
         self.gp = None
-        assert acquisition_function in ['ei'], (str(acquisition_function) +
-                                                " is currently not implemented "
-                                                "as acquisition function.")
-        self.acquisition_function = acquisition_function
+        self.log_y = log_y
+        self.fine_tune = fine_tune
 
-    def load(self, num_trials):
-        self.count = num_trials
+        self.Xcolumns = {}  # mapping: param name -> columns in X
+        self.transformers = {}  # mapping: param name -> transformation object
 
     def get_suggestion(self, parameters, results=None,
                        lower_is_better=True):
         self.count += 1
-
-        if self.max_num_trials and self.max_num_trials <= self.count:
-            return None
-
         self.lower_is_better = lower_is_better
 
-        if not self.seed_configurations:
-            self._generate_seeds(parameters)
+        if self.max_num_trials and self.count >= self.max_num_trials:
+            # Algorithm finished
+            return None
 
-        if self.count <= len(self.seed_configurations):
-            return self.seed_configurations[self.count-1]
-        
-        if len(results) == 0 or len(results.loc[results['Status'] != 'INTERMEDIATE', :]) < 1:
-            # TODO: Warn user: more workers than seed configurations
-            return self.random_sampler.get_suggestion(parameters, results, lower_is_better)
+        seed = self.grid_search.get_suggestion(parameters=parameters)
+        if seed:
+            # Algorithm still in seed stage
+            return seed
 
-        x, y = self._get_input_output_pairs(results, parameters)
-        self.best_y = y.min() if lower_is_better else y.max()
-        self.gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=sklearn.gaussian_process.kernels.Matern(nu=2.5),
-                                                                    alpha=1e-4,
+        completed = results.query("Status == 'COMPLETED'")
+        if len(completed) == 0:
+            # No completed results, return random trial
+            return self.random_sampler.get_suggestion(parameters=parameters)
+
+        # Prepare data for GP
+        Xtrain = self._to_design(completed.loc[:, [p.name for p in parameters]],
+                                 parameters)
+        ytrain = numpy.array(completed.loc[:, 'Objective'])
+        if self.log_y:
+            assert all(y > 0. for y in ytrain), "Only positive objective" \
+                                                "values are allowed"
+            ytrain = numpy.log10(ytrain)
+
+        self.best_y = ytrain.min() if lower_is_better else ytrain.max()
+
+        kernel = sklearn.gaussian_process.kernels.Matern(nu=2.5, length_scale=float(2./len(ytrain)))
+
+        self.gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=kernel,
+                                                                    alpha=1e-8,
+                                                                    optimizer='fmin_l_bfgs_b' if len(ytrain) >= 8*len(parameters) else None,
                                                                     n_restarts_optimizer=10,
                                                                     normalize_y=True)
-        self.gp.fit(X=x, y=y)
+        self.gp.fit(Xtrain, ytrain)
 
-        xcand, paramscand = self._generate_candidates(parameters)
-        ycand, ycand_std = self.gp.predict(xcand, return_std=True)
+        candidate_df = self._generate_candidates(parameters)
+        Xcandidate = self._to_design(candidate_df, parameters)
+        EI_Xcandidate = self.get_expected_improvement(Xcandidate)
 
-        u = self._get_acquisition_function_value(ycand, ycand_std)
+        if (not all(isinstance(p, Choice) for p in parameters)) and self.fine_tune:
+            # Get indexes of candidates with highest expected improvement
+            best_idxs = EI_Xcandidate.argsort()[-self.num_optimized:][::-1]
+            Xoptimized, EI_Xoptimized = self._maximize(Xcandidate[best_idxs],
+                                                       max_function=self.get_expected_improvement)
 
-        return self._fine_tune_candidates(xcand, paramscand, u)
+            X_total = numpy.concatenate([Xoptimized, Xcandidate])
+            EI_total = numpy.concatenate([EI_Xoptimized, EI_Xcandidate])
+        else:
+            X_total = Xcandidate
+            EI_total = EI_Xcandidate
 
-    def _generate_seeds(self, parameters):
-        grid_search = GridSearch(num_grid_points=self.num_grid_points)
-        p = grid_search.get_suggestion(parameters)
-        while p:
-            self.seed_configurations.append(p)
-            p = grid_search.get_suggestion(parameters)
+        # _from_design returns a dataframe so to get it into the right
+        # dictionary form the row needs to be extracted
+        df = self._from_design(X_total[EI_total.argmax()])
 
-    def _get_input_output_pairs(self, results, parameters):
-        completed = results.loc[results['Status'] != 'INTERMEDIATE', :]
-        x = completed.loc[:, [p.name for p in parameters]]
-        x = self._get_design_matrix(x, parameters)
-        y = numpy.array(completed.loc[:, 'Objective'])
-        return x, y
+        # For debugging, so that these can be accessed from outside
+        self.Xtrain = Xtrain
+        self.ytrain = ytrain
+        self.X_total = X_total
+        self.EI_total = EI_total
+
+        return df.iloc[0].to_dict()
 
     def _generate_candidates(self, parameters):
-        d = {p.name: [] for p in parameters}
-        for _ in range(self.num_spray_samples):
-            params = self.random_sampler.get_suggestion(parameters)
-            for pname in params:
-                d[pname].append(params[pname])
-        df = pandas.DataFrame.from_dict(d)
-        return self._get_design_matrix(df, parameters), df
-
-    def _get_design_matrix(self, df, parameters):
-        self.xtypes = {}
-        self.xscales = {}
-        self.xnames = {}
-        self.xbounds = []
-        num_samples = len(df)
-        num_features = sum(len(p.range) if isinstance(p, Choice) else 1 for p in parameters)
-        x = numpy.zeros((num_samples, num_features))
-        col = 0
-        for p in parameters:
-            if isinstance(p, Choice) and len(p.range) == 1:
-                continue
-            if not isinstance(p, Choice):
-                x[:, col] = numpy.array(df[p.name])
-                if p.scale == 'log':
-                    x[:, col] = numpy.log10(x[:, col])
-                self.xtypes[col] = 'continuous' if isinstance(p, Continuous) else 'discrete'
-                self.xscales[col] = p.scale
-                self.xnames[col] = p.name
-                if isinstance(p, Continuous):
-                    self.xbounds.append((p.range[0], p.range[1]))
-                col += 1
-            else:
-                for i, val in enumerate(p.range):
-                    x[:, col] = numpy.array(1. * (df[p.name] == val))
-                    self.xtypes[col] = 'discrete'
-                    self.xnames[col] = p.name + '_' + str(i)
-                    col += 1
-        return x[:, :col]
-
-    def _get_acquisition_function_value(self, y, y_std):
-        if self.acquisition_function == 'ei':
-            with numpy.errstate(divide='ignore'):
-                scaling_factor = (-1) ** self.lower_is_better
-                z = scaling_factor * (y - self.best_y - self.epsilon)/y_std
-                expected_improvement = scaling_factor * (y - self.best_y -
-                                                         self.epsilon)*scipy.stats.norm.cdf(z)
-            return expected_improvement
-
-    def _fine_tune_candidates(self, xcand, paramscand, utility, num_candidates=50):
         """
-        Numerically optimizes the top k candidates.
+        Generates candidate parameter configurations via random samples.
+
+        Args:
+            parameters (list[sherpa.core.Parameter]): list of hyperparameters.
 
         Returns:
-            dict: best candidate
+            pandas.DataFrame: table with hyperparameters being columns.
         """
-        def continuous_cols(x):
-            return numpy.array([x[i] for i in range(len(x)) if self.xtypes[i] == 'continuous'])
+        d = [self.random_sampler.get_suggestion(parameters)
+             for _ in range(self.num_candidates)]
+        return pandas.DataFrame.from_dict(d)
 
-        def designrow(xstar, row):
-            count = 0
-            newrow = numpy.copy(row)
-            for i in range(len(row)):
-                if self.xtypes[i] == 'continuous':
-                    newrow[i] = xstar[count]
-                    count += 1
-            return newrow.reshape(1, -1)
+    class ChoiceTransformer(object):
+        def __init__(self, parameter):
+            self.le = preprocessing.LabelEncoder()
+            self.le.fit(parameter.range)
+            self.enc = preprocessing.OneHotEncoder()
+            self.enc.fit(numpy.reshape(self.le.transform(parameter.range),
+                                       (-1, 1)))
 
-        def eval_neg_ei(x, row):
-            """
-            Args:
-                x (ndarray): the continuous parameters.
-                args: the choice and discrete parameters.
+        def transform(self, s):
+            labels = self.le.transform(numpy.array(s))
+            onehot = self.enc.transform(numpy.reshape(labels, (-1, 1)))
+            return onehot.toarray()
 
-            Returns:
-                float: expected improvement for x and args.
-            """
-            y, y_std = self.gp.predict(designrow(x, row), return_std=True)
-            return -self._get_acquisition_function_value(y, y_std)
+        def reverse(self, onehot):
+            labels = onehot.argmax(axis=-1)
+            return self.le.inverse_transform(labels)
 
-        max_utility_idxs = utility.argsort()[-num_candidates:][::-1]
+    class ContinuousTransformer(object):
+        def __init__(self, parameter):
+            self.scaler = preprocessing.MinMaxScaler()
+            self.log = (parameter.scale == 'log')
+            if self.log:
+                self.scaler.fit(numpy.log10(self._reshape(parameter.range)))
+            else:
+                self.scaler.fit(self._reshape(parameter.range))
 
-        best_idx = None
-        max_ei = -numpy.inf
-        for idx in max_utility_idxs:
-            candidate = xcand[idx]
+        @staticmethod
+        def _reshape(x):
+            return numpy.array(x).astype('float').reshape((-1, 1))
 
-            res = scipy.optimize.minimize(fun=eval_neg_ei,
-                                          x0=continuous_cols(candidate),
-                                          args=(candidate,),
-                                          method="Nelder-Mead")
+        def transform(self, s):
+            if self.log:
+                x = self.scaler.transform(numpy.log10(self._reshape(s)))
+            else:
+                x = self.scaler.transform(self._reshape(s))
+            return x.reshape(-1)
 
-            if -res.fun > max_ei:
-                max_ei = -res.fun
-                best_idx = idx
-                for col in range(len(candidate)):
-                    if self.xtypes[col] == 'continuous' and self.xscales[col] == 'linear':
-                        paramscand.at[idx, self.xnames[col]] = candidate[col]
-                    elif self.xtypes[col] == 'continuous' and self.xscales[col] == 'log':
-                        paramscand.at[idx, self.xnames[col]] = 10**candidate[col]
+        def reverse(self, x):
+            if self.log:
+                original = 10.**self.scaler.inverse_transform(self._reshape(x))
+            else:
+                original = self.scaler.inverse_transform(self._reshape(x))
+            return original.reshape(-1)
 
-        return paramscand.iloc[best_idx].to_dict()
-    
-    def load(self, count):
-        self.count = count
+    class DiscreteTransformer(ContinuousTransformer):
+        def __init__(self, parameter):
+            super(BayesianOptimization.DiscreteTransformer, self).__init__(parameter)
+
+        def reverse(self, x):
+            return numpy.round(super(BayesianOptimization.DiscreteTransformer, self).reverse(x)).astype('int')
+
+    def _to_design(self, df, parameters):
+        """
+        Turns a dataframe of parameter configurations into a design matrix.
+
+        Args:
+            df (pandas.DataFrame): dataframe with one column per parameter.
+            parameters (list[sherpa.core.Parameter]): the parameters.
+
+        Returns:
+            numpy.darray: the design matrix.
+        """
+        X = []
+        self.Xcolumns = {}
+        column_count = 0
+        for p in parameters:
+            if isinstance(p, Choice) and len(p.range) == 1:
+                raise ValueError("Currently constant parameters are not allowed"
+                                 " for Bayesian Optimization.")
+
+            elif isinstance(p, Choice):
+                self.transformers[
+                    p.name] = BayesianOptimization.ChoiceTransformer(p)
+                this_feature = self.transformers[p.name].transform(df[p.name])
+
+            elif isinstance(p, Continuous):
+                self.transformers[
+                    p.name] = BayesianOptimization.ContinuousTransformer(p)
+                this_feature = self.transformers[p.name].transform(
+                    df[p.name]).reshape((-1, 1))
+            elif isinstance(p, Discrete):
+                self.transformers[
+                    p.name] = BayesianOptimization.DiscreteTransformer(p)
+                this_feature = self.transformers[p.name].transform(
+                    df[p.name]).reshape((-1, 1))
+
+            self.Xcolumns[p.name] = list(range(column_count, column_count
+                                               + this_feature.shape[1]))
+            column_count += this_feature.shape[1]
+            X.append(this_feature)
+        return numpy.concatenate(X, axis=-1)
+
+    def _from_design(self, X):
+        """
+        Turns a design matrix back into a dataframe.
+
+        Args:
+            X (numpy.darray): Design matrix.
+
+        Returns:
+            pandas.DataFrame: Dataframe of hyperparameter values.
+        """
+        columns = {}
+        for pname, pcols in self.Xcolumns.items():
+            columns[pname] = self.transformers[pname].reverse(numpy.atleast_2d(X)[:, pcols])
+        return pandas.DataFrame.from_dict(columns)
+
+    def _expected_improvement(self, y, y_std):
+        with numpy.errstate(divide='ignore'):
+            scaling_factor = (-1) ** self.lower_is_better
+            z = scaling_factor * (y - self.best_y - self.epsilon)/y_std
+            expected_improvement = scaling_factor * (y - self.best_y -
+                                                     self.epsilon)*scipy.stats.norm.cdf(z) + y_std*scipy.stats.norm.pdf(z)
+        return expected_improvement
+
+    def get_expected_improvement(self, X):
+        """
+        Args:
+            X (numpy.ndarray): the continuous parameters.
+
+        Returns:
+            numpy.ndarray: expected improvement for x and args.
+        """
+        y, y_std = self.gp.predict(numpy.atleast_2d(X), return_std=True)
+        return self._expected_improvement(y, y_std)
+
+    def _maximize(self, X, max_function):
+        """
+        Numerically optimize continuous/discrete columns for each row in X.
+
+        Args:
+            X (numpy.ndarray): the rows to be optimized, in design form.
+            max_function (callable): function to be maximized, takes as input
+                rows of X.
+
+        Returns:
+            numpy.ndarray: the best solution for each row.
+            numpy.ndarray: the respective function values.
+        """
+
+        Xoptimized = numpy.zeros_like(X)
+        fun_value = numpy.zeros((len(Xoptimized),))
+
+        def _wrapper(x, *args):
+            row = self._add_choice(x, *args)
+            fval = max_function(row)
+            return -1*fval
+
+        for i, row in enumerate(X):
+            x0, args = self._strip_choice(row)
+            result = scipy.optimize.minimize(fun=_wrapper,
+                                             x0=x0,
+                                             method='L-BFGS-B',
+                                             args=args,
+                                             bounds=[(0, 1)] * x0.shape[0])
+
+            Xoptimized[i] = self._add_choice(result.x, *args)
+            fun_value[i] = result.fun
+        return Xoptimized, -1*fun_value
+
+    def _strip_choice(self, arow):
+        """
+        Separate choice variables from continuous and discrete.
+
+        Args:
+            row (numpy.ndarray): one row of the design matrix.
+
+        Returns:
+            numpy.ndarray: values for continuous/discrete variables
+            tuple[numpy.ndarray]: values for choice variables
+        """
+        x = []
+        args = []
+        for pname, pcols in self.Xcolumns.items():
+            if len(pcols) == 1:
+                x.append(arow[pcols])
+            else:
+                args.append(arow[pcols])
+        return numpy.array(x), tuple(args)
+
+    def _add_choice(self, x, *args):
+        xq = collections.deque(x)
+        argsq = collections.deque(args)
+        row = numpy.array([])
+        for pname, pcols in self.Xcolumns.items():
+            if len(pcols) == 1:
+                row = numpy.append(row, xq.popleft())
+            else:
+                row = numpy.append(row, argsq.popleft())
+        return row
 
 
 class PopulationBasedTraining(Algorithm):
@@ -688,10 +823,6 @@ class PopulationBasedTraining(Algorithm):
         for param in parameters:
             if isinstance(param, Continuous) or isinstance(param, Discrete):
                 factor = numpy.random.choice(self.perturbation_factors)
-
-#                 if param.scale == 'log':
-#                     candidate[param.name] = 10**(numpy.log10(candidate[param.name]) * factor)
-#                 else:
                 candidate[param.name] *= factor
 
                 if isinstance(param, Discrete):
@@ -709,8 +840,7 @@ class PopulationBasedTraining(Algorithm):
                 candidate[param.name] = values[newidx]
 
             elif isinstance(param, Choice):
-                warnings.warn("Choice parameter is not supported by SHERPA "
-                              "Population Based Training. Skipping parameter.")
+                candidate[param.name] = param.sample()
 
             else:
                 raise ValueError("Unrecognized Parameter Object.")

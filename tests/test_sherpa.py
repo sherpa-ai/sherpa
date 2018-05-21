@@ -1,3 +1,22 @@
+"""
+SHERPA is a Python library for hyperparameter tuning of machine learning models.
+Copyright (C) 2018  Lars Hertel, Peter Sadowski, and Julian Collado.
+
+This file is part of SHERPA.
+
+SHERPA is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+SHERPA is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
+"""
 import os
 import sys
 # sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -135,12 +154,6 @@ def test_database(test_dir):
                                 'objective': 0.1,
                                 'parameters': {'a': 1, 'b': 2},
                                 'trial_id': 1}]
-
-        db.add_for_stopping(t.id)
-        with pytest.raises(StopIteration):
-            testlogger.debug("Stopping Trial...")
-            client.send_metrics(trial=t, iteration=2,
-                                objective=0.1, context={'other_metric': 0.2})
 
         # test that Sherpa raises correct error if MongoDB exits
         db2 = sherpa.database._Database(test_dir, port=db_port)

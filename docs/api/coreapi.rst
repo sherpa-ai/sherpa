@@ -4,6 +4,8 @@ Core
 Setting up the Optimization
 ---------------------------
 
+.. _parameters-api:
+
 Parameters
 ~~~~~~~~~~
 
@@ -22,6 +24,8 @@ Parameters
 .. autoclass:: sherpa.core.Parameter
    :noindex:
    :members:
+
+.. _optimize-api:
 
 Running the Optimization
 ~~~~~~~~~~~~~~~~~~~~~~~~

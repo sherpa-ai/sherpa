@@ -1,3 +1,22 @@
+"""
+SHERPA is a Python library for hyperparameter tuning of machine learning models.
+Copyright (C) 2018  Lars Hertel, Peter Sadowski, and Julian Collado.
+
+This file is part of SHERPA.
+
+SHERPA is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+SHERPA is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
+"""
 from __future__ import absolute_import
 import os
 import numpy
@@ -12,6 +31,11 @@ import contextlib
 from .database import _Database
 from .schedulers import _JobStatus
 import datetime
+try:
+    import cPickle as pickle
+except ImportError:  # python 3.x
+    import pickle
+
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -210,20 +234,6 @@ class Study(object):
             trial (sherpa.core.Trial): the trial to be enqueued.
         """
         self._trial_queue.append(trial)
-        
-    def to_csv(self, output_dir=None):
-        """
-        Stores results to CSV.
-        
-        Args:
-            output_dir (str): directory to store CSV to.
-        """
-        if not output_dir:
-            assert self.output_dir, "If no output-directory is specified, " \
-                                    "a directory needs to be passed as argument"
-
-        self.results.to_csv(os.path.join(self.output_dir or output_dir,
-                                         'results.csv'), index=False)
 
     def get_best_result(self):
         """
@@ -289,13 +299,53 @@ class Study(object):
         proc.start()
         return proc
 
-    def load(self):
-        results_path = os.path.join(self.output_dir, 'results.csv')
-        self.results = pandas.read_csv(results_path)
-        self.num_trials = self.results['Trial-ID'].max()
-        self.algorithm.load(self.num_trials)
-        if self.dashboard_process:
-            self._results_channel.df = self.results
+    def save(self, output_dir=None):
+        """
+        Stores results to CSV and attributes to config file.
+
+        Args:
+            output_dir (str): directory to store CSV to, only needed if Study
+                output_dir is not defined.
+
+        """
+        if not output_dir:
+            assert self.output_dir, "If no output-directory is specified, " \
+                                    "a directory needs to be passed as argument"
+        cfg = {'parameters': self.parameters,
+               'lower_is_better': self.lower_is_better,
+               'num_trials': self.num_trials}
+
+        d = self.output_dir or output_dir
+        with open(os.path.join(d, 'config.pkl'), 'wb') as f:
+            pickle.dump(cfg, f)
+
+        self.results.to_csv(os.path.join(self.output_dir or output_dir,
+                                         'results.csv'), index=False)
+
+    @staticmethod
+    def load_dashboard(path):
+        """
+        Loads a study from an output dir without the algorithm.
+
+        Args:
+            path (str): the path to the output dir.
+
+        Returns:
+            sherpa.core.Study: the study running the dashboard, note that
+                currently this study cannot be used to continue the optimization.
+        """
+        with open(os.path.join(path, 'config.pkl'), 'rb') as f:
+            cfg = pickle.load(f)
+
+        s = Study(parameters=cfg['parameters'],
+                  lower_is_better=cfg['lower_is_better'],
+                  algorithm=None, output_dir=path)
+
+        results_path = os.path.join(path, 'results.csv')
+        s.results = pandas.read_csv(results_path)
+        s.num_trials = cfg['num_trials']
+        s._results_channel.df = s.results
+        return s
 
     def __iter__(self):
         """
@@ -415,13 +465,14 @@ class _Runner(object):
                 try:
                     self.study.finalize(trial=self._all_trials[tid].get('trial'),
                                         status=self._trial_status[status])
-                    self.study.to_csv()
+                    self.study.save()
 
                 except ValueError as e:
                     warn_msg = str(e)
                     warn_msg += ("\nRelevant results not found in database."
-                                 " Check that Client has correct host/port, is"
-                                 " submitting metrics and did not crash."
+                                 " Check whether:\n"
+                                 "(1)\tTrial is submitting metrics via e.g. sherpa.Client.send_metrics()\n"
+                                 "(2)\tTrial crashed\n"
                                  " Trial script output is in: ")
                     warn_msg += os.path.join(self.study.output_dir, 'sge', 'trial_{}.out'.format(tid))
                     warnings.warn(warn_msg, RuntimeWarning)
@@ -553,6 +604,16 @@ def optimize(parameters, algorithm, lower_is_better,
     return study.get_best_result()
 
 
+def run_dashboard(path):
+    """
+    Run the dashboard from a previously run optimization.
+
+    Args:
+        path (str): the output dir of the previous optimization.
+    """
+    s = Study.load_dashboard(path)
+
+
 def _port_finder(start, end):
     """
     Helper function to find free port in range.
@@ -667,6 +728,9 @@ class Continuous(Parameter):
     def __init__(self, name, range, scale='linear'):
         super(Continuous, self).__init__(name, range)
         self.scale = scale
+        if scale == 'log':
+            assert all(r > 0. for r in range), "Range parameters must be " \
+                                              "positive for log scale."
 
     def sample(self):
         if self.scale == 'log':
@@ -683,6 +747,9 @@ class Discrete(Parameter):
     def __init__(self, name, range, scale='linear'):
         super(Discrete, self).__init__(name, range)
         self.scale = scale
+        if scale == 'log':
+            assert all(r > 0 for r in range), "Range parameters must be " \
+                                              "positive for log scale."
 
     def sample(self):
         if self.scale == 'log':
@@ -704,9 +771,13 @@ class Choice(Parameter):
         return self.range[i]
 
 
-class Ordinal(Choice):
+class Ordinal(Parameter):
     """
     Ordinal parameter class. Categorical, ordered variable.
     """
     def __init__(self, name, range):
         super(Ordinal, self).__init__(name, range)
+
+    def sample(self):
+        i = numpy.random.randint(low=0, high=len(self.range))
+        return self.range[i]

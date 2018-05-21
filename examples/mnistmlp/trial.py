@@ -29,9 +29,9 @@ def define_model(params):
     model = Model(inputs=input, outputs=output)
 
     # Learning Algorithm
-    lrinit = params['lrinit']
-    momentum = params['momentum']
-    lrdecay = params['lrdecay']
+    lrinit = params.get('lrinit', 0.02)
+    momentum = params.get('momentum', 0.7)
+    lrdecay = params.get('lrdecay', 0.)
     loss = {'output':'categorical_crossentropy'}
     metrics = {'output':'accuracy'}
     loss_weights = {'output':1.0}

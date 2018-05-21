@@ -1,3 +1,22 @@
+"""
+SHERPA is a Python library for hyperparameter tuning of machine learning models.
+Copyright (C) 2018  Lars Hertel, Peter Sadowski, and Julian Collado.
+
+This file is part of SHERPA.
+
+SHERPA is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+SHERPA is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
+"""
 import subprocess
 import re
 import sys
@@ -11,6 +30,9 @@ logger = logging.getLogger(__name__)
 
 
 class _JobStatus(Enum):
+    """
+    Job status used internally to classify jobs into categories.
+    """
     finished = 1
     running = 2
     failed = 3
@@ -39,12 +61,15 @@ class Scheduler(object):
                 directory.
 
         Returns:
-            str: job ID, used for getting the status or killing the job.
+            str: a job ID, used for getting the status or killing the job.
         """
         pass
 
     def get_status(self, job_id):
         """
+        Obtains the current status of the job.
+
+
         Args:
             job_id (str): identifier returned when submitting the job.
 
@@ -55,7 +80,7 @@ class Scheduler(object):
 
     def kill_job(self, job_id):
         """
-        Kills a given jobs.
+        Kills a given job.
 
         Args:
             job_id (str): identifier returned when submitting the job.

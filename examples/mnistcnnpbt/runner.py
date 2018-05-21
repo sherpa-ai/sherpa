@@ -24,14 +24,23 @@ FLAGS = parser.parse_args()
 
 
 # Define Hyperparameter ranges
-parameters = [sherpa.Continuous(name='lr', range=[0.0001, 0.1], scale='log'),
-              sherpa.Continuous(name='momentum', range=[0.5, 0.9]),
+parameters = [sherpa.Continuous(name='lr', range=[0.005, 0.1], scale='log'),
+              sherpa.Continuous(name='dropout', range=[0., 0.4]),
               sherpa.Ordinal(name='batch_size', range=[16, 32, 64])]
 
-algorithm = sherpa.algorithms.PopulationBasedTraining(population_size=50,
-                                                      parameter_range={
-                                                          'lr':[0.0000001, 1.],
-                                                          'batch_size':[16, 32, 64, 128]})
+if FLAGS.algorithm == 'PBT':
+    algorithm = sherpa.algorithms.PopulationBasedTraining(population_size=50,
+                                                          parameter_range={
+                                                              'lr':[0.0000001, 1.],
+                                                              'batch_size':[16, 32, 64, 128, 256, 512]})
+    parameters.append(sherpa.Choice(name='epochs', range=[3]))
+    stoppingrule = None
+else:
+    parameters.append(sherpa.Continuous(name='lr_decay', range=[1e-4, 1e-7], scale='log'))
+    parameters.append(sherpa.Choice(name='epochs', range=[25]))
+    algorithm = sherpa.algorithms.BayesianOptimization(num_grid_points=2)
+    # stoppingrule = sherpa.algorithms.MedianStoppingRule(min_trials=10,
+    #                                                     min_iterations=8)
 
 # The scheduler
 if not FLAGS.local:

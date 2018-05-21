@@ -1,3 +1,5 @@
+.. _apimode:
+
 Using the SHERPA API
 ====================
 

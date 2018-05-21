@@ -1,3 +1,22 @@
+"""
+SHERPA is a Python library for hyperparameter tuning of machine learning models.
+Copyright (C) 2018  Lars Hertel, Peter Sadowski, and Julian Collado.
+
+This file is part of SHERPA.
+
+SHERPA is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+SHERPA is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
+"""
 import logging
 import numpy
 import pymongo
@@ -187,10 +206,6 @@ class Client(object):
                   'iteration': iteration,
                   'context': context}
         self.db.results.insert_one(result)
-
-        for entry in self.db.stop.find():
-            if entry.get('trial_id') == trial.id:
-                raise StopIteration("Trial listed for stopping.")
 
     def keras_send_metrics(self, trial, objective_name, context_names=[]):
         """
