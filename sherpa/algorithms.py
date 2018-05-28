@@ -111,12 +111,23 @@ class Iterate(Algorithm):
         
     def get_parameters(self):
         """
-        Returns list of parameter objects, which is needed for initializing a Study.
+        Computes list of parameter objects from list of hyperparameter
+        combinations, which is needed for initializing a Study.
+        
+        Returns:
+            list: List of Parameter objects.
         """
         parameters = []
         keys = self.hp_iter[0].keys()
         for pname in keys:
-            prange = list(set([hp[pname] for hp in self.hp_iter]))
+            # Get unique values of this (possibly unhashable) parameter.
+            prange = []
+            for i,hp in enumerate(self.hp_iter):
+                if pname not in hp:
+                    raise Exception(f'Parameter {pname} not found in list item {i}.')
+                value = hp[pname]
+                if value not in prange:
+                    prange.append(value)
             p = sherpa.Parameter.from_dict({'name': pname,
                                      'type': 'choice',
                                      'range': prange})

@@ -62,7 +62,7 @@ def test_local_search():
     parameters = [sherpa.Continuous('cont', [0, 1]),
                   sherpa.Ordinal('ord', [1, 2, 3])]
 
-    seed = {'cont': 0.1, 'ord': 3}
+    seed = {'cont': 0.5, 'ord': 2}
     alg = sherpa.algorithms.LocalSearch(seed_configuration=seed)
 
     study = sherpa.Study(parameters=parameters, algorithm=alg, lower_is_better=True,
@@ -71,57 +71,72 @@ def test_local_search():
     def mock_objective(p):
         return p['cont']/p['ord']
 
+    # Initial suggestion.
     t = study.get_suggestion()
+    tlist = [t]
+    tbest = t
     assert t.parameters == seed
     study.add_observation(t, objective=mock_objective(t.parameters),
                           iteration=1)
     study.finalize(t)
 
+
+    # Perform a suggestion.
     t = study.get_suggestion()
-    t.parameters['cont'] = round(t.parameters['cont'], 5)
-    print(t.parameters)
-    assert t.parameters in [{'cont': 0.09, 'ord': 3}, {'cont': 0.1, 'ord': 2},
-                            {'cont': 0.11, 'ord': 3}]
+    tlist.append(t)
+    if mock_objective(t.parameters) < mock_objective(tbest.parameters):
+           tbest = t     
     study.add_observation(t, objective=mock_objective(t.parameters),
                           iteration=1)
     study.finalize(t)
-
-    if t.parameters == {'cont': 0.09, 'ord': 3}:
-        t = study.get_suggestion()
-        t.parameters['cont'] = round(t.parameters['cont'], 5)
-        assert t.parameters in [{'cont': 0.081, 'ord': 3},
-                                {'cont': 0.099, 'ord': 3},
-                                {'cont': 0.09, 'ord': 2}]
+    if t.parameters['ord'] == 2:
+        assert t.parameters['cont'] != 0.5
+        assert abs(t.parameters['cont'] - 0.5) < 0.2
     else:
+        assert t.parameters['cont'] == 0.5
+        t.parameters['ord'] in [1,3]
+    
+    # Do more iterations.
+    for i in range(50):
         t = study.get_suggestion()
-        t.parameters['cont'] = round(t.parameters['cont'], 5)
-        assert t.parameters in [{'cont': 0.09, 'ord': 3},
-                                {'cont': 0.1, 'ord': 2},
-                                {'cont': 0.11, 'ord': 3}]
-
+        #print(t.parameters)
+        assert t.parameters['ord'] in [1,2,3]
+        assert t.parameters['cont'] >= 0.0 
+        assert t.parameters['cont'] <= 1.0 
+        # All new suggestions should be based on tbest.
+        assert t.parameters['ord'] == tbest.parameters['ord'] \
+               or t.parameters['cont'] == tbest.parameters['cont']
+        tlist.append(t)
+        if mock_objective(t.parameters) < mock_objective(tbest.parameters):
+           tbest = t
+        study.add_observation(t, objective=mock_objective(t.parameters),
+                              iteration=1)
+        study.finalize(t)
 
 
 def test_Iterate_search():
-    hp_iter = [{'a': 1, 'b': 'a', 'c': 1},
-               {'a': 1, 'b': 'a', 'c': 1.5},
-               {'a': 1, 'b': 'b', 'c': 1.5},
-               {'a': 2, 'b': 'b', 'c': 4},
+    '''
+    The Iterate algorithm should be able to iterate over unhashable types.
+    '''
+    hp_iter = [{'a': 1, 'b': 'a', 'c': [10]},
+               {'a': 1, 'b': 'a', 'c': [10]},
+               {'a': 1, 'b': 'b', 'c': [10, 10]},
+               {'a': 2, 'b': 'b', 'c': {'key':'value'}},
               ]
     alg = sherpa.algorithms.Iterate(hp_iter)
     parameters = alg.get_parameters()
 
     assert len(parameters) == 3
     assert set([len(p.range) for p in parameters]) == set([2,2,3])
-
+    
+    seen = []
     suggestion = alg.get_suggestion(parameters)
-    seen = set()
-
     while suggestion:
-        seen.add((suggestion['a'], suggestion['b'], suggestion['c']))
+        seen.append((suggestion['a'], suggestion['b'], suggestion['c']))
         suggestion = alg.get_suggestion(parameters)
 
-    assert seen == {(1, 'a', 1), (1, 'a', 1.5),
-                    (1, 'b', 1.5), (2, 'b', 4)}
+    assert seen == [(1, 'a', [10]), (1, 'a', [10]),
+                    (1, 'b', [10,10]), (2, 'b', {'key':'value'})]
 
 def test_grid_search():
     parameters = [sherpa.Choice('a', [1, 2]),
