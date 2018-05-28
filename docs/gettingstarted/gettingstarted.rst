@@ -1,5 +1,5 @@
-Writing your Optimization
-=========================
+Running Optimizations in Parallel
+=================================
 
 This section expands on the :ref:`Keras-to-Sherpa <keras-to-sherpa>` tutorial
 in that it goes more into detail about the configuration options.
