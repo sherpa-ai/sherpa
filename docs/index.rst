@@ -16,6 +16,7 @@
 
    gettingstarted/installation
    gettingstarted/kerastosherpa
+   gettingstarted/parallel-installation
    gettingstarted/gettingstarted
 
 .. toctree::
