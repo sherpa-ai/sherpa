@@ -82,7 +82,7 @@ put the address into your browser you will see the dashboard as shown below. As 
 can take a look at this example of optimizing a Random Forest in
 ``sherpa/examples/randomforest/breastcancer.py``.
 
-.. figure:: dashboard.jpg
+.. figure:: docs/gettingstarted/dashboard.jpg
    :alt: SHERPA Dashboard.
 
 Installation from GitHub
@@ -120,5 +120,5 @@ You can run an example to verify SHERPA is working:
     python api_mode.py
 
 Note that to run hyperparameter optimizations in parallel with SHERPA requires
-the installation of Mongo DB. Further instructions can be found in the Parallel
- Installation section of the documentation.
+the installation of Mongo DB. Further instructions can be found in the
+Parallel Installation section of the documentation.
