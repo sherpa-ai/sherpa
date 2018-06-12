@@ -85,7 +85,7 @@ that no more observation will be added to this trial.
 When the ``Study`` is created, SHERPA will display the dashboard address. If you
 put the address into your browser you will see the dashboard as shown below. As a next step you
 can take a look at this example of optimizing a Random Forest in
-``sherpa/examples/randomforest/breastcancer.py``.
+``sherpa/examples/randomforest.py``.
 
 .. figure:: https://drive.google.com/uc?export=view&id=1G85sfwLicsQKd3-1xN7DZowQ0gHAvzGx
    :alt: SHERPA Dashboard.
