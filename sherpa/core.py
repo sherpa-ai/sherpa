@@ -366,6 +366,25 @@ class Study(object):
     def next(self):
         return self.__next__()
 
+    def keras_callback(self, trial, objective_name, context_names=[]):
+        """
+        Keras Callbacks to add observations to study
+
+        Args:
+            trial (sherpa.core.Trial): trial to send metrics for.
+            objective_name (str): the name of the objective e.g. ``loss``,
+                ``val_loss``, or any of the submitted metrics.
+            context_names (list[str]): names of all other metrics to be
+                monitored.
+        """
+        import keras.callbacks
+        send_call = lambda epoch, logs: self.add_observation(trial=trial,
+                                                             iteration=epoch,
+                                                             objective=logs[objective_name],
+                                                             context={n: logs[n] for n in context_names})
+        return keras.callbacks.LambdaCallback(on_epoch_end=send_call)
+
+
 
 class _Runner(object):
     """
@@ -635,10 +654,10 @@ def _port_finder(start, end):
                 return port
 
     except socket.gaierror:
-        raise('Hostname could not be resolved. Exiting')
+        raise BaseException('Hostname could not be resolved. Exiting')
         
     except socket.error:
-        raise("Couldn't connect to server")
+        raise BaseException("Couldn't connect to server")
 
 
 class Parameter(object):
