@@ -26,7 +26,7 @@ You can run an example to verify SHERPA is working:
 ::
 
     cd sherpa/examples/
-    python api_mode.py
+    python simple.py
 
 Note that to run hyperparameter optimizations in parallel with SHERPA requires
 the installation of Mongo DB. Further instructions can be found in the Parallel
