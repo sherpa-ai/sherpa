@@ -29,6 +29,6 @@ To verify SHERPA *with* MongoDB is working:
 
 ::
 
-    cd /your/path/sherpa/examples/
-    python runner_mode.py
+    cd sherpa/examples/parallel-examples/
+    python simple.py
 

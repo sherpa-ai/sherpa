@@ -1,20 +1,14 @@
-
+.. _installation:
 
 Installation from GitHub
-------------------------
+========================
 
-Clone into ``/your/path/`` from GitHub:
-
-::
-
-    cd /your/path/
-    git clone git@gitlab.ics.uci.edu:uci-igb/sherpa.git
-
-Add SHERPA to Python-path:
+Clone from GitHub:
 
 ::
 
-    export PYTHONPATH=$PYTHONPATH:/your/path/sherpa/
+    git clone https://github.com/LarsHH/sherpa.git
+    export PYTHONPATH=$PYTHONPATH:`pwd`/sherpa
 
 Install dependencies:
 
@@ -31,9 +25,11 @@ You can run an example to verify SHERPA is working:
 
 ::
 
-    cd /your/path/sherpa/examples/
-    python api_mode.py
+    cd sherpa/examples/
+    python simple.py
 
 Note that to run hyperparameter optimizations in parallel with SHERPA requires
 the installation of Mongo DB. Further instructions can be found in the
 Parallel Installation section of the documentation.
+
+

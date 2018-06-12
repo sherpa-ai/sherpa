@@ -21,9 +21,9 @@ from setuptools import find_packages, setup, Command
 # Package meta-data.
 NAME = 'sherpa'
 DESCRIPTION = 'Hyperparameter Optimization for Machine Learning Models.'
-URL = 'https://gitlab.ics.uci.edu/uci-igb/sherpa/'
+URL = 'https://github.com/LarsHH/sherpa'
 EMAIL = 'lhertel@uci.edu'
-AUTHOR = 'Lars Hertel, Peter Sadowski and Julian Collado'
+AUTHOR = 'Lars Hertel, Peter Sadowski, and Julian Collado'
 
 REQUIRED = [
     'pandas>=0.20.3',
@@ -91,12 +91,12 @@ setup(
     packages=find_packages(),
     install_requires=REQUIRED,
     include_package_data=True,
-    license='MIT',
+    license='GPLv3',
     classifiers=[
         # Trove classifiers
         # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
         'Development Status :: 3 - Alpha',
-        'License :: OSI Approved :: MIT License',
+        'License :: OSI Approved :: GNU GENERAL PUBLIC LICENSE',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
@@ -109,9 +109,9 @@ setup(
         'Programming Language :: Python :: Implementation :: PyPy'
     ],
     # $ setup.py publish support.
-    keywords='hyperparameter optimization machine learning',
+    keywords='hyperparameter optimization machine-learning',
     project_urls={
-        'Code': 'https://gitlab.ics.uci.edu/uci-igb/sherpa',
+        'Code': 'https://github.com/LarsHH/sherpa',
     },
     cmdclass={
         'upload': UploadCommand,
