@@ -87,7 +87,7 @@ put the address into your browser you will see the dashboard as shown below. As 
 can take a look at this example of optimizing a Random Forest in
 ``sherpa/examples/randomforest/breastcancer.py``.
 
-.. figure:: dashboard.jpg
+.. figure:: https://drive.google.com/file/d/1G85sfwLicsQKd3-1xN7DZowQ0gHAvzGx/view?usp=sharing
    :alt: SHERPA Dashboard.
 
 
