@@ -3,7 +3,7 @@
 Installation from GitHub
 ========================
 
-Clone into ``/your/path/`` from GitHub:
+Clone from GitHub:
 
 ::
 
