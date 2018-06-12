@@ -5,6 +5,9 @@
 
 .. include:: ./welcome.rst
 
+Documentation Contents
+----------------------
+
 .. toctree::
    :maxdepth: 1
 
@@ -14,8 +17,8 @@
    :caption: Getting Started
    :maxdepth: 1
 
-   gettingstarted/installation
    gettingstarted/kerastosherpa
+   gettingstarted/installation
    gettingstarted/parallel-installation
    gettingstarted/gettingstarted
 
