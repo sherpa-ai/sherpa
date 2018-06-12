@@ -7,9 +7,9 @@ SHERPA: A Python Hyperparameter Optimization Library
     :height: 150px
     :alt: SHERPA logo
 
-SHERPA is a Python library for hyperparameter tuning of machine learning models.
 
-It provides:
+
+SHERPA is a Python library for hyperparameter tuning of machine learning models. It provides:
 
 * hyperparameter optimization for machine learning researchers
 * a choice of hyperparameter optimization algorithms
@@ -94,7 +94,7 @@ can take a look at this example of optimizing a Random Forest in
 Installation from GitHub
 ========================
 
-Clone into ``/your/path/`` from GitHub:
+Clone from GitHub:
 
 ::
 
