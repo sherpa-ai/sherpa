@@ -124,7 +124,7 @@ class Iterate(Algorithm):
             prange = []
             for i,hp in enumerate(self.hp_iter):
                 if pname not in hp:
-                    raise Exception(f'Parameter {pname} not found in list item {i}.')
+                    raise Exception('Parameter {pname} not found in list item {i}.')
                 value = hp[pname]
                 if value not in prange:
                     prange.append(value)
