@@ -200,14 +200,3 @@ intersphinx_mapping = {'https://docs.python.org/': None}
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
-def run_apidoc(_):
-	from sphinx.apidoc import main
-	import os
-	import sys
-	sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-	cur_dir = os.path.abspath(os.path.dirname(__file__))
-	module = os.path.join(cur_dir,"..","sherpa")
-	main([None, '-e', '-o', cur_dir, module, '--force'])
-
-def setup(app):
-	app.connect('builder-inited', run_apidoc)
