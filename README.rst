@@ -90,7 +90,14 @@ can take a look at this example of optimizing a Random Forest in
 
 .. figure:: https://drive.google.com/uc?export=view&id=1G85sfwLicsQKd3-1xN7DZowQ0gHAvzGx
    :alt: SHERPA Dashboard.
+   
+   
+Installation via Pip
+====================
 
+::
+
+    pip install parameter-sherpa
 
 Installation from GitHub
 ========================
