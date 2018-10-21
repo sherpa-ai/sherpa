@@ -17,9 +17,10 @@ SHERPA is a Python library for hyperparameter tuning of machine learning models.
 * a live dashboard for the exploratory analysis of results.
 
 The documentation at http://parameter-sherpa.readthedocs.io/ provides installation instructions for parallel hyperparameter
-optimizations and using the different optimization algorithms. See below for
-a short example on what working with SHERPA looks like.
+optimizations and using the different optimization algorithms. Take a look at the demo
+video or read on to find out more.
 
+[![Demo Video](https://img.youtube.com/vi/L95sasMLgP4/0.jpg)](https://www.youtube.com/watch?v=L95sasMLgP4)
 
 From Keras to Sherpa in 30 seconds
 ==================================
