@@ -9,9 +9,9 @@ def run_example(FLAGS):
     """
     Run parallel Sherpa optimization over a set of discrete hp combinations.
     """
-    parameters = [sherpa.Continuous('lrinit', [0.1, 0.001], 'log'),
+    parameters = [sherpa.Continuous('lrinit', [0.001, 0.1], 'log'),
                   sherpa.Continuous('momentum', [0., 0.99]),
-                  sherpa.Continuous('lrdecay', [1e-2, 1e-7], 'log'),
+                  sherpa.Continuous('lrdecay', [1e-7, 1e-2], 'log'),
                   sherpa.Continuous('dropout', [0., 0.5])]
     
     if FLAGS.algorithm == 'BayesianOptimization':  
