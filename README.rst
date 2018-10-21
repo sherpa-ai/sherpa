@@ -20,7 +20,9 @@ The documentation at http://parameter-sherpa.readthedocs.io/ provides installati
 optimizations and using the different optimization algorithms. Take a look at the demo
 video or read on to find out more.
 
-[![Demo Video](https://img.youtube.com/vi/L95sasMLgP4/0.jpg)](https://www.youtube.com/watch?v=L95sasMLgP4)
+<a href="https://www.youtube.com/watch?feature=player_embedded&v=L95sasMLgP4
+" target="_blank"><img src="http://img.youtube.com/vi/L95sasMLgP4/0.jpg"
+alt="Demo Video" width="240" height="180" border="10" /></a>
 
 From Keras to Sherpa in 30 seconds
 ==================================
