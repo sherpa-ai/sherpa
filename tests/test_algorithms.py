@@ -242,3 +242,47 @@ def test_pbt_ordinal():
         study.add_observation(trial=trial, iteration=1, objective=trial.parameters['param_a']*0.1)
         study.finalize(trial=trial,
                        status='COMPLETED')
+
+
+def test_genetic():
+    """
+    Since genetic algorithms are stochastic we will check for average improvements while testing new configurations
+    """
+    parameters = [sherpa.Ordinal(name='param_a',
+                                 range=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
+                  sherpa.Ordinal(name='param_b',
+                                 range=['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h',
+                                        'i', 'j']),
+                  sherpa.Ordinal(name='param_c',
+                                 range=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]), ]
+
+    algorithm = sherpa.algorithms.Genetic()
+
+    study = sherpa.Study(parameters=parameters,
+                         algorithm=algorithm,
+                         lower_is_better=False,
+                         disable_dashboard=True)
+    mean_values = []
+    for _ in range(500):
+        results = study.results
+        if results.shape[0] > 0:
+            results = results[results['Status'] == 'COMPLETED']
+            mean_values.append(results['Objective'].mean())
+        trial = study.get_suggestion()
+        print("Trial-ID={}".format(trial.id))
+        print(trial.parameters)
+        print()
+        study.add_observation(trial=trial, iteration=1,
+                              objective=trial.parameters['param_a'] * 0.1 +
+                                        trial.parameters['param_c'] * 0.1)
+        study.finalize(trial=trial,
+                       status='COMPLETED')
+    ascending = 0
+    for pos in range(len(mean_values) - 1):
+        if mean_values[pos + 1] > mean_values[pos]:
+            ascending += 1
+    print(ascending / len(mean_values))
+    assert ascending / len(
+        mean_values) > 0.7, "At least 70% of times we add a new result we must improve the average Objective"
+
+    results = results[results['Status'] == 'COMPLETED']
