@@ -7,19 +7,27 @@ SHERPA: A Python Hyperparameter Optimization Library
     :height: 150px
     :alt: SHERPA logo
 
+.. image:: https://img.shields.io/badge/License-GPL%20v3-blue.svg
+   :target: https://www.gnu.org/licenses/gpl-3.0
+
+.. image:: https://pepy.tech/badge/parameter-sherpa
+   :target: https://pepy.tech/project/parameter-sherpa
 
 
 SHERPA is a Python library for hyperparameter tuning of machine learning models. It provides:
 
 * hyperparameter optimization for machine learning researchers
+* it can be used with any Python machine learning library such as Keras, Tensorflow, or Scikit-Learn
 * a choice of hyperparameter optimization algorithms
 * parallel computation that can be fitted to the user's needs
 * a live dashboard for the exploratory analysis of results.
 
-The documentation at http://parameter-sherpa.readthedocs.io/ provides installation instructions for parallel hyperparameter
-optimizations and using the different optimization algorithms. See below for
-a short example on what working with SHERPA looks like.
+Install via ``pip install parameter-sherpa``. The documentation at http://parameter-sherpa.readthedocs.io/ provides tutorials on using the different optimization algorithms and installation instructions for parallel hyperparameter
+optimizations. Take a look at the demo
+video by clicking on the image below or read on to find out more.
 
+.. image:: http://img.youtube.com/vi/L95sasMLgP4/0.jpg
+   :target: https://www.youtube.com/watch?feature=player_embedded&v=L95sasMLgP4
 
 From Keras to Sherpa in 30 seconds
 ==================================
@@ -89,6 +97,14 @@ can take a look at this example of optimizing a Random Forest in
 
 .. figure:: https://drive.google.com/uc?export=view&id=1G85sfwLicsQKd3-1xN7DZowQ0gHAvzGx
    :alt: SHERPA Dashboard.
+   
+
+Installation from PyPi
+======================
+
+::
+
+    pip install parameter-sherpa
 
 
 Installation from GitHub
