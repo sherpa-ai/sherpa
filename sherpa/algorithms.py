@@ -72,16 +72,25 @@ class RandomSearch(Algorithm):
     Args:
         max_num_trials (int): number of trials, otherwise runs indefinitely.
     """
-    def __init__(self, max_num_trials=None):
+    def __init__(self, max_num_trials=None, repeat=1):
         self.max_num_trials = max_num_trials
         self.count = 0
+        self.count_current_trial = repeat
+        self.repeat = repeat
+        self.current_trial = None
 
     def get_suggestion(self, parameters, results=None, lower_is_better=True):
         if self.max_num_trials and self.count >= self.max_num_trials:
             return None
         else:
-            self.count += 1
-            return {p.name: p.sample() for p in parameters}
+            if self.count_current_trial == self.repeat:
+                self.count += 1
+                self.count_current_trial = 1
+                self.current_trial = {p.name: p.sample() for p in parameters}
+            else:
+                self.count_current_trial += 1
+            return self.current_trial
+                
 
 class Iterate(Algorithm):
     """
@@ -238,10 +247,12 @@ class LocalSearch(Algorithm):
 
         # Get best result so far
         if len(results) > 0:
-            best_idx = (results.loc[:, 'Objective'].idxmin() if lower_is_better
-                        else results.loc[:, 'Objective'].idxmax())
-            self.seed_configuration = results.loc[
-                best_idx, [p.name for p in parameters]].to_dict()
+            completed = results.query("Status != 'INTERMEDIATE'")
+            if len(completed) > 0:
+                best_idx = (completed.loc[:, 'Objective'].idxmin() if lower_is_better
+                            else completed.loc[:, 'Objective'].idxmax())
+                self.seed_configuration = completed.loc[
+                    best_idx, [p.name for p in parameters]].to_dict()
 
         # Randomly sample perturbations and return first that hasn't been tried
         for param in random.sample(parameters, len(parameters)):
