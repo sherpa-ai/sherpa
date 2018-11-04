@@ -43,6 +43,7 @@ def run_example(FLAGS):
                            algorithm=alg,
                            lower_is_better=True,
                            filename='trial.py',
+                           output_dir='output_{}'.format(FLAGS.studyname),
                            scheduler=sched,
                            max_concurrent=FLAGS.max_concurrent)
     print('Best results:')
