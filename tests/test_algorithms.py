@@ -313,4 +313,12 @@ def test_random_search():
         last_config = config
 
     assert rs.get_suggestion(parameters=parameters) is None
-    
+
+
+    rs = sherpa.algorithms.RandomSearch()
+    last_config = {}
+
+    for _ in range(1000):
+        config = rs.get_suggestion(parameters=parameters)
+        assert config != last_config
+        last_config = config

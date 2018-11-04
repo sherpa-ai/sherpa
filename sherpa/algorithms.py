@@ -79,7 +79,7 @@ class RandomSearch(Algorithm):
     """
     def __init__(self, max_num_trials=None, repeat=1):
         self.i = 0  # number of sampled configs
-        self.n = max_num_trials  # total number of configs to be sampled
+        self.n = max_num_trials or 2**32  # total number of configs to be sampled
         self.m = repeat  # number of times to repeat each config
         self.j = 0  # number of trials submitted with this config
         self.theta_i = {}  # current parameter config

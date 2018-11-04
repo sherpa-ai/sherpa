@@ -158,7 +158,7 @@ class Study(object):
         best_idx = (rows['Objective'].idxmin() if self.lower_is_better
                     else rows['Objective'].idxmax())
         try:
-            best_row = rows.ix[best_idx].copy()
+            best_row = rows.loc[best_idx].copy()
         except TypeError:
             warnings.warn("Could not finalize trial {}. Only NaNs "
                           "encountered.".format(trial.id), RuntimeWarning)
