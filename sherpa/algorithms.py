@@ -86,7 +86,7 @@ class RandomSearch(Algorithm):
 
     def get_suggestion(self, parameters, results=None, lower_is_better=True):
         # If number of repetitions are reached set them back to zero
-        if self.j > self.m:
+        if self.j == self.m:
             self.j = 0
 
         # If there are no repetitions yet, sample a new config

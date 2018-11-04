@@ -303,4 +303,14 @@ def test_random_search():
             assert config == config_repeat
 
     assert rs.get_suggestion(parameters=parameters) is None
+
+    rs = sherpa.algorithms.RandomSearch(max_num_trials=10, repeat=1)
+    last_config = {}
+
+    for i in range(10):
+        config = rs.get_suggestion(parameters=parameters)
+        assert config != last_config
+        last_config = config
+
+    assert rs.get_suggestion(parameters=parameters) is None
     
