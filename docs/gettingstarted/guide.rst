@@ -1,7 +1,7 @@
 .. _apimode:
 
-Using the SHERPA API
-====================
+A Guide to SHERPA
+=================
 
 Instead of running an optimization via :code:`sherpa.optimize` with a scheduler
 and a database running in the background, an optimization can also be run

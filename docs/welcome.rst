@@ -19,4 +19,5 @@ It provides:
 * parallel computation that can be fitted to the user's needs
 * a live dashboard for the exploratory analysis of results.
 
-
+Its goal is to provide a platform in which recent hyperparameter optimization
+algorithms can be used interchangeably while running on a laptop or a cluster.
