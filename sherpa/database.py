@@ -205,6 +205,12 @@ class Client(object):
                   'objective': objective,
                   'iteration': iteration,
                   'context': context}
+        # Convert float32 to float64.
+        # Note: Keras ReduceLROnPlateau callback requires this.
+        for k,v in context.items():
+            if type(v) == numpy.float32:
+                context[k] = numpy.float64(v)
+
         self.db.results.insert_one(result)
 
     def keras_send_metrics(self, trial, objective_name, context_names=[]):
