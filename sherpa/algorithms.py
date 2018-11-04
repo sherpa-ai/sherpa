@@ -67,21 +67,41 @@ class Algorithm(object):
 
 class RandomSearch(Algorithm):
     """
-    Regular Random Search.
+    Random Search with a repeat option.
+
+    Trials parameter configurations are uniformly sampled from their parameter
+    ranges. The repeat option allows to re-run a trial `repeat` number of times.
+    By default this is 1.
 
     Args:
         max_num_trials (int): number of trials, otherwise runs indefinitely.
+        repeat (int): number of times to repeat a parameter configuration.
     """
-    def __init__(self, max_num_trials=None):
-        self.max_num_trials = max_num_trials
-        self.count = 0
+    def __init__(self, max_num_trials=None, repeat=1):
+        self.i = 0  # number of sampled configs
+        self.n = max_num_trials or 2**32  # total number of configs to be sampled
+        self.m = repeat  # number of times to repeat each config
+        self.j = 0  # number of trials submitted with this config
+        self.theta_i = {}  # current parameter config
 
     def get_suggestion(self, parameters, results=None, lower_is_better=True):
-        if self.max_num_trials and self.count >= self.max_num_trials:
+        # If number of repetitions are reached set them back to zero
+        if self.j == self.m:
+            self.j = 0
+
+        # If there are no repetitions yet, sample a new config
+        if self.j == 0:
+            self.theta_i = {p.name: p.sample() for p in parameters}
+            self.i += 1
+
+        # If the maximum number of configs is reached, return None
+        if self.i > self.n:
             return None
+        # Else increase the count of this config by one and return it
         else:
-            self.count += 1
-            return {p.name: p.sample() for p in parameters}
+            self.j += 1
+            return self.theta_i
+                
 
 class Iterate(Algorithm):
     """
@@ -238,10 +258,12 @@ class LocalSearch(Algorithm):
 
         # Get best result so far
         if len(results) > 0:
-            best_idx = (results.loc[:, 'Objective'].idxmin() if lower_is_better
-                        else results.loc[:, 'Objective'].idxmax())
-            self.seed_configuration = results.loc[
-                best_idx, [p.name for p in parameters]].to_dict()
+            completed = results.query("Status == 'COMPLETED'")
+            if len(completed) > 0:
+                best_idx = (completed.loc[:, 'Objective'].idxmin() if lower_is_better
+                            else completed.loc[:, 'Objective'].idxmax())
+                self.seed_configuration = completed.loc[
+                    best_idx, [p.name for p in parameters]].to_dict()
 
         # Randomly sample perturbations and return first that hasn't been tried
         for param in random.sample(parameters, len(parameters)):

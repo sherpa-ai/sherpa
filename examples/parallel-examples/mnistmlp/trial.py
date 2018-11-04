@@ -67,7 +67,7 @@ def main(client, trial):
     model.fit(x_train, y_train,
               batch_size=batch_size,
               epochs=epochs,
-              verbose=1,
+              verbose=2,
               callbacks=[client.keras_send_metrics(trial,
                                                    objective_name='val_loss',
                                                    context_names=['val_acc'])],

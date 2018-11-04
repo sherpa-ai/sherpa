@@ -138,6 +138,7 @@ def test_Iterate_search():
     assert seen == [(1, 'a', [10]), (1, 'a', [10]),
                     (1, 'b', [10,10]), (2, 'b', {'key':'value'})]
 
+
 def test_grid_search():
     parameters = [sherpa.Choice('a', [1, 2]),
                   sherpa.Choice('b', ['a', 'b']),
@@ -286,3 +287,38 @@ def test_genetic():
         mean_values) > 0.7, "At least 70% of times we add a new result we must improve the average Objective"
 
     results = results[results['Status'] == 'COMPLETED']
+
+
+def test_random_search():
+    parameters = [sherpa.Continuous('a', [0, 1]),
+                  sherpa.Choice('b', ['x', 'y', 'z'])]
+    rs = sherpa.algorithms.RandomSearch(max_num_trials=10, repeat=10)
+    config_repeat = {}
+
+    for i in range(10):
+        config = rs.get_suggestion(parameters=parameters)
+        assert config != config_repeat
+        for j in range(9):
+            config_repeat = rs.get_suggestion(parameters=parameters)
+            assert config == config_repeat
+
+    assert rs.get_suggestion(parameters=parameters) is None
+
+    rs = sherpa.algorithms.RandomSearch(max_num_trials=10, repeat=1)
+    last_config = {}
+
+    for i in range(10):
+        config = rs.get_suggestion(parameters=parameters)
+        assert config != last_config
+        last_config = config
+
+    assert rs.get_suggestion(parameters=parameters) is None
+
+
+    rs = sherpa.algorithms.RandomSearch()
+    last_config = {}
+
+    for _ in range(1000):
+        config = rs.get_suggestion(parameters=parameters)
+        assert config != last_config
+        last_config = config
