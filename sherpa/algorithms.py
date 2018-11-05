@@ -157,7 +157,8 @@ class Iterate(Algorithm):
 
 class GridSearch(Algorithm):
     """
-    Regular Grid Search. Expects ``Choice`` or ``Ordinal`` parameters.
+    Explores a grid across the hyperparameter space such that every pairing is
+    evaluated.
 
     For continuous and discrete parameters grid points are picked within the
     range. For example, a continuous parameter with range [1, 2] with two grid
@@ -488,7 +489,7 @@ class BayesianOptimization(Algorithm):
         self.count += 1
         self.lower_is_better = lower_is_better
 
-        if self.max_num_trials and self.count >= self.max_num_trials:
+        if self.max_num_trials and self.count > self.max_num_trials:
             # Algorithm finished
             return None
 
