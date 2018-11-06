@@ -1,7 +1,7 @@
 .. _writing-algorithms:
 
-Creating a new hyperparameter optimization algorithm
-=====================================================
+Writing Your Own Algorithm
+==========================
 
 Now we will take a look at how to create a new algorithm which will
 define the hyperparameters we will use to train the models. It defines

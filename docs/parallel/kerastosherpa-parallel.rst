@@ -1,7 +1,7 @@
-.. _keras-to-sherpa:
+.. _keras-to-sherpa-parallel:
 
-From Keras to Sherpa in 30 seconds
-==================================
+Quickstart
+==========
 
 Here we will show how to adapt a minimal Keras script so it can
 be used with Sherpa. As starting point we use the "getting started in 30 seconds"
