@@ -4,8 +4,8 @@ Available Algorithms
 ====================
 
 This section provides an overview of the available hyperparameter optimization
-algorithms in Sherpa. Below is a table advantages and disadvantages to every
-algorithm. This is followed by the algorithms themselves.
+algorithms in Sherpa. Below is a table that discusses advantages and disadvantages to each
+algorithm. This is followed by a short comparison benchmark and the algorithms themselves.
 
 +----------------+--------------------------------+------------------------------------+
 |                | Advantages                     | Disadvantages                      |
@@ -44,6 +44,23 @@ algorithm. This is followed by the algorithms themselves.
 |                |                                | | appropriate visualizations for   |
 |                |                                | | this algorithm.                  |
 +----------------+--------------------------------+------------------------------------+
+
+Comparison on MNIST MLP
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The two figures below show five runs of Random Search against the same number of
+Bayesian Optimization, and Local Search runs. The first figure shows the trial
+index against the best validation loss achieved so far. The second figure shows
+the mean across the five runs as a solid line and the minimum and maximum as
+the shaded areas. Note that the Local Search finishes when no perturbation
+yields an improvement which can be after a varying number of trials. It is
+therefore not included in the mean figure.
+
+.. figure:: individual-loss.png
+   :alt: Individual Losses.
+
+.. figure:: mean-loss.png
+   :alt: Individual Losses.
 
 
 Grid Search
