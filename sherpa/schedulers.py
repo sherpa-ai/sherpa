@@ -27,6 +27,8 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+#logging.getLogger('werkzeug').setLevel(level=logging.WARNING) # to remove
+
 
 
 class _JobStatus(Enum):
@@ -163,7 +165,7 @@ class SGEScheduler(Scheduler):
 
     def submit_job(self, command, env={}, job_name=''):
         # Create temp directory.
-        outdir = os.path.join(self.output_dir, 'sge')
+        outdir = os.path.join(self.output_dir, 'jobs')
         if not os.path.isdir(outdir):
             os.mkdir(outdir)
 
@@ -250,6 +252,139 @@ class SGEScheduler(Scheduler):
 
         Args:
             job_id (str): the SGE process ID of the job.
+        """
+        logger.info("Killing job {}".format(job_id))
+        with self.drmaa.Session() as s:
+            s.control(job_id, self.drmaa.JobControlAction.TERMINATE)
+        # TODO: what happens when job doesn't exist - then we don't want to add
+        self.killed_jobs.add(job_id)
+
+
+class SLURMScheduler(Scheduler):
+    """
+    Submits jobs to SLURM, can check on their status, and kill jobs.
+
+    Uses ``drmaa`` Python library.
+
+    Args:
+        submit_options (str): command line options such as queue ``-q``,
+             all written in one string.
+        environment (str): the path to a file that contains environment
+            variables; will be sourced before job is run.
+        output_dir (str): path to directory in which ``stdout`` and ``stderr``
+            will be written to. If not specified this will use the same as
+            defined for the study.
+    """
+    def __init__(self, submit_options, environment, output_dir=''):
+        self.count = 0
+        self.submit_options = submit_options
+        self.environment = environment
+        self.output_dir = output_dir
+        self.killed_jobs = set()
+        self.drmaa = __import__('drmaa')
+        self.decode_status = {
+            self.drmaa.JobState.UNDETERMINED: _JobStatus.other,
+            self.drmaa.JobState.QUEUED_ACTIVE: _JobStatus.queued,
+            self.drmaa.JobState.SYSTEM_ON_HOLD: _JobStatus.other,
+            self.drmaa.JobState.USER_ON_HOLD: _JobStatus.other,
+            self.drmaa.JobState.USER_SYSTEM_ON_HOLD: _JobStatus.other,
+            self.drmaa.JobState.RUNNING: _JobStatus.running,
+            self.drmaa.JobState.SYSTEM_SUSPENDED: _JobStatus.other,
+            self.drmaa.JobState.USER_SUSPENDED: _JobStatus.other,
+            self.drmaa.JobState.DONE: _JobStatus.finished,
+            self.drmaa.JobState.FAILED: _JobStatus.failed}
+
+    def submit_job(self, command, env={}, job_name=''):
+        # Create temp directory.
+        logger.info('\nSUBMITTING JOB in submit_job')
+
+        outdir = os.path.join(self.output_dir, 'jobs')
+        if not os.path.isdir(outdir):
+            os.mkdir(outdir)
+
+        job_name = job_name or str(self.count)
+        slurmoutfile = os.path.join(outdir, '{}.out'.format(job_name))
+        try:
+            os.remove(slurmoutfile)
+        except OSError:
+            pass
+
+        # Create bash script that sources environment and runs python script.
+        job_script = '#!/bin/bash\n'
+        if self.environment:
+            job_script += 'source %s\n' % self.environment
+        job_script += 'echo "Running from" ${HOSTNAME}\n'
+        for var_name, var_value in env.items():
+            job_script += 'export {}={}\n'.format(var_name, var_value)
+        job_script += command  # 'python file.py args...'
+
+        # Submit command to SLURM.
+        # Note: submitting job using drmaa didn't work because we weren't able
+        # to specify options.
+        submit_command = 'sbatch --workdir={} --output={} --error={} {}'.format(
+            os.getcwd(), slurmoutfile, slurmoutfile, self.submit_options)
+        assert ' -cwd' not in submit_command
+
+        # Submit using subprocess so we can get SLURM process ID.
+        job_id = self._submit_job(submit_command, job_script)
+
+        logger.info('\t{}: job submitted'.format(job_id))
+        self.count += 1
+
+        return job_id
+
+    @staticmethod
+    def _submit_job(submit_command, run_command):
+        """
+        Args:
+            submit_command (str): e.g. "qsub -N myProject ..."
+            run_command (str): e.g. "python nn.py"
+
+        Returns:
+            str: SLURM process ID.
+        """
+        process = subprocess.Popen(submit_command,
+                                   stdin=subprocess.PIPE,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT,
+                                   shell=True,
+                                   universal_newlines=True)
+        output, std_err = process.communicate(input=run_command)
+        # output, std_err = process.communicate()
+        process.stdin.close()
+        output_regexp = r'Submitted batch job (\d+)'
+        # Parse out the process id from text
+        match = re.search(output_regexp, output)
+        if match:
+            return match.group(1)
+        else:
+            sys.stderr.write(output)
+            return None
+
+    def get_status(self, job_id):
+        """
+        Args:
+            job_ids (str): SLURM process ID.
+
+        Returns:
+            sherpa.schedulers._JobStatus: The job status.
+        """
+        with self.drmaa.Session() as s:
+            try:
+                status = s.jobStatus(str(job_id))
+            except self.drmaa.errors.InvalidJobException:
+                return _JobStatus.finished
+        s = self.decode_status.get(status)
+        if s == _JobStatus.finished and job_id in self.killed_jobs:
+            s = _JobStatus.killed
+        return s
+
+    def kill_job(self, job_id):
+        """
+        Kills a job submitted to SLURM.
+
+        Args:
+            job_id (str): the SLURM process ID of the job.
         """
         logger.info("Killing job {}".format(job_id))
         with self.drmaa.Session() as s:
