@@ -69,7 +69,8 @@ class _Database(object):
         cmd = ['mongod',
                '--dbpath', self.dir,
                '--port', str(self.port),
-               '--logpath', os.path.join(self.dir, "log.txt")]
+               '--logpath', os.path.join(self.dir, "log.txt"),
+               '--bind_ip_all']
         try:
             self.mongo_process = subprocess.Popen(cmd)
         except FileNotFoundError as e:
