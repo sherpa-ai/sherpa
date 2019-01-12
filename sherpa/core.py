@@ -37,7 +37,7 @@ except ImportError:  # python 3.x
     import pickle
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 logging.getLogger('werkzeug').setLevel(level=logging.WARNING)
 
