@@ -54,8 +54,8 @@ class Scheduler(object):
         Submits a job to the scheduler.
 
         Args:
-            command (str): the command to run by the scheduler e.g.
-                ``python train.py``
+            command (list[str]): components to the command to run by the
+                scheduler e.g. ``["python", "train.py"]``
             env (dict): environment variables to pass to the job.
             job_name (str): this specifies a name for the job and its output
                 directory.
@@ -105,7 +105,7 @@ class LocalScheduler(Scheduler):
     def submit_job(self, command, env={}, job_name=''):
         env.update(os.environ.copy())
         optns = self.submit_options.split(' ') if self.submit_options else []
-        process = subprocess.Popen(optns + command.split(' '), env=env)
+        process = subprocess.Popen(optns + command, env=env)
         self.jobs[process.pid] = process
         return process.pid
 
@@ -181,7 +181,7 @@ class SGEScheduler(Scheduler):
         job_script += 'echo "Running from" ${HOSTNAME}\n'
         for var_name, var_value in env.items():
             job_script += 'export {}={}\n'.format(var_name, var_value)
-        job_script += command  # 'python file.py args...'
+        job_script += " ".join(command)  # 'python file.py args...'
 
         # Submit command to SGE.
         # Note: submitting job using drmaa didn't work because we weren't able

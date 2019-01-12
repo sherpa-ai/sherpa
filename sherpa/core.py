@@ -385,7 +385,6 @@ class Study(object):
         return keras.callbacks.LambdaCallback(on_epoch_end=send_call)
 
 
-
 class _Runner(object):
     """
     Encapsulates all functionality needed to run a Study in parallel.
@@ -405,8 +404,8 @@ class _Runner(object):
         scheduler (sherpa.schedulers.Scheduler): a scheduler object.
         database (sherpa.database._Database): the database.
         max_concurrent (int): how many trials to run in parallel.
-        command (str): the command that runs a trial script e.g.
-            "python train_nn.py".
+        command (list[str]): components of the command that runs a trial script
+            e.g. ["python", "train_nn.py"].
         resubmit_failed_trials (bool): whether a failed trial should be
             resubmitted.
         
@@ -617,7 +616,7 @@ def optimize(parameters, algorithm, lower_is_better,
                          scheduler=scheduler,
                          database=db,
                          max_concurrent=max_concurrent,
-                         command=' '.join(['python', filename]),
+                         command=['python', filename],
                          resubmit_failed_trials=resubmit_failed_trials)
         runner.run_loop()
     return study.get_best_result()
