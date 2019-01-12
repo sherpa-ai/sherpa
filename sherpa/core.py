@@ -565,7 +565,7 @@ def optimize(parameters, algorithm, lower_is_better,
              max_concurrent=1,
              db_port=None, stopping_rule=None,
              dashboard_port=None, resubmit_failed_trials=False, verbose=1,
-             load=False):
+             load=False, mongodb_args={}):
     """
     Runs a Study with a scheduler and automatically runs a database in the
     background.
@@ -587,6 +587,9 @@ def optimize(parameters, algorithm, lower_is_better,
         dashboard_port (int): port to run the dashboard web-server on.
         resubmit_failed_trials (bool): whether to resubmit a trial if it failed.
         verbose (int, default=1): whether to print submit messages (0=no, 1=yes).
+        load (bool): option to load study, currently not fully implemented.
+        mongodb_args (dict[str, any]): arguments to MongoDB beyond port, dir,
+            and log-path. Keys are the argument name without "--".
     """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -611,7 +614,8 @@ def optimize(parameters, algorithm, lower_is_better,
     if not db_port:
         db_port = _port_finder(27001, 27050)
 
-    with _Database(db_dir=output_dir, port=db_port, reinstantiated=load) as db:
+    with _Database(db_dir=output_dir, port=db_port,
+                   reinstantiated=load, mongodb_args=mongodb_args) as db:
         runner = _Runner(study=study,
                          scheduler=scheduler,
                          database=db,

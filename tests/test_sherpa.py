@@ -37,6 +37,7 @@ import logging
 import tempfile
 import shutil
 import time
+import warnings
 
 logging.basicConfig(level=logging.DEBUG)
 testlogger = logging.getLogger(__name__)
@@ -163,6 +164,24 @@ def test_database(test_dir):
     # with pytest.raises(RuntimeError):
     # with pytest.raises(pymongo.errors.ServerSelectionTimeoutError):
     #     client.get_trial()
+
+
+def test_database_args(test_dir):
+    custom_port = 26999
+    testlogger.debug(test_dir)
+    db_port = sherpa.core._port_finder(27000, 28000)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        with sherpa.database._Database(test_dir, port=db_port,
+                                       mongodb_args={"port": custom_port}) as db:
+            assert len(w) == 1
+            assert issubclass(w[-1].category, UserWarning)
+            assert "Set port via the db_port" in str(w[-1].message)
+
+            # test that there is something running on that port
+            db2 = sherpa.database._Database(test_dir, port=custom_port)
+            with pytest.raises(OSError):
+                db2.start()
 
 
 def get_test_study():
