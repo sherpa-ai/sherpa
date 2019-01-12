@@ -70,6 +70,7 @@ class _Database(object):
         """
         Runs the DB in a sub-process.
         """
+
         args = {"--" + k: v for k, v in self.mongodb_args.items()}
         if "--dbpath" in args:
             warnings.warn("Writing MongoDB to custom path {} instead of "
@@ -96,6 +97,7 @@ class _Database(object):
             self.dir, socket.gethostname(), self.port))
         cmd = ['mongod']
         cmd += [str(item) for keyvalue in args.items() for item in keyvalue]
+
         try:
             self.mongo_process = subprocess.Popen(cmd)
         except FileNotFoundError as e:

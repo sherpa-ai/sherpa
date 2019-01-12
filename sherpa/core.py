@@ -473,6 +473,7 @@ class _Runner(object):
         """
         for i in reversed(range(len(self._active_trials))):
             tid = self._active_trials[i]
+            logger.debug('Updating active trials.')
             status = self.scheduler.get_status(self._all_trials[tid].get('job_id'))
 
             if status in [_JobStatus.finished, _JobStatus.failed,
@@ -492,7 +493,7 @@ class _Runner(object):
                                  "(1)\tTrial is submitting metrics via e.g. sherpa.Client.send_metrics()\n"
                                  "(2)\tTrial crashed\n"
                                  " Trial script output is in: ")
-                    warn_msg += os.path.join(self.study.output_dir, 'sge', 'trial_{}.out'.format(tid))
+                    warn_msg += os.path.join(self.study.output_dir, 'jobs', 'trial_{}.out'.format(tid))
                     warnings.warn(warn_msg, RuntimeWarning)
                     if self.resubmit_failed_trials:
                         logger.info("Resubmitting Trial {}.".format(tid))
