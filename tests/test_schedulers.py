@@ -92,7 +92,7 @@ def test_local_scheduler(test_dir):
 
     s = sherpa.schedulers.LocalScheduler()
 
-    job_id = s.submit_job("python {}/test.py".format(test_dir),
+    job_id = s.submit_job(["python", "{}/test.py".format(test_dir)],
                           env={'SHERPA_TRIAL_ID': '3'})
 
     assert s.get_status(job_id) == sherpa.schedulers._JobStatus.running
@@ -101,7 +101,7 @@ def test_local_scheduler(test_dir):
     testlogger.debug(s.get_status(job_id))
     assert s.get_status(job_id) == sherpa.schedulers._JobStatus.finished
 
-    job_id = s.submit_job("python {}/test.py".format(test_dir))
+    job_id = s.submit_job(["python", "{}/test.py".format(test_dir)])
     time.sleep(1)
     s.kill_job(job_id)
     time.sleep(1)

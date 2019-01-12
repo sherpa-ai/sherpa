@@ -37,6 +37,7 @@ import logging
 import tempfile
 import shutil
 import time
+import warnings
 
 logging.basicConfig(level=logging.DEBUG)
 testlogger = logging.getLogger(__name__)
@@ -165,12 +166,30 @@ def test_database(test_dir):
     #     client.get_trial()
 
 
+def test_database_args(test_dir):
+    custom_port = 26999
+    testlogger.debug(test_dir)
+    db_port = sherpa.core._port_finder(27000, 28000)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        with sherpa.database._Database(test_dir, port=db_port,
+                                       mongodb_args={"port": custom_port}) as db:
+            assert len(w) == 1
+            assert issubclass(w[-1].category, UserWarning)
+            assert "Set port via the db_port" in str(w[-1].message)
+
+            # test that there is something running on that port
+            db2 = sherpa.database._Database(test_dir, port=custom_port)
+            with pytest.raises(OSError):
+                db2.start()
+
+
 def get_test_study():
     mock_algorithm = mock.MagicMock()
     mock_algorithm.get_suggestion.return_value = {'a': 1, 'b': 2}
     mock_stopping_rule = mock.MagicMock()
 
-    s = sherpa.Study(parameters=get_test_parameters(),
+    s = sherpa.Study(parameters=list(get_test_parameters()),
                      algorithm=mock_algorithm,
                      stopping_rule=mock_stopping_rule,
                      lower_is_better=True)
@@ -194,7 +213,7 @@ def test_runner_update_results():
 
     r = sherpa.core._Runner(study=get_test_study(), scheduler=mock.MagicMock(),
                       database=mock_db, max_concurrent=1,
-                      command="python test.py")
+                      command=["python", "test.py"])
 
     # new trial
     t = get_test_trial()
@@ -220,7 +239,7 @@ def test_runner_update_active_trials():
 
     r = sherpa.core._Runner(study=mock_study, scheduler=mock_scheduler,
                       database=mock.MagicMock(), max_concurrent=1,
-                      command="python test.py")
+                      command=["python", "test.py"])
 
     t = get_test_trial()
     r._all_trials[t.id] = {'trial': t, 'job_id': None}
@@ -242,7 +261,7 @@ def test_runner_stop_bad_performers():
                       scheduler=mock.MagicMock(),
                       database=mock.MagicMock(),
                       max_concurrent=1,
-                      command="python test.py")
+                      command=["python", "test.py"])
 
     # setup
     t = get_test_trial()
@@ -262,7 +281,7 @@ def test_runner_stop_bad_performers():
 
 def test_runner_submit_new_trials():
     mock_scheduler = mock.MagicMock()
-    mock_scheduler.submit.side_effect = ['job1', 'job2', 'job3']
+    mock_scheduler.submit_job.side_effect = ['job1', 'job2', 'job3']
     mock_study = mock.MagicMock()
     mock_study.get_suggestion.side_effect = [get_test_trial(1),
                                              get_test_trial(2),
@@ -272,12 +291,12 @@ def test_runner_submit_new_trials():
                       scheduler=mock_scheduler,
                       database=mock.MagicMock(),
                       max_concurrent=3,
-                      command="python test.py")
+                      command=["python", "test.py"])
 
     r.submit_new_trials()
 
-    mock_scheduler.submit.has_calls([mock.call("python test.py"),
-                                     mock.call("python test.py"),
-                                     mock.call("python test.py")])
+    mock_scheduler.submit_job.has_calls([mock.call(["python", "test.py"]),
+                                         mock.call(["python", "test.py"]),
+                                         mock.call(["python", "test.py"])])
     assert len(r._active_trials) == 3
     assert len(r._all_trials) == 3

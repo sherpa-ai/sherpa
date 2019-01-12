@@ -37,7 +37,7 @@ except ImportError:  # python 3.x
     import pickle
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 logging.getLogger('werkzeug').setLevel(level=logging.WARNING)
 
@@ -290,8 +290,8 @@ class Study(object):
                                                'host': '',
                                                'threaded': True})
         msg = "\n" + "-"*55 + "\n"
-        msg += "SHERPA Dashboard running on http://{}:{}".format(
-            socket.gethostbyname(socket.gethostname()), port)
+        msg += "SHERPA Dashboard running. Access via\nhttp://{}:{} if on a cluster or\nhttp://{}:{} if running locally.".format(
+            socket.gethostbyname(socket.gethostname()), port, "localhost", port)
         msg += "\n" + "-"*55
         logger.info(msg)
         
@@ -385,7 +385,6 @@ class Study(object):
         return keras.callbacks.LambdaCallback(on_epoch_end=send_call)
 
 
-
 class _Runner(object):
     """
     Encapsulates all functionality needed to run a Study in parallel.
@@ -405,8 +404,8 @@ class _Runner(object):
         scheduler (sherpa.schedulers.Scheduler): a scheduler object.
         database (sherpa.database._Database): the database.
         max_concurrent (int): how many trials to run in parallel.
-        command (str): the command that runs a trial script e.g.
-            "python train_nn.py".
+        command (list[str]): components of the command that runs a trial script
+            e.g. ["python", "train_nn.py"].
         resubmit_failed_trials (bool): whether a failed trial should be
             resubmitted.
         
@@ -567,7 +566,7 @@ def optimize(parameters, algorithm, lower_is_better,
              max_concurrent=1,
              db_port=None, stopping_rule=None,
              dashboard_port=None, resubmit_failed_trials=False, verbose=1,
-             load=False):
+             load=False, mongodb_args={}):
     """
     Runs a Study with a scheduler and automatically runs a database in the
     background.
@@ -589,6 +588,9 @@ def optimize(parameters, algorithm, lower_is_better,
         dashboard_port (int): port to run the dashboard web-server on.
         resubmit_failed_trials (bool): whether to resubmit a trial if it failed.
         verbose (int, default=1): whether to print submit messages (0=no, 1=yes).
+        load (bool): option to load study, currently not fully implemented.
+        mongodb_args (dict[str, any]): arguments to MongoDB beyond port, dir,
+            and log-path. Keys are the argument name without "--".
     """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -613,12 +615,13 @@ def optimize(parameters, algorithm, lower_is_better,
     if not db_port:
         db_port = _port_finder(27001, 27050)
 
-    with _Database(db_dir=output_dir, port=db_port, reinstantiated=load) as db:
+    with _Database(db_dir=output_dir, port=db_port,
+                   reinstantiated=load, mongodb_args=mongodb_args) as db:
         runner = _Runner(study=study,
                          scheduler=scheduler,
                          database=db,
                          max_concurrent=max_concurrent,
-                         command=' '.join(['python', filename]),
+                         command=['python', filename],
                          resubmit_failed_trials=resubmit_failed_trials)
         runner.run_loop()
     return study.get_best_result()

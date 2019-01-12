@@ -33,7 +33,7 @@ import warnings
 import collections
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.WARNING)
 alglogger = logging.getLogger(__name__)
 
 

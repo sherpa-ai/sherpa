@@ -25,6 +25,7 @@ import subprocess
 import time
 import os
 import socket
+import warnings
 try:
     from subprocess import DEVNULL # python 3
 except ImportError:
@@ -33,7 +34,7 @@ except ImportError:
 import sherpa
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.WARNING)
 dblogger = logging.getLogger(__name__)
 
 
@@ -47,8 +48,11 @@ class _Database(object):
     Attributes:
         dbpath (str): the path where Mongo-DB stores its files.
         port (int): the port on which the Mongo-DB should run.
+        reinstantiated (bool): whether an instance of the MongoDB is being loaded.
+        mongodb_args (dict): keyword arguments to MongoDB
     """
-    def __init__(self, db_dir, port=27010, reinstantiated=False):
+    def __init__(self, db_dir, port=27010, reinstantiated=False,
+                 mongodb_args={}):
         self.client = MongoClient(port=port)
         self.db = self.client.sherpa
         self.collected_results = []
@@ -56,6 +60,7 @@ class _Database(object):
         self.dir = db_dir
         self.port = port
         self.reinstantiated = reinstantiated
+        self.mongodb_args = mongodb_args
 
     def close(self):
         print('Closing MongoDB!')
@@ -65,12 +70,34 @@ class _Database(object):
         """
         Runs the DB in a sub-process.
         """
-        dblogger.debug("Starting MongoDB...\nDIR:\t{}\nADDRESS:\t{}:{}".format(self.dir, socket.gethostname(), self.port))
-        cmd = ['mongod',
-               '--dbpath', self.dir,
-               '--port', str(self.port),
-               '--logpath', os.path.join(self.dir, "log.txt"),
-               '--bind_ip_all']
+
+        args = {"--" + k: v for k, v in self.mongodb_args.items()}
+        if "--dbpath" in args:
+            warnings.warn("Writing MongoDB to custom path {} instead of "
+                          "output dir {}".format(args["--dbpath"], self.dir),
+                          UserWarning)
+        else:
+            args["--dbpath"] = self.dir
+        if "--logpath" in args:
+            warnings.warn("Writing MongoDB logs to custom path {} instead of "
+                          "output dir {}".format(
+                args["--logpath"], os.path.join(self.dir, "log.txt")),
+                UserWarning)
+        else:
+            args["--logpath"] = os.path.join(self.dir, "log.txt")
+        if "--port" in args:
+            warnings.warn("Starting MongoDB on port {} instead of "
+                          "port {}. Set port via the db_port argument in "
+                          "sherpa.optimize".format(args["--port"], self.port),
+                          UserWarning)
+        else:
+            args["--port"] = str(self.port)
+
+        dblogger.debug("Starting MongoDB...\nDIR:\t{}\nADDRESS:\t{}:{}".format(
+            self.dir, socket.gethostname(), self.port))
+        cmd = ['mongod']
+        cmd += [str(item) for keyvalue in args.items() for item in keyvalue]
+
         try:
             self.mongo_process = subprocess.Popen(cmd)
         except FileNotFoundError as e:
