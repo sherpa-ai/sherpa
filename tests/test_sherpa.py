@@ -182,7 +182,16 @@ def test_database_args(test_dir):
             db2 = sherpa.database._Database(test_dir, port=custom_port)
             with pytest.raises(OSError):
                 db2.start()
-
+                
+def test_client_test_mode():
+    client = sherpa.Client(test_mode=True)
+    trial = client.get_trial()
+    
+    assert trial.id == 1
+    assert trial.parameters == {}
+    
+    client.send_metrics(trial=trial, iteration=1, objective=0.1)
+    callback = client.keras_send_metrics(trial=trial, objective_name='val_acc', context_names=['val_loss', 'loss', 'acc'])
 
 def get_test_study():
     mock_algorithm = mock.MagicMock()
