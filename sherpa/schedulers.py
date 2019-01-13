@@ -96,9 +96,14 @@ class LocalScheduler(Scheduler):
 
     Args:
         submit_options (str): options appended before the command.
+        resources (list[str]): list of resources that will be passed as
+            SHERPA_RESOURCE environment variable. If no resource is 
+            available '' will be passed.
     """
-    def __init__(self, submit_options='', output_dir=''):
+    def __init__(self, submit_options='', output_dir='', resources=None):
         self.jobs = {}
+        self.resources = resources
+        self.resource_by_job = {}
         self.submit_options = submit_options
         self.decode_status = {0: _JobStatus.finished,
                               -15: _JobStatus.killed}
@@ -106,9 +111,14 @@ class LocalScheduler(Scheduler):
 
     def submit_job(self, command, env={}, job_name=''):
         env.update(os.environ.copy())
+        if self.resources:
+            env['SHERPA_RESOURCE'] = str(self.resources.pop())
+        else:
+            env['SHERPA_RESOURCE'] = ''
         optns = self.submit_options.split(' ') if self.submit_options else []
         process = subprocess.Popen(optns + command, env=env)
         self.jobs[process.pid] = process
+        self.resource_by_job[process.pid] = env['SHERPA_RESOURCE']
         return process.pid
 
     def get_status(self, job_id):
@@ -119,6 +129,10 @@ class LocalScheduler(Scheduler):
         if status is None:
             return _JobStatus.running
         else:
+            if job_id in self.resource_by_job:
+                resource = self.resource_by_job.pop(job_id)
+            if resource:
+                self.resources.append(resource)
             return self.decode_status.get(status, _JobStatus.other)
 
     def kill_job(self, job_id):
