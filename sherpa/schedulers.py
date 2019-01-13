@@ -101,23 +101,32 @@ class LocalScheduler(Scheduler):
             available '' will be passed.
     """
     def __init__(self, submit_options='', output_dir='', resources=None):
+        self.output_dir = output_dir
         self.jobs = {}
         self.resources = resources
         self.resource_by_job = {}
+        self.output_files = {}
         self.submit_options = submit_options
         self.decode_status = {0: _JobStatus.finished,
                               -15: _JobStatus.killed}
         self.output_dir = output_dir
 
     def submit_job(self, command, env={}, job_name=''):
+        outdir = os.path.join(self.output_dir, 'jobs')
+        if not os.path.isdir(outdir):
+            os.mkdir(outdir)
+            
         env.update(os.environ.copy())
         if self.resources:
             env['SHERPA_RESOURCE'] = str(self.resources.pop())
         else:
             env['SHERPA_RESOURCE'] = ''
+            
+        f = open(os.path.join(outdir, '{}.out'.format(job_name)), 'w')
         optns = self.submit_options.split(' ') if self.submit_options else []
-        process = subprocess.Popen(optns + command, env=env)
+        process = subprocess.Popen(optns + command, env=env, stderr=subprocess.STDOUT, stdout=f)
         self.jobs[process.pid] = process
+        self.output_files[process.pid] = f
         self.resource_by_job[process.pid] = env['SHERPA_RESOURCE']
         return process.pid
 
@@ -133,6 +142,10 @@ class LocalScheduler(Scheduler):
                 resource = self.resource_by_job.pop(job_id)
             if resource:
                 self.resources.append(resource)
+                
+            if job_id in self.output_files:
+                f = self.output_files.pop(process.pid)
+                f.close()
             return self.decode_status.get(status, _JobStatus.other)
 
     def kill_job(self, job_id):
