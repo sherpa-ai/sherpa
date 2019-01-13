@@ -37,7 +37,7 @@ except ImportError:  # python 3.x
     import pickle
 
 
-logging.basicConfig(level=logging.WARNING)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 logging.getLogger('werkzeug').setLevel(level=logging.WARNING)
 
@@ -435,7 +435,7 @@ class _Runner(object):
         """
         results = self.database.get_new_results()
         if results != [] and self._all_trials == {}:
-            logger.debug(results)
+            logger.warning(results)
             raise ValueError("Found unexpected results. Check the following\n"
                              "(1)\toutput_dir is empty\n"
                              "(2)\tno other database is running on this port.")
@@ -522,7 +522,7 @@ class _Runner(object):
 
             # Check if algorithm is done.
             if not next_trial:
-                logger.debug("Optimization Algorithm finished.")
+                logger.info("Optimization Algorithm finished.")
                 self._done = True
                 break
             
@@ -530,7 +530,7 @@ class _Runner(object):
             for pname, pval in next_trial.parameters.items():
                 submit_msg += "\t{0:15}={1:>31}\n".format(str(pname), str(pval))
             submit_msg += "-"*55 + "\n"
-            logger.debug(submit_msg)
+            logger.info(submit_msg)
 
             self.database.enqueue_trial(next_trial)
             pid = self.scheduler.submit_job(command=self.command,
@@ -756,11 +756,14 @@ class Continuous(Parameter):
                                               "positive for log scale."
 
     def sample(self):
-        if self.scale == 'log':
-            return 10**numpy.random.uniform(low=numpy.log10(self.range[0]),
-                                            high=numpy.log10(self.range[1]))
-        else:
-            return numpy.random.uniform(low=self.range[0], high=self.range[1])
+        try:
+            if self.scale == 'log':
+                return 10**numpy.random.uniform(low=numpy.log10(self.range[0]),
+                                                high=numpy.log10(self.range[1]))
+            else:
+                return numpy.random.uniform(low=self.range[0], high=self.range[1])
+        except ValueError as e:
+            raise ValueError("{} causes error {}".format(self.name, e))
 
 
 class Discrete(Parameter):
@@ -775,12 +778,14 @@ class Discrete(Parameter):
                                               "positive for log scale."
 
     def sample(self):
-        if self.scale == 'log':
-            return 10**numpy.random.randint(low=numpy.log10(self.range[0]),
-                                            high=numpy.log10(self.range[1]))
-        else:
-            return numpy.random.randint(low=self.range[0], high=self.range[1])
-
+        try:
+            if self.scale == 'log':
+                return int(10**numpy.random.uniform(low=numpy.log10(self.range[0]),
+                                                high=numpy.log10(self.range[1])))
+            else:
+                return numpy.random.randint(low=self.range[0], high=self.range[1])
+        except ValueError as e:
+            raise ValueError("{} causes error {}".format(self.name, e))
 
 class Choice(Parameter):
     """
