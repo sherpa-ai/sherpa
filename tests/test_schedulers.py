@@ -24,6 +24,7 @@ import socket
 import tempfile
 import time
 import logging
+import itertools
 import shutil
 from test_sherpa import test_dir
 
@@ -107,4 +108,39 @@ def test_local_scheduler(test_dir):
     time.sleep(1)
     testlogger.debug(s.get_status(job_id))
     assert s.get_status(job_id) == sherpa.schedulers._JobStatus.killed
+    
+def test_local_scheduler_resources(test_dir):
+    def generate_test_script():
+        trial_script = "import time, os, sys\n"
+        trial_script += "time.sleep(3)\n"
+        trial_script += "assert os.environ.get('SHERPA_TRIAL_ID') == str(sys.argv[1])\n"
+        trial_script += "assert os.environ.get('SHERPA_RESOURCE') == str(sys.argv[2])\n"
+        return trial_script
+        
+    with open(os.path.join(test_dir, "test.py"), 'w') as f:
+        f.write(generate_test_script())
+        
+    for multiple in [1, 4]:
+        
+        lst = range(4)
+        resources = list(itertools.chain.from_iterable(itertools.repeat(x, multiple) for x in lst))
+        s = sherpa.schedulers.LocalScheduler(resources=resources)
 
+        job_ids = []
+        for id, gpu in zip(range(4), reversed(range(4))):
+            for j in range(multiple):
+                job_ids.append(s.submit_job(["python", "{}/test.py".format(test_dir), str(id), str(gpu)],
+                                      env={'SHERPA_TRIAL_ID': str(id)}))
+
+        assert len(s.resource_by_job) == 4*multiple
+        assert len(s.output_files) == 4*multiple
+        for id in job_ids:
+            assert s.get_status(id) == sherpa.schedulers._JobStatus.running
+
+        assert len(s.resources) == 0
+
+        time.sleep(5)
+        for id in job_ids:
+            assert s.get_status(id) == sherpa.schedulers._JobStatus.finished
+        
+        assert len(s.resources) == 4*multiple
