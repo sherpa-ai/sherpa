@@ -124,7 +124,7 @@ class LocalScheduler(Scheduler):
             
         f = open(os.path.join(outdir, '{}.out'.format(job_name)), 'w')
         optns = self.submit_options.split(' ') if self.submit_options else []
-        process = subprocess.Popen(optns + command, env=env, stderr=subprocess.STDOUT, stdout=f)
+        process = subprocess.Popen(optns + command, env=env, stderr=f, stdout=f)
         self.jobs[process.pid] = process
         self.output_files[process.pid] = f
         self.resource_by_job[process.pid] = env['SHERPA_RESOURCE']
