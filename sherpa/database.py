@@ -55,7 +55,7 @@ class _Database(object):
                  mongodb_args={}):
         self.client = MongoClient(port=port)
         self.db = self.client.sherpa
-        self.collected_results = []
+        self.collected_results = set()
         self.mongo_process = None
         self.dir = db_dir
         self.port = port
@@ -129,7 +129,7 @@ class _Database(object):
             mongo_id = result.pop('_id')
             if mongo_id not in self.collected_results:
                 new_results.append(result)
-                self.collected_results.append(mongo_id)
+                self.collected_results.add(mongo_id)
         return new_results
 
     def enqueue_trial(self, trial):
@@ -264,11 +264,8 @@ class Client(object):
                 monitored.
         """        
         import keras.callbacks
-        if self.test_mode:
-            send_call = lambda epoch, logs: None
-        else:
-            send_call = lambda epoch, logs: self.send_metrics(trial=trial,
-                                                              iteration=epoch,
-                                                              objective=logs[objective_name],
-                                                              context={n: logs[n] for n in context_names})
+        send_call = lambda epoch, logs: self.send_metrics(trial=trial,
+                                                          iteration=epoch,
+                                                          objective=logs[objective_name],
+                                                          context={n: logs[n] for n in context_names})
         return keras.callbacks.LambdaCallback(on_epoch_end=send_call)
