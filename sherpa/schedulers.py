@@ -117,7 +117,7 @@ class LocalScheduler(Scheduler):
             os.mkdir(outdir)
             
         env.update(os.environ.copy())
-        if self.resources:
+        if self.resources is not None:
             env['SHERPA_RESOURCE'] = str(self.resources.pop())
         else:
             env['SHERPA_RESOURCE'] = ''
@@ -127,7 +127,8 @@ class LocalScheduler(Scheduler):
         process = subprocess.Popen(optns + command, env=env, stderr=f, stdout=f)
         self.jobs[process.pid] = process
         self.output_files[process.pid] = f
-        self.resource_by_job[process.pid] = env['SHERPA_RESOURCE']
+        if self.resources is not None:
+            self.resource_by_job[process.pid] = env['SHERPA_RESOURCE']
         return process.pid
 
     def get_status(self, job_id):
@@ -140,7 +141,6 @@ class LocalScheduler(Scheduler):
         else:
             if job_id in self.resource_by_job:
                 resource = self.resource_by_job.pop(job_id)
-            if resource:
                 self.resources.append(resource)
                 
             if job_id in self.output_files:
