@@ -22,6 +22,7 @@ import collections
 import pandas
 import sherpa
 import logging
+import itertools
 from test_sherpa import get_test_trial
 
 
@@ -153,10 +154,37 @@ def test_grid_search():
         seen.add((suggestion['a'], suggestion['b'], suggestion['c']))
         suggestion = alg.get_suggestion(parameters)
 
-    assert seen == {(1, 'a', 2), (1, 'a', 3),
-                    (1, 'b', 2), (1, 'b', 3),
-                    (2, 'a', 2), (2, 'a', 3),
-                    (2, 'b', 2), (2, 'b', 3)}
+    assert seen == {(1, 'a', 2.0), (1, 'a', 3.0),
+                    (1, 'b', 2.0), (1, 'b', 3.0),
+                    (2, 'a', 2.0), (2, 'a', 3.0),
+                    (2, 'b', 2.0), (2, 'b', 3.0)}
+    
+    
+def test_grid_search_repeat():
+    parameters = [sherpa.Choice('a', [1, 2]),
+                  sherpa.Choice('b', ['a', 'b']),
+                  sherpa.Continuous('c', [1, 4])]
+
+    alg = sherpa.algorithms.GridSearch(repeat=3)
+
+    suggestion = alg.get_suggestion(parameters)
+    seen = list()
+
+    while suggestion:
+        seen.append((suggestion['a'], suggestion['b'], suggestion['c']))
+        suggestion = alg.get_suggestion(parameters)
+
+    expected_params = [(1, 'a', 2.0), (1, 'a', 3.0),
+                    (1, 'b', 2.0), (1, 'b', 3.0),
+                    (2, 'a', 2.0), (2, 'a', 3.0),
+                    (2, 'b', 2.0), (2, 'b', 3.0)]
+    
+    expected = list(itertools.chain.from_iterable(itertools.repeat(x, 3) for x in expected_params))
+    
+    print(sorted(expected))
+    print(sorted(seen))
+    
+    assert sorted(expected) == sorted(seen)
 
 
 def test_pbt():

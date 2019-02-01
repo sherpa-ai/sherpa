@@ -96,19 +96,39 @@ class LocalScheduler(Scheduler):
 
     Args:
         submit_options (str): options appended before the command.
+        resources (list[str]): list of resources that will be passed as
+            SHERPA_RESOURCE environment variable. If no resource is 
+            available '' will be passed.
     """
-    def __init__(self, submit_options='', output_dir=''):
+    def __init__(self, submit_options='', output_dir='', resources=None):
+        self.output_dir = output_dir
         self.jobs = {}
+        self.resources = resources
+        self.resource_by_job = {}
+        self.output_files = {}
         self.submit_options = submit_options
         self.decode_status = {0: _JobStatus.finished,
                               -15: _JobStatus.killed}
         self.output_dir = output_dir
 
     def submit_job(self, command, env={}, job_name=''):
+        outdir = os.path.join(self.output_dir, 'jobs')
+        if not os.path.isdir(outdir):
+            os.mkdir(outdir)
+            
         env.update(os.environ.copy())
+        if self.resources is not None:
+            env['SHERPA_RESOURCE'] = str(self.resources.pop())
+        else:
+            env['SHERPA_RESOURCE'] = ''
+            
+        f = open(os.path.join(outdir, '{}.out'.format(job_name)), 'w')
         optns = self.submit_options.split(' ') if self.submit_options else []
-        process = subprocess.Popen(optns + command, env=env)
+        process = subprocess.Popen(optns + command, env=env, stderr=f, stdout=f)
         self.jobs[process.pid] = process
+        self.output_files[process.pid] = f
+        if self.resources is not None:
+            self.resource_by_job[process.pid] = env['SHERPA_RESOURCE']
         return process.pid
 
     def get_status(self, job_id):
@@ -119,6 +139,13 @@ class LocalScheduler(Scheduler):
         if status is None:
             return _JobStatus.running
         else:
+            if job_id in self.resource_by_job:
+                resource = self.resource_by_job.pop(job_id)
+                self.resources.append(resource)
+                
+            if job_id in self.output_files:
+                f = self.output_files.pop(process.pid)
+                f.close()
             return self.decode_status.get(status, _JobStatus.other)
 
     def kill_job(self, job_id):

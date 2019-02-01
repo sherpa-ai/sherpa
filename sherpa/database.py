@@ -55,7 +55,7 @@ class _Database(object):
                  mongodb_args={}):
         self.client = MongoClient(port=port)
         self.db = self.client.sherpa
-        self.collected_results = []
+        self.collected_results = set()
         self.mongo_process = None
         self.dir = db_dir
         self.port = port
@@ -129,7 +129,7 @@ class _Database(object):
             mongo_id = result.pop('_id')
             if mongo_id not in self.collected_results:
                 new_results.append(result)
-                self.collected_results.append(mongo_id)
+                self.collected_results.add(mongo_id)
         return new_results
 
     def enqueue_trial(self, trial):
@@ -186,18 +186,23 @@ class Client(object):
         port (int): port that database is running on. Passed port, port set via
             environment variable or 27010 in that order.
     """
-    def __init__(self, host=None, port=None, **mongo_client_args):
+    def __init__(self, host=None, port=None, test_mode=False, **mongo_client_args):
         """
         Args:
             host (str): the host that runs the database. Generally not needed since
                 the scheduler passes the DB-host as an environment variable.
             port (int): port that database is running on. Generally not needed since
                 the scheduler passes the DB-port as an environment variable.
+            test_mode (bool): mock the client, that is, get_trial returns a trial
+                that is empty, keras_send_metrics accepts calls but does not do any-
+                thing, as does send_metrics. Useful for trial script debugging.
         """
-        host = host or os.environ.get('SHERPA_DB_HOST') or 'localhost'
-        port = port or os.environ.get('SHERPA_DB_PORT') or 27010
-        self.client = MongoClient(host, int(port), **mongo_client_args)
-        self.db = self.client.sherpa
+        self.test_mode = test_mode
+        if not self.test_mode:
+            host = host or os.environ.get('SHERPA_DB_HOST') or 'localhost'
+            port = port or os.environ.get('SHERPA_DB_PORT') or 27010
+            self.client = MongoClient(host, int(port), **mongo_client_args)
+            self.db = self.client.sherpa
 
     def get_trial(self):
         """
@@ -206,6 +211,9 @@ class Client(object):
         Returns:
             sherpa.core.Trial: The trial to run.
         """
+        if self.test_mode:
+            return sherpa.Trial(id=1, parameters={})
+        
         assert os.environ.get('SHERPA_TRIAL_ID'), "Environment-variable SHERPA_TRIAL_ID not found. Scheduler needs to set this variable in the environment when submitting a job"
         trial_id = int(os.environ.get('SHERPA_TRIAL_ID'))
         for _ in range(5):
@@ -228,6 +236,9 @@ class Client(object):
             objective (float): the objective value.
             context (dict): other metric-values.
         """
+        if self.test_mode:
+            return
+        
         result = {'parameters': trial.parameters,
                   'trial_id': trial.id,
                   'objective': objective,
@@ -251,7 +262,7 @@ class Client(object):
                 ``val_loss``, or any of the submitted metrics.
             context_names (list[str]): names of all other metrics to be
                 monitored.
-        """
+        """        
         import keras.callbacks
         send_call = lambda epoch, logs: self.send_metrics(trial=trial,
                                                           iteration=epoch,
