@@ -1,21 +1,7 @@
 .. _installation:
 
-Installation
-============
-
-Installation from PyPi
-~~~~~~~~~~~~~~~~~~~~~~
-
-This is the most straightforward way to install Sherpa. The source code may
-however be slightly older than what is found on the GitHub.
-
-::
-
-    pip install parameter-sherpa
-
-
 Installation from GitHub
-~~~~~~~~~~~~~~~~~~~~~~~~
+========================
 
 Clone from GitHub:
 

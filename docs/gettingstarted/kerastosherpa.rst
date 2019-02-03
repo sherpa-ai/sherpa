@@ -20,15 +20,15 @@ We start out with this piece of Keras code:
               optimizer='sgd',
               metrics=['accuracy'])
 
-The goal is to tune the number of hidden units via Random Search. To do that, we
+We want to tune the number of hidden units via Random Search. To do that, we
 define one parameter of type `Discrete`.
-We also use the `RandomSearch` algorithm with maximum number of trials 50.
+We also use the `BayesianOptimization` algorithm with maximum number of trials 50.
 
 ::
 
     import sherpa
     parameters = [sherpa.Discrete('num_units', [50, 200])]
-    alg = sherpa.algorithms.RandomSearch(max_num_trials=50)
+    alg = sherpa.algorithms.BayesianOptimization(max_num_trials=50)
 
 We use these objects to create a SHERPA Study:
 
