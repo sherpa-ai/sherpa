@@ -18,10 +18,11 @@ You should have received a copy of the GNU General Public License
 along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
 """
 import sherpa
-from sherpa.algorithms import BayesianOptimization
+from sherpa.algorithms.bayesian_optimization import BayesianOptimization
 import numpy as np
-import pandas as pd
+import pandas
 import math
+import collections
 
 
 def test_transformers():
@@ -94,7 +95,7 @@ def test_design():
         assert (X[:, j] >= 0.).all() and (X[:, j] <= 1.).all()
 
     df = bayesian_optimization._from_design(X)
-    pd.testing.assert_frame_equal(df, candidates)
+    pandas.testing.assert_frame_equal(df, candidates)
 
     row = bayesian_optimization._from_design(X[0])
     row_dict = row.iloc[0].to_dict()
@@ -279,6 +280,3 @@ def test_branin():
     print(study.get_best_result())
     assert np.isclose(rval['Objective'], 0.397887, rtol=1e-3)
 
-
-if __name__ == '__main__':
-    test_branin()
