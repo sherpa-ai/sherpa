@@ -26,7 +26,7 @@ Documentation Contents
     :maxdepth: 1
 
     algorithms/algorithms
-    algorithms/bayesianoptimization
+    algorithms/gpyopt
     algorithms/localsearch
     algorithms/pbt
     algorithms/writingyourown
