@@ -5,26 +5,6 @@ import numpy
 import collections
 from sherpa.algorithms.bayesian_optimization import GPyOpt
 
-# def test_gpyopt_hp_transformation():
-#     parameters = [sherpa.Continuous('dropout', [0., 0.5]),
-#                   sherpa.Continuous('lr', [1e-7, 1e-1], 'log'),
-#                   sherpa.Choice('activation', ['relu', 'tanh', 'sigmoid']),
-#                   sherpa.Discrete('num_hidden', [100, 300]),
-#                   ]
-#
-#
-#     results_df = pandas.DataFrame(collections.OrderedDict(
-#         [('Trial-ID', [1, 2, 3]),
-#          ('Status', ['COMPLETED']*3),
-#          ('Iteration', [1]*3),
-#          ('dropout', [0.1, 0.4, 0.33]),
-#          ('lr', [1e-3, 4e-5, 6e-2]),
-#          ('activation', ['tanh', 'relu', 'sigmoid']),
-#          # ('num_hidden', [111, 222, 288]),
-#          ('Objective', [0.1, 0.055, 0.15])]
-#     ))
-#
-#     hp_options = GPyOpt.HyperparameterOptions()
 
 @pytest.fixture
 def parameters():
