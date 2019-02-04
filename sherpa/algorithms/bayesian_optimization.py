@@ -361,6 +361,7 @@ class GPyOpt(sherpa.algorithms.Algorithm):
             batch is created regardless of whether the previous batch was used
             up. The used method is local penalization.
         verbosity (bool): Print models and other options during the optimization.
+        max_num_trials (int): maximum number of trials to run for.
     """
     def __init__(self, model_type='GP', num_initial_data_points='infer',
                  initial_data_points=[], acquisition_type='EI',
