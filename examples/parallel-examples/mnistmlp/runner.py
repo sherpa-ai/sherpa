@@ -3,6 +3,7 @@ import argparse
 import sherpa
 import datetime
 from sherpa.schedulers import LocalScheduler,SGEScheduler
+import sherpa.algorithms.bayesian_optimization as bayesian_optimization
 
 
 def run_example(FLAGS):
@@ -15,9 +16,10 @@ def run_example(FLAGS):
                   sherpa.Continuous('dropout', [0., 0.5])]
     
     if FLAGS.algorithm == 'BayesianOptimization':  
-        print('Running Bayesian Optimization')
-        alg = sherpa.algorithms.BayesianOptimization(num_grid_points=2,
-                                                     max_num_trials=150)
+        print('Running GPyOpt')
+        alg = bayesian_optimization.GPyOpt(max_concurrent=FLAGS.max_concurrent,
+                                           model_type='GP_MCMC',
+                                           acquisition_type='EI_MCMC')
     elif FLAGS.algorithm == 'LocalSearch':
         print('Running Local Search')
         alg = sherpa.algorithms.LocalSearch(seed_configuration={'lrinit': 0.038,
