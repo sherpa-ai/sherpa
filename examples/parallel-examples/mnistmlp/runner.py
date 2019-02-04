@@ -19,7 +19,8 @@ def run_example(FLAGS):
         print('Running GPyOpt')
         alg = bayesian_optimization.GPyOpt(max_concurrent=FLAGS.max_concurrent,
                                            model_type='GP_MCMC',
-                                           acquisition_type='EI_MCMC')
+                                           acquisition_type='EI_MCMC',
+                                           max_num_trials=150)
     elif FLAGS.algorithm == 'LocalSearch':
         print('Running Local Search')
         alg = sherpa.algorithms.LocalSearch(seed_configuration={'lrinit': 0.038,
