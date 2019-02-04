@@ -11,8 +11,9 @@ parameters = [sherpa.Discrete('n_estimators', [2, 50]),
               sherpa.Continuous('max_features', [0.1, 0.9])]
 
 algorithm = bayesian_optimization.GPyOpt(max_concurrent=1,
-                                         model_type='GP_MCMC',
-                                         acquisition_type='EI_MCMC')
+                                         model_type='GP',
+                                         acquisition_type='EI',
+                                         max_num_trials=100)
 
 X, y = load_breast_cancer(return_X_y=True)
 study = sherpa.Study(parameters=parameters,
@@ -26,7 +27,7 @@ for trial in study:
                                  n_estimators=trial.parameters['n_estimators'],
                                  random_state=0)
     scores = cross_val_score(clf, X, y, cv=5)
+    print("Score: ", scores.mean())
     study.add_observation(trial, iteration=1, objective=scores.mean())
     study.finalize(trial)
-
-time.sleep(60)
+print(study.get_best_result())
