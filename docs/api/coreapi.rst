@@ -25,23 +25,24 @@ Parameters
    :noindex:
    :members:
 
-.. _optimize-api:
-
-Running the Optimization
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autofunction:: sherpa.core.optimize
-  :noindex:
+.. _study-api:
 
 Study
 ~~~~~
 
-A SHERPA optimization can also be run manually, without using
-:code:`sherpa.optimize`.
-
 .. autoclass:: sherpa.core.Study
    :noindex:
    :members:
+
+.. _optimize-api:
+
+Running the Optimization in Parallel
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: sherpa.core.optimize
+  :noindex:
+
+
 
 Setting up the Trial
 --------------------
