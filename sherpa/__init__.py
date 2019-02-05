@@ -22,5 +22,8 @@ from .core import *
 from . import database
 from .database import Client
 from . import algorithms
+import logging
 
 __version__ = '1.0.0'
+
+logging.basicConfig(level=logging.INFO)

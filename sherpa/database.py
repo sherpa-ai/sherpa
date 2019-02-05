@@ -34,7 +34,6 @@ except ImportError:
 import sherpa
 
 
-logging.basicConfig(level=logging.WARNING)
 dblogger = logging.getLogger(__name__)
 
 

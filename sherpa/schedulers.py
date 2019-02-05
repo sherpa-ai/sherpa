@@ -25,10 +25,7 @@ from enum import Enum
 import logging
 
 
-logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
-#logging.getLogger('werkzeug').setLevel(level=logging.WARNING) # to remove
-
 
 
 class _JobStatus(Enum):
