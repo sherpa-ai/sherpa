@@ -373,6 +373,10 @@ class GPyOpt(sherpa.algorithms.Algorithm):
         self._num_initial_data_points = -1
         self.initial_data_points = initial_data_points
         self.acquisition_type = acquisition_type
+
+        assert model_type != 'GP_MCMC' and acquisition_type != 'EI_MCMC'\
+            if max_concurrent > 1 else True,\
+            "GPyOpt has a bug for _MCMC with batch size > 1."
         self.max_concurrent = max_concurrent
         self.verbosity = verbosity
 

@@ -11,8 +11,8 @@ parameters = [sherpa.Discrete('n_estimators', [2, 50]),
               sherpa.Continuous('max_features', [0.1, 0.9])]
 
 algorithm = bayesian_optimization.GPyOpt(max_concurrent=1,
-                                         model_type='GP',
-                                         acquisition_type='EI',
+                                         model_type='GP_MCMC',
+                                         acquisition_type='EI_MCMC',
                                          max_num_trials=100)
 
 X, y = load_breast_cancer(return_X_y=True)
