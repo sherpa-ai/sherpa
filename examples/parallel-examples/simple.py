@@ -24,6 +24,8 @@ import sherpa
 import sherpa.schedulers
 import argparse
 import socket
+import sherpa.algorithms.bayesian_optimization as bayesian_optimization
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--env', help='Your environment path.',
@@ -40,9 +42,14 @@ parameters = [sherpa.Choice(name="param_a",
               sherpa.Continuous(name="param_b",
                                 range=[0, 1])]
 
+
 algorithm = sherpa.algorithms.RandomSearch(max_num_trials=10)
 # stopping_rule = sherpa.algorithms.MedianStoppingRule(min_iterations=2,
 #                                           min_trials=3)
+# algorithm = bayesian_optimization.GPyOpt(max_concurrent=4,
+#                                          model_type='GP',
+#                                          acquisition_type='EI',
+#                                          max_num_trials=100)
 
 # scheduler = sherpa.schedulers.SGEScheduler(submit_options="-N example -P arcus.p -q {} -l hostname='{}'".format(sge_q, host), environment=FLAGS.env, output_dir=tempdir)
 
@@ -76,7 +83,7 @@ results = sherpa.optimize(parameters=parameters,
                           filename=filename,
                           output_dir=tempdir,
                           scheduler=scheduler,
-                          max_concurrent=2,
+                          max_concurrent=4,
                           verbose=1)
 
 print(results)
