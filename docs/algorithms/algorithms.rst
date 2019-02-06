@@ -34,20 +34,15 @@ algorithm. This is followed by a short comparison benchmark and the algorithms t
 Comparison on MNIST MLP
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-The two figures below show five runs of Random Search against the same number of
-Bayesian Optimization, and Local Search runs. The first figure shows the trial
-index against the best validation loss achieved so far. The second figure shows
-the mean across the five runs as a solid line and the minimum and maximum as
-the shaded areas. Note that the Local Search finishes when no perturbation
-yields an improvement which can be after a varying number of trials. It is
-therefore not included in the mean figure.
-
-.. figure:: individual-loss.png
-   :alt: Individual Losses.
+The figure below shows the mean, minimum, and maximum across five runs of Random Search against the same number of
+GPyOpt Bayesian optimization, and Local Search runs. For the Local Search the
+individual trials are shown since each run finished after a different number of
+trials.
 
 .. figure:: mean-loss.png
    :alt: Individual Losses.
 
+The currently available algorithms in Sherpa are listed below:
 
 Grid Search
 ~~~~~~~~~~~
