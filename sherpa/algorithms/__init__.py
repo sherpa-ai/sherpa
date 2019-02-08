@@ -17,13 +17,4 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
 """
-from __future__ import absolute_import
 from .core import *
-from . import database
-from .database import Client
-from . import algorithms
-import logging
-
-__version__ = '1.0.0'
-
-logging.basicConfig(level=logging.INFO)
