@@ -19,9 +19,9 @@ from setuptools import find_packages, setup, Command
 # args = parser.parse_args()
 
 # Package meta-data.
-NAME = 'sherpa'
+NAME = 'parameter-sherpa'
 DESCRIPTION = 'Hyperparameter Optimization for Machine Learning Models.'
-URL = 'https://github.com/LarsHH/sherpa'
+URL = 'https://github.com/sherpa-ai/sherpa'
 EMAIL = 'lhertel@uci.edu'
 AUTHOR = 'Lars Hertel, Peter Sadowski, and Julian Collado'
 
@@ -82,7 +82,7 @@ class UploadCommand(Command):
 # Where the magic happens:
 setup(
     name=NAME,
-    version='0.0.0',
+    version='1.0.0',
     description=DESCRIPTION,
     long_description=long_description,
     author=AUTHOR,
@@ -96,7 +96,7 @@ setup(
         # Trove classifiers
         # Full list: https://pypi.python.org/pypi?%3Aaction=list_classifiers
         'Development Status :: 3 - Alpha',
-        'License :: OSI Approved :: GNU GENERAL PUBLIC LICENSE',
+        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
@@ -110,9 +110,6 @@ setup(
     ],
     # $ setup.py publish support.
     keywords='hyperparameter optimization machine-learning',
-    project_urls={
-        'Code': 'https://github.com/LarsHH/sherpa',
-    },
     cmdclass={
         'upload': UploadCommand,
     },
