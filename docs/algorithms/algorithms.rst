@@ -58,6 +58,14 @@ Random Search
   :noindex:
 
 
+Bayesian Optimization with GPyOpt
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: sherpa.algorithms.bayesian_optimization.GPyOpt
+  :noindex:
+
+
+
 Local Search
 ~~~~~~~~~~~~
 
@@ -65,11 +73,6 @@ Local Search
   :noindex:
 
 
-Bayesian Optimization with GPyOpt
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. autoclass:: sherpa.algorithms.bayesian_optimization.GPyOpt
-  :noindex:
 
 
 Population Based Training
@@ -79,3 +82,8 @@ Population Based Training
   :noindex:
 
 
+Iterate
+~~~~~~~
+
+.. autoclass:: sherpa.algorithms.Iterate
+  :noindex:
