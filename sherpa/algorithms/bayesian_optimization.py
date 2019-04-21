@@ -12,6 +12,7 @@ import collections
 import copy
 import six
 import GPyOpt as gpyopt_package
+import GPy
 
 
 bayesoptlogger = logging.getLogger(__name__)
@@ -418,10 +419,10 @@ class GPyOpt(sherpa.algorithms.Algorithm):
             # generate a new batch from bayes opt and set it as next
             # observations
             self.next_trials.clear()
-            X, y = self._prepare_data_for_bayes_opt(parameters, results,
-                                                    self.transformations)
+            X, y, y_var = self._prepare_data_for_bayes_opt(parameters, results,
+                                                           self.transformations)
 
-            batch = self._generate_bayesopt_batch(self.domain, X, y,
+            batch = self._generate_bayesopt_batch(self.domain, X, y, y_var,
                                                   lower_is_better)
 
             batch_list_of_dicts = self._reverse_to_sherpa_format(batch,
@@ -439,16 +440,28 @@ class GPyOpt(sherpa.algorithms.Algorithm):
 
         return self.next_trials.popleft()
 
-    def _generate_bayesopt_batch(self, domain, X, y, lower_is_better):
+    def _generate_bayesopt_batch(self, domain, X, y, y_var, lower_is_better):
+        if y_var:
+            kern = GPy.kern.Matern52(input_dim=X.shape[1], variance=1.) + GPy.kern.Bias(
+                X.shape[1])
+            m = GPy.models.GPHeteroscedasticRegression(X, y, kern)
+            m['.*het_Gauss.variance'] = y_var
+            m.het_Gauss.variance.fix()
+            m.optimize()
+            kwargs = {'model': m}
+        else:
+            kwargs = {'model_type': self.model_type}
+
         bo_step = gpyopt_package.methods.BayesianOptimization(f=None,
                                                               domain=domain,
                                                               X=X, Y=y,
                                                               acquisition_type=self.acquisition_type,
-                                                              model_type=self.model_type,
                                                               evaluator_type='local_penalization',
                                                               batch_size=self.max_concurrent,
                                                               verbosity=self.verbosity,
-                                                              maximize=not lower_is_better)
+                                                              maximize=not lower_is_better,
+                                                              exact_feval=False,
+                                                              **kwargs)
 
         return bo_step.suggest_next_locations()
 
@@ -488,7 +501,11 @@ class GPyOpt(sherpa.algorithms.Algorithm):
             X[:, i] = completed[p.name].apply(transformations[p.name].transform)
 
         y = numpy.array(completed.Objective).reshape((-1, 1))
-        return X, y
+        if 'varObjective' in completed.columns:
+            y_var = numpy.array(completed.varObjective).reshape((-1, 1))
+        else:
+            y_var = None
+        return X, y, y_var
 
     class Transform(object):
         def __init__(self, log=False, discrete=False):
