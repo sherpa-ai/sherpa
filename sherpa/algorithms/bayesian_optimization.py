@@ -412,7 +412,7 @@ class GPyOpt(sherpa.algorithms.Algorithm):
                                                   self.transformations)
 
         num_completed_trials = (len(results.query("Status == 'COMPLETED'"))
-                                if len(results) > 0 else 0)
+                                if results is not None and len(results) > 0 else 0)
 
         if (num_completed_trials > self._num_initial_data_points
            and num_completed_trials > self.num_points_seen_by_model):
@@ -441,7 +441,7 @@ class GPyOpt(sherpa.algorithms.Algorithm):
         return self.next_trials.popleft()
 
     def _generate_bayesopt_batch(self, domain, X, y, y_var, lower_is_better):
-        if y_var:
+        if y_var is not None:
             kern = GPy.kern.Matern52(input_dim=X.shape[1], variance=1.) + GPy.kern.Bias(
                 X.shape[1])
             m = GPy.models.GPHeteroscedasticRegression(X, y, kern)
