@@ -66,7 +66,8 @@ def test_local_search():
     seed = {'cont': 0.5, 'ord': 2}
     alg = sherpa.algorithms.LocalSearch(seed_configuration=seed)
 
-    study = sherpa.Study(parameters=parameters, algorithm=alg, lower_is_better=True,
+    study = sherpa.Study(parameters=parameters, algorithm=alg,
+                         lower_is_better=True,
                          disable_dashboard=True)
 
     def mock_objective(p):
@@ -158,33 +159,6 @@ def test_grid_search():
                     (1, 'b', 2.0), (1, 'b', 3.0),
                     (2, 'a', 2.0), (2, 'a', 3.0),
                     (2, 'b', 2.0), (2, 'b', 3.0)}
-    
-    
-def test_grid_search_repeat():
-    parameters = [sherpa.Choice('a', [1, 2]),
-                  sherpa.Choice('b', ['a', 'b']),
-                  sherpa.Continuous('c', [1, 4])]
-
-    alg = sherpa.algorithms.GridSearch(repeat=3)
-
-    suggestion = alg.get_suggestion(parameters)
-    seen = list()
-
-    while suggestion:
-        seen.append((suggestion['a'], suggestion['b'], suggestion['c']))
-        suggestion = alg.get_suggestion(parameters)
-
-    expected_params = [(1, 'a', 2.0), (1, 'a', 3.0),
-                    (1, 'b', 2.0), (1, 'b', 3.0),
-                    (2, 'a', 2.0), (2, 'a', 3.0),
-                    (2, 'b', 2.0), (2, 'b', 3.0)]
-    
-    expected = list(itertools.chain.from_iterable(itertools.repeat(x, 3) for x in expected_params))
-    
-    print(sorted(expected))
-    print(sorted(seen))
-    
-    assert sorted(expected) == sorted(seen)
 
 
 def test_pbt():
@@ -320,17 +294,6 @@ def test_genetic():
 def test_random_search():
     parameters = [sherpa.Continuous('a', [0, 1]),
                   sherpa.Choice('b', ['x', 'y', 'z'])]
-    rs = sherpa.algorithms.RandomSearch(max_num_trials=10, repeat=10)
-    config_repeat = {}
-
-    for i in range(10):
-        config = rs.get_suggestion(parameters=parameters)
-        assert config != config_repeat
-        for j in range(9):
-            config_repeat = rs.get_suggestion(parameters=parameters)
-            assert config == config_repeat
-
-    assert rs.get_suggestion(parameters=parameters) is None
 
     rs = sherpa.algorithms.RandomSearch(max_num_trials=10, repeat=1)
     last_config = {}
@@ -350,3 +313,90 @@ def test_random_search():
         config = rs.get_suggestion(parameters=parameters)
         assert config != last_config
         last_config = config
+
+
+def test_repeat_rs():
+    parameters = [sherpa.Continuous('a', [0, 1]),
+                  sherpa.Choice('b', ['x', 'y', 'z'])]
+    rs = sherpa.algorithms.RandomSearch(max_num_trials=10)
+    rs = sherpa.algorithms.Repeat(algorithm=rs, num_times=10)
+    config_repeat = {}
+
+    for i in range(10):
+        config = rs.get_suggestion(parameters=parameters)
+        assert config != config_repeat
+        for j in range(9):
+            config_repeat = rs.get_suggestion(parameters=parameters)
+            assert config == config_repeat
+
+    assert rs.get_suggestion(parameters=parameters) is None
+
+
+def test_repeat_grid_search():
+    parameters = [sherpa.Choice('a', [1, 2]),
+                  sherpa.Choice('b', ['a', 'b']),
+                  sherpa.Continuous('c', [1, 4])]
+
+    alg = sherpa.algorithms.GridSearch()
+    alg = sherpa.algorithms.Repeat(algorithm=alg, num_times=3)
+
+    suggestion = alg.get_suggestion(parameters)
+    seen = list()
+
+    while suggestion:
+        seen.append((suggestion['a'], suggestion['b'], suggestion['c']))
+        suggestion = alg.get_suggestion(parameters)
+
+    expected_params = [(1, 'a', 2.0), (1, 'a', 3.0),
+                       (1, 'b', 2.0), (1, 'b', 3.0),
+                       (2, 'a', 2.0), (2, 'a', 3.0),
+                       (2, 'b', 2.0), (2, 'b', 3.0)]
+
+    expected = list(itertools.chain.from_iterable(
+        itertools.repeat(x, 3) for x in expected_params))
+
+    print(sorted(expected))
+    print(sorted(seen))
+
+    assert sorted(expected) == sorted(seen)
+
+
+def test_repeat_wait_for_completion():
+    parameters = [sherpa.Continuous('a', [0, 1]),
+                  sherpa.Choice('b', ['x', 'y', 'z'])]
+    rs = sherpa.algorithms.RandomSearch(max_num_trials=10)
+    rs = sherpa.algorithms.Repeat(algorithm=rs, num_times=10,
+                                  wait_for_completion=True)
+    study = sherpa.Study(parameters=parameters, algorithm=rs,
+                         lower_is_better=True,
+                         disable_dashboard=True)
+
+    for i in range(10):
+        tnew = study.get_suggestion()
+        print(tnew.parameters)
+        assert isinstance(tnew.parameters, dict)
+        config = tnew.parameters
+        study.add_observation(tnew, objective=float(i),
+                              iteration=1)
+        study.finalize(tnew)
+
+        for j in range(9):
+            t = study.get_suggestion()
+            config_repeat = t.parameters
+            assert config == config_repeat
+
+            if j < 8:
+                study.add_observation(t, objective=float(i),
+                                      iteration=1)
+                study.finalize(t)
+
+        # Obtained 10/10 repeats for the configuration, but haven't added
+        # results for the last one. Obtaining a new suggestion we expect WAIT.
+        twait = study.get_suggestion()
+        assert twait.parameters == sherpa.AlgorithmState.WAIT
+        study.add_observation(t, objective=float(i),
+                              iteration=1)
+        study.finalize(t)
+
+    tdone = study.get_suggestion()
+    assert tdone is None

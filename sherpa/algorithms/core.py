@@ -26,7 +26,7 @@ import pandas
 import scipy.stats
 import scipy.optimize
 import sklearn.gaussian_process
-from sherpa.core import Choice, Continuous, Discrete, Ordinal
+from sherpa.core import Choice, Continuous, Discrete, Ordinal, AlgorithmState
 import sklearn.model_selection
 from sklearn import preprocessing
 import warnings
@@ -62,6 +62,58 @@ class Algorithm(object):
             num_trials (int): number of trials in study so far.
         """
         pass
+
+
+class Repeat(Algorithm):
+    """
+    Takes another algorithm and repeats every hyperparameter configuration a
+    given number of times. The wrapped algorithm will be passed the mean
+    objective values of the repeated experiments.
+
+    Args:
+        algorithm (sherpa.algorithms.Algorithm): the algorithm to produce
+            hyperparameter configurations.
+        num_times (int): the number of times to repeat each configuration.
+        wait_for_completion (bool): only relevant when running in parallel with
+            max_concurrent > 1. Means that the algorithm won't issue the next
+            suggestion until all repetitions are completed. This can be useful
+            when the repeats have impact on sequential decision making in the
+            wrapped algorithm.
+    """
+    def __init__(self, algorithm, num_times=5, wait_for_completion=False):
+        self.algorithm = algorithm
+        self.num_times = num_times
+        self.queue = []
+        self.prev_completed = 0
+        self.wait_for_completion = wait_for_completion
+
+    def get_suggestion(self, parameters, results=None, lower_is_better=True):
+        if len(self.queue) == 0:
+            if results is not None and len(results) > 0:
+                completed = results.query("Status == 'COMPLETED'")
+                if (self.wait_for_completion and len(
+                        completed) < self.prev_completed + self.num_times):
+                    return AlgorithmState.WAIT
+                self.prev_completed += self.num_times
+                aggregate_results = completed.groupby([p.name for p in parameters]
+                                                    + ['Status']) \
+                                             .agg(['mean', 'var', 'count']) \
+                                             .loc[:, 'Objective'] \
+                                             .reset_index() \
+                                             .assign(varObjective=lambda x: x['var'] / x['count']) \
+                                             .rename({'mean': 'Objective'},
+                                                     axis=1) \
+                                             .drop('var', axis=1) \
+                                             .query("count >= {}".format(
+                                                                self.num_times))
+            else:
+                aggregate_results = None
+            suggestion = self.algorithm.get_suggestion(parameters=parameters,
+                                                       results=aggregate_results,
+                                                       lower_is_better=lower_is_better)
+            self.queue += [suggestion] * self.num_times
+
+        return self.queue.pop()
 
 
 class RandomSearch(Algorithm):
@@ -100,6 +152,8 @@ class RandomSearch(Algorithm):
         else:
             self.j += 1
             return self.theta_i
+
+
                 
 
 class Iterate(Algorithm):

@@ -520,9 +520,12 @@ class _Runner(object):
             next_trial = self.study.get_suggestion()
 
             # Check if algorithm is done.
-            if not next_trial:
+            if next_trial is None or next_trial == AlgorithmState.DONE:
                 logger.info("Optimization Algorithm finished.")
                 self._done = True
+                break
+
+            if next_trial == AlgorithmState.WAIT:
                 break
             
             submit_msg = "\n" + "-"*55 + "\n" + "Submitting Trial {}:\n".format(next_trial.id)
@@ -786,6 +789,7 @@ class Discrete(Parameter):
         except ValueError as e:
             raise ValueError("{} causes error {}".format(self.name, e))
 
+
 class Choice(Parameter):
     """
     Choice parameter class.
@@ -808,3 +812,12 @@ class Ordinal(Parameter):
     def sample(self):
         i = numpy.random.randint(low=0, high=len(self.range))
         return self.range[i]
+
+
+class AlgorithmState(object):
+    """
+    Used internally to signal the sherpa._Runner class when to wait or when
+    algorithm is done.
+    """
+    DONE = 'DONE'
+    WAIT = 'WAIT'

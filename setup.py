@@ -31,8 +31,7 @@ REQUIRED = [
     'numpy>=1.8.2',
     'scipy>=1.0.0',
     'scikit-learn>=0.19.1',
-    'flask>=0.12.2',
-    'enum34',
+    'flask>=0.12.2'
 ]
 
 PARALLEL = ['pymongo>=3.5.1', 'drmaa>=0.7.7']

@@ -53,9 +53,6 @@ def test_wrong_db_host_or_port(test_dir):
 
     algorithm = sherpa.algorithms.RandomSearch(max_num_trials=3)
 
-    study = sherpa.Study(parameters=parameters,
-                         algorithm=algorithm,
-                         lower_is_better=True)
     db_port = 27000
     scheduler = sherpa.schedulers.LocalScheduler()
 
@@ -65,7 +62,9 @@ def test_wrong_db_host_or_port(test_dir):
 
     with pytest.warns(RuntimeWarning):
         results = sherpa.optimize(filename=filename,
-                                  study=study,
+                                  lower_is_better=True,
+                                  algorithm=algorithm,
+                                  parameters=parameters,
                                   output_dir=tempdir,
                                   scheduler=scheduler,
                                   max_concurrent=1,
@@ -92,9 +91,6 @@ def test_user_code_fails(test_dir):
 
     algorithm = sherpa.algorithms.RandomSearch(max_num_trials=3)
 
-    study = sherpa.Study(parameters=parameters,
-                         algorithm=algorithm,
-                         lower_is_better=True)
     db_port = 27000
     scheduler = sherpa.schedulers.LocalScheduler()
 
@@ -104,7 +100,9 @@ def test_user_code_fails(test_dir):
 
     with pytest.warns(RuntimeWarning):
         results = sherpa.optimize(filename=filename,
-                                  study=study,
+                                  lower_is_better=True,
+                                  algorithm=algorithm,
+                                  parameters=parameters,
                                   output_dir=tempdir,
                                   scheduler=scheduler,
                                   max_concurrent=1,

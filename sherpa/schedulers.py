@@ -21,14 +21,13 @@ import subprocess
 import re
 import sys
 import os
-from enum import Enum
 import logging
 
 
 logger = logging.getLogger(__name__)
 
 
-class _JobStatus(Enum):
+class _JobStatus(object):
     """
     Job status used internally to classify jobs into categories.
     """
