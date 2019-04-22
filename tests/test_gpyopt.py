@@ -4,6 +4,7 @@ import pytest
 import numpy
 import collections
 from sherpa.algorithms.bayesian_optimization import GPyOpt
+from sherpa.algorithms import Repeat
 
 
 @pytest.fixture
@@ -125,7 +126,8 @@ def test_domain(parameters, transforms):
 
 
 def test_prepare_data_for_bayes_opt(parameters, results, transforms):
-    X, y = GPyOpt._prepare_data_for_bayes_opt(parameters, results, transforms)
+    X, y, y_var = GPyOpt._prepare_data_for_bayes_opt(
+        parameters, results, transforms)
     assert numpy.array_equal(X, numpy.array([[0.1, -3., 1, 111, 1],
                                              [0.4, -5., 0, 222, 2],
                                              [0.33, -2., 2, 288, 3]]))
@@ -134,7 +136,9 @@ def test_prepare_data_for_bayes_opt(parameters, results, transforms):
 
 
 def test_reverse_format(parameters, results, transforms):
-    X, y = GPyOpt._prepare_data_for_bayes_opt(parameters, results, transforms)
+    X, y, y_var = GPyOpt._prepare_data_for_bayes_opt(parameters,
+                                                     results,
+                                                     transforms)
 
     reversed_X = GPyOpt._reverse_to_sherpa_format(X, transforms, parameters)
 
@@ -148,8 +152,8 @@ def test_reverse_format(parameters, results, transforms):
 def test_bayesopt_batch(parameters, results, transforms):
     gpyopt = GPyOpt(max_concurrent=10)
     domain = gpyopt._initialize_domain(parameters, transforms)
-    X, y = GPyOpt._prepare_data_for_bayes_opt(parameters, results, transforms)
-    batch = gpyopt._generate_bayesopt_batch(domain, X, y, lower_is_better=True)
+    X, y, y_var = GPyOpt._prepare_data_for_bayes_opt(parameters, results, transforms)
+    batch = gpyopt._generate_bayesopt_batch(domain, X, y, y_var, lower_is_better=True)
 
     assert batch.shape == (10, 5)
 
@@ -195,5 +199,42 @@ def test_1d():
     print(rval)
     assert numpy.isclose(rval['Objective'], 4., atol=0.2)
 
+
+def test_noisy_parabola():
+    def f(x, sd=1):
+        y = (x - 3) ** 2 + 10.
+        if sd == 0:
+            return y
+        else:
+            return y + numpy.random.normal(loc=0., scale=sd,
+                                           size=numpy.array(x).shape)
+
+    parameters = [sherpa.Continuous('x1', [0., 7.])]
+
+    bayesian_optimization = GPyOpt(max_concurrent=1,
+                                   max_num_trials=20,
+                                   model_type='GP',
+                                   acquisition_type='EI')
+    rep = Repeat(algorithm=bayesian_optimization,
+                 num_times=5)
+    study = sherpa.Study(algorithm=rep,
+                         parameters=parameters,
+                         lower_is_better=True,
+                         disable_dashboard=True)
+
+    for trial in study:
+        print("Trial {}:\t{}".format(trial.id, trial.parameters))
+
+        fval = f(trial.parameters['x1'], sd=1)
+        print("Function Value: {}".format(fval))
+        study.add_observation(trial=trial,
+                              iteration=1,
+                              objective=fval)
+        study.finalize(trial, status='COMPLETED')
+    rval = study.get_best_result()
+    print(rval)
+    # assert numpy.sqrt((rval['Objective'] - 3.)**2) < 0.2
+
+
 if __name__ == '__main__':
-    test_1d()
+    test_noisy_parabola()
