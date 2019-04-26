@@ -54,6 +54,13 @@ class Trial(object):
         self.parameters = parameters
 
 
+class TrialStatus(object):
+    INTERMEDIATE = 'INTERMEDIATE'
+    COMPLETED = 'COMPLETED'
+    FAILED = 'FAILED'
+    STOPPED = 'STOPPED'
+
+
 class Study(object):
     """
     The core of an optimization.
@@ -186,7 +193,7 @@ class Study(object):
         
         p = self.algorithm.get_suggestion(self.parameters, self.results,
                                           self.lower_is_better)
-        if not p:
+        if not p or p == AlgorithmState.DONE:
             return None
         else:
             self.num_trials += 1
