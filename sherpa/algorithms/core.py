@@ -534,7 +534,8 @@ class PopulationBasedTraining(Algorithm):
             parameters are multiplied upon perturbation; one is sampled randomly
             at a time.
     """
-    def __init__(self, population_size=20, parameter_range={}, perturbation_factors=(0.8, 1.0, 1.2)):
+    def __init__(self, population_size=20, parameter_range={},
+                 perturbation_factors=(0.8, 1.0, 1.2)):
         self.population_size = population_size
         self.parameter_range = parameter_range
         self.perturbation_factors = perturbation_factors
@@ -542,50 +543,49 @@ class PopulationBasedTraining(Algorithm):
         self.count = 0
         self.random_sampler = RandomSearch()
 
-    def load(self, num_trials):
-        self.count = num_trials
-        self.generation = self.count//self.population_size + 1
-
     def get_suggestion(self, parameters, results, lower_is_better):
         self.count += 1
-
-        if self.count % self.population_size == 1:
-            self.generation += 1
+        self.generation = (self.count - 1)//self.population_size + 1
 
         if self.generation == 1:
             trial = self.random_sampler.get_suggestion(parameters,
-                                                        results, lower_is_better)
+                                                       results, lower_is_better)
             trial['lineage'] = ''
             trial['load_from'] = ''
-            trial['save_to'] = str(self.count)  # TODO: unifiy with Trial-ID
+            trial['save_to'] = str(self.count)
         else:
-            candidate = self._get_candidate(parameters=parameters,
-                                            results=results,
-                                            lower_is_better=lower_is_better)
-            trial = self._perturb(candidate=candidate, parameters=parameters)
+            trial = self._truncation_selection(parameters=parameters,
+                                               results=results,
+                                               lower_is_better=lower_is_better)
             trial['load_from'] = str(int(trial['save_to']))
             trial['save_to'] = str(int(self.count))
             trial['lineage'] += trial['load_from'] + ','
-
+        trial['generation'] = self.generation
         return trial
 
-    def _get_candidate(self, parameters, results, lower_is_better):
+    def _truncation_selection(self, parameters, results, lower_is_better):
         """
-        Samples candidates from the top 33% of population.
+        Continues the top 80% of the generation, resamples the rest from the
+        top 20% and perturbs.
 
         Returns
             dict: parameter dictionary.
         """
-        # Select correct generation
-        completed = results.loc[results['Status'] != 'INTERMEDIATE', :]
-        fr_ = (self.generation - 2) * self.population_size + 1
-        to_ = (self.generation - 1) * self.population_size
-        population = completed.loc[(completed['Trial-ID'] >= fr_) & (completed['Trial-ID'] <= to_)]
+        # Select correct generation and sort generation members
+        completed = results.loc[results['Status'] == 'COMPLETED', :]
+        generation_df = completed.loc[(completed.generation
+                                       == self.generation - 1), :]\
+                                 .sort_values(by='Objective',
+                                              ascending=lower_is_better)
 
-        # Sample from top 33%
-        population = population.sort_values(by='Objective', ascending=lower_is_better)
-        idx = numpy.random.randint(low=0, high=self.population_size//3)
-        d = population.iloc[idx].to_dict()
+        if (self.count - 1) % self.population_size / self.population_size < 0.8:
+            # Go through top 80% of generation
+            d = generation_df.iloc[(self.count - 1) % self.population_size].to_dict()
+        else:
+            # For the rest, sample from top 20% and perturb
+            idx = numpy.random.randint(low=0, high=self.population_size//5)
+            d = generation_df.iloc[idx].to_dict()
+            d = self._perturb(candidate=d, parameters=parameters)
         trial = {param.name: d[param.name] for param in parameters}
         for key in ['load_from', 'save_to', 'lineage']:
             trial[key] = d[key]

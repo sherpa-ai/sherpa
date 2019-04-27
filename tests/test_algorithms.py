@@ -177,11 +177,24 @@ def test_pbt():
         print("Trial-ID={}".format(trial.id))
         print(trial.parameters)
         print()
-        study.add_observation(trial=trial, iteration=1, objective=trial.id*0.1)
+        study.add_observation(trial=trial, iteration=1, objective=trial.id)
         study.finalize(trial=trial,
                        status='COMPLETED')
 
-    for _ in range(20):
+    for _ in range(16):
+        trial = study.get_suggestion()
+        print("Trial-ID={}".format(trial.id))
+        print(trial.parameters)
+        print()
+        parent_param = study.results.loc[study.results['Trial-ID']==int(trial.parameters['load_from'])]['param_a'].iloc[0]
+        print(parent_param)
+        assert trial.parameters['param_a'] == parent_param
+        assert trial.parameters['load_from'] == str(trial.id - 20)
+        study.add_observation(trial=trial, iteration=1, objective=trial.id)
+        study.finalize(trial=trial,
+                       status='COMPLETED')
+
+    for _ in range(4):
         trial = study.get_suggestion()
         print("Trial-ID={}".format(trial.id))
         print(trial.parameters)
@@ -193,28 +206,41 @@ def test_pbt():
                 trial.parameters['param_a'] == 1.2 * parent_param or
                 trial.parameters['param_a'] == 0. or
                 trial.parameters['param_a'] == 1.2)
-        assert int(trial.parameters['load_from']) <= 10
-        study.add_observation(trial=trial, iteration=1, objective=trial.id*0.1)
+        assert int(trial.parameters['load_from']) in [1, 2, 3, 4]
+        study.add_observation(trial=trial, iteration=1, objective=trial.id)
         study.finalize(trial=trial,
                        status='COMPLETED')
 
-    for _ in range(20):
+    for _ in range(16):
         trial = study.get_suggestion()
         print("Trial-ID={}".format(trial.id))
         print(trial.parameters)
         print()
-        parent_param = study.results.loc[
-            study.results['Trial-ID'] == int(trial.parameters['load_from'])][
-            'param_a'].iloc[0]
+        parent_param = study.results.loc[study.results['Trial-ID']==int(trial.parameters['load_from'])]['param_a'].iloc[0]
+        print(parent_param)
+        assert trial.parameters['param_a'] == parent_param
+        assert trial.parameters['load_from'] == str(trial.id - 20)
+        study.add_observation(trial=trial, iteration=1, objective=trial.id)
+        study.finalize(trial=trial,
+                       status='COMPLETED')
+
+    for _ in range(4):
+        trial = study.get_suggestion()
+        print("Trial-ID={}".format(trial.id))
+        print(trial.parameters)
+        print()
+        parent_param = study.results.loc[study.results['Trial-ID']==int(trial.parameters['load_from'])]['param_a'].iloc[0]
+        print(parent_param)
         assert (trial.parameters['param_a'] == 0.8 * parent_param or
                 trial.parameters['param_a'] == 1.0 * parent_param or
                 trial.parameters['param_a'] == 1.2 * parent_param or
                 trial.parameters['param_a'] == 0. or
                 trial.parameters['param_a'] == 1.2)
-        # assert int(trial.parameters['load_from']) <= 27
-        study.add_observation(trial=trial, iteration=1, objective=trial.id*0.1)
+        assert int(trial.parameters['load_from']) in [21, 22, 23, 24]
+        study.add_observation(trial=trial, iteration=1, objective=trial.id)
         study.finalize(trial=trial,
                        status='COMPLETED')
+
 
 
 def test_pbt_ordinal():
