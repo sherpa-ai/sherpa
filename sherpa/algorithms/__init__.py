@@ -18,3 +18,4 @@ You should have received a copy of the GNU General Public License
 along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
 """
 from .core import *
+from .successive_halving import SuccessiveHalving
