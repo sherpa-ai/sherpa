@@ -20,7 +20,6 @@ along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
 from sherpa.algorithms import Algorithm, RandomSearch
 import numpy
 import pandas
-import collections
 from sherpa.core import TrialStatus, AlgorithmState
 
 
@@ -52,21 +51,24 @@ class SuccessiveHalving(Algorithm):
         self.number_of_rungs = (numpy.floor(
             numpy.log(R/r) / numpy.log(eta)) - s).astype('int')
         self.config_counter = 1
-        self.promoted_trials = [set() for _ in range(self.number_of_rungs)]
-        self.not_promoted_trials = [set() for _ in range(self.number_of_rungs+1)]
+        self.promoted_trials = set()
         self.max_finished_configs = max_finished_configs
 
     def get_suggestion(self, parameters, results, lower_is_better):
-        if (self.max_finished_configs and
-                    self.max_finished_configs <= len(self.not_promoted_trials[self.number_of_rungs])):
+        if self.max_finished_configs and\
+                len(results) > 0 and\
+                len(results[(results.Status == TrialStatus.COMPLETED)
+                            & (results.rung == self.number_of_rungs)]):
             return AlgorithmState.DONE
 
         config, k = self.get_job(parameters, results, lower_is_better)
+
+        # set new parameters
         config['resource'] = self.r * self.eta ** (self.s + k)
         config['rung'] = k
         config['load_from'] = config.get('save_to', '')
         config['save_to'] = str(self.config_counter)
-        self.not_promoted_trials[k].add(config['save_to'])
+
         self.config_counter += 1
         return config
 
@@ -83,17 +85,11 @@ class SuccessiveHalving(Algorithm):
                                     eta=self.eta)
             # print("RUNG", k, "CANDIDATES\n", candidates)
             promotable = candidates[~candidates.save_to.isin(
-                self.promoted_trials[k])].to_dict('records')
+                self.promoted_trials)].to_dict('records')
 
             if len(promotable) > 0:
-                # What would the proportion of promotions be after the promotion?
-                n_promoted = len(self.promoted_trials[k])
-                n_not_promoted = len(self.not_promoted_trials[k])
-                proportion_after_promotion = (n_promoted + 1) / (n_not_promoted + n_promoted)
-                if proportion_after_promotion <= 1/self.eta:
-                    print("PROMOTE")
-                    self.promote(rung=k, trial=promotable[0])
-                    return promotable[0], k+1
+                self.promoted_trials.add(promotable[0]['save_to'])
+                return promotable[0], k+1
         else:
             new_config = self.rs.get_suggestion(parameters=parameters)
             return new_config, 0
@@ -107,21 +103,12 @@ class SuccessiveHalving(Algorithm):
         if len(results) == 0:
             return pandas.DataFrame({'save_to': []})
         columns = [p.name for p in parameters] + ['save_to']
-        rung_results = results.query("Status == '{}'".format(
-            TrialStatus.COMPLETED)) \
-            .query("rung == {}".format(rung))
+        rung_results = results[(results.Status == TrialStatus.COMPLETED)
+                               & (results.rung == rung)]
 
         n = len(rung_results) // eta
         top_n = rung_results.sort_values(by="Objective",
                                          ascending=lower_is_better) \
                             .iloc[0:n, :] \
-                            .loc[:, columns] \
-
+                            .loc[:, columns]
         return top_n
-
-    def promote(self, rung, trial):
-        """
-        Stores that the trial in the given rung has been promoted.
-        """
-        self.not_promoted_trials[rung].remove(trial['save_to'])
-        self.promoted_trials[rung].add(trial['save_to'])

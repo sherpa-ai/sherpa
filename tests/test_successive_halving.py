@@ -31,7 +31,7 @@ logging.basicConfig(level=logging.DEBUG)
 testlogger = logging.getLogger(__name__)
 
 
-def test_no_stragglers():
+def test_no_stragglers_lower_is_better():
     """
     Basic scenario where everything is finished. In that case we expect
     ASHA to add 3 to rung0, promote 1 to rung1, add 3 to rung0, promote one to
@@ -98,12 +98,12 @@ def test_no_stragglers_larger_is_better():
                          lower_is_better=False,
                          disable_dashboard=True)
 
-    rung_0_ids = [1, 2, 3, 5, 6, 7, 9, 10, 11]
-    rung_1_ids = [4, 8, 12]
-    rung_2_ids = [13]
+    rung_0_ids = [1, 2, 3, 5, 7]
+    rung_1_ids = [4, 6, 8]
+    rung_2_ids = [9]
 
-    rung_0_promoted_ids = [3, 7, 11]
-    rung_1_promoted_ids = [12]
+    rung_0_promoted_ids = [3, 5, 7]
+    rung_1_promoted_ids = [8]
 
     # Using trial.id as objective, hence the trials with the lowest trial ids
     # in the rung should get promoted, for rung 0 that is 1,2,3, for rung 1
@@ -233,4 +233,4 @@ def test_concurrent_evaluation():
 
 
 if __name__ == '__main__':
-    test_no_stragglers()
+    test_no_stragglers_lower_is_better()
