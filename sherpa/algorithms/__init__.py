@@ -19,3 +19,4 @@ along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
 """
 from .core import *
 from .successive_halving import SuccessiveHalving
+from .sequential_testing import SequentialTesting

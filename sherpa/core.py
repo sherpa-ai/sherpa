@@ -193,12 +193,12 @@ class Study(object):
         
         p = self.algorithm.get_suggestion(self.parameters, self.results,
                                           self.lower_is_better)
-        if not p or p == AlgorithmState.DONE:
-            return None
-        else:
+        if isinstance(p, dict):
             self.num_trials += 1
             t = Trial(id=self.num_trials, parameters=p)
             return t
+        else:
+            return p
 
     def should_trial_stop(self, trial):
         """
@@ -364,10 +364,10 @@ class Study(object):
         Allows to write `for trial in study:`.
         """
         t = self.get_suggestion()
-        if t is None:
-            raise StopIteration
-        else:
+        if isinstance(t, Trial):
             return t
+        else:
+            raise StopIteration
         
     def next(self):
         return self.__next__()
@@ -575,7 +575,7 @@ def optimize(parameters, algorithm, lower_is_better,
              max_concurrent=1,
              db_port=None, stopping_rule=None,
              dashboard_port=None, resubmit_failed_trials=False, verbose=1,
-             load=False, mongodb_args={}):
+             load=False, mongodb_args={}, disable_dashboard=False):
     """
     Runs a Study with a scheduler and automatically runs a database in the
     background.
@@ -616,7 +616,8 @@ def optimize(parameters, algorithm, lower_is_better,
                   lower_is_better=lower_is_better,
                   stopping_rule=stopping_rule,
                   dashboard_port=dashboard_port,
-                  output_dir=output_dir)
+                  output_dir=output_dir,
+                  disable_dashboard=disable_dashboard)
 
     if load:
         study.load()
@@ -760,6 +761,7 @@ class Continuous(Parameter):
     def __init__(self, name, range, scale='linear'):
         super(Continuous, self).__init__(name, range)
         self.scale = scale
+        self.type = float
         if scale == 'log':
             assert all(r > 0. for r in range), "Range parameters must be " \
                                               "positive for log scale."
@@ -782,6 +784,7 @@ class Discrete(Parameter):
     def __init__(self, name, range, scale='linear'):
         super(Discrete, self).__init__(name, range)
         self.scale = scale
+        self.type = int
         if scale == 'log':
             assert all(r > 0 for r in range), "Range parameters must be " \
                                               "positive for log scale."
@@ -803,6 +806,7 @@ class Choice(Parameter):
     """
     def __init__(self, name, range):
         super(Choice, self).__init__(name, range)
+        self.type = type(self.range[0])
 
     def sample(self):
         i = numpy.random.randint(low=0, high=len(self.range))
@@ -815,6 +819,7 @@ class Ordinal(Parameter):
     """
     def __init__(self, name, range):
         super(Ordinal, self).__init__(name, range)
+        self.type = type(self.range[0])
 
     def sample(self):
         i = numpy.random.randint(low=0, high=len(self.range))
