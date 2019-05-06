@@ -88,6 +88,7 @@ class SequentialTesting(Algorithm):
                                                                  configs=
                                                                  self.configs_by_stage[
                                                                      self.t],
+                                                                 lower_is_better=lower_is_better,
                                                                  alpha=
                                                                  self.alpha_dash[
                                                                      self.t])
@@ -130,12 +131,17 @@ class SequentialTesting(Algorithm):
         this_stage = completed[completed.stage == stage]
         return len(this_stage) == num_trials_for_stage
 
-    def _get_best_configs(self, parameters, results, configs, alpha=0.05):
+    def _get_best_configs(self, parameters, results, configs, lower_is_better, alpha=0.05):
         """
         Implements the testing procedure itself and returns the reduced set
         of parameter configurations.
         """
-        df = self._prep_df_for_linreg(parameters, results, configs)
+        if lower_is_better:
+            df = self._prep_df_for_linreg(parameters, results, configs)
+        else:
+            results.Objective = -1*results.Objective
+            df = self._prep_df_for_linreg(parameters, results, configs)
+        print(df)
         l = 1
         h = df.Rank.max()
         p = h
@@ -173,7 +179,7 @@ class SequentialTesting(Algorithm):
         filtered_configs = completed.merge(config_df, how='inner',
                                            on=param_names)
         group_ranks = filtered_configs.groupby(param_names).agg('mean') \
-                          .loc[:, ['Objective']].rank(axis=0) \
+                          .loc[:, ['Objective']].rank(axis=0, method='dense') \
             .astype({'Objective': int}) \
             .rename({'Objective': 'Rank'}, axis=1) \
             .reset_index() \

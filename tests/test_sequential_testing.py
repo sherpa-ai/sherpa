@@ -85,10 +85,43 @@ def test_get_best_configs():
                            P=0.5)
 
     best_configs = gs._get_best_configs(parameters, results_df, configs,
+                                        lower_is_better=True,
                                         alpha=0.05)
     print(best_configs)
     print(configs[0:2])
     assert best_configs == configs[0:2]
+
+
+def test_get_best_configs_larger_is_better():
+    parameters = [sherpa.Choice('a', [0, 1]),
+                  sherpa.Choice('b', [3, 4])]
+
+    configs = [{'a': 0, 'b': 3},
+               {'a': 0, 'b': 4},
+               {'a': 1, 'b': 3},
+               {'a': 1, 'b': 4}]
+
+    results_df = pandas.DataFrame(collections.OrderedDict(
+        [('Trial-ID', list(range(1, 9))),
+         ('Status', [sherpa.TrialStatus.COMPLETED] * 8),
+         ('stage', [1] * 8),
+         ('a', [0, 0, 0, 0, 1, 1, 1, 1]),
+         ('b', [3, 3, 4, 4, 3, 3, 4, 4]),
+         ('Objective', [1., 1.1, 1.1, 1.2, 6., 6.1, 6., 6.1])]
+    ))
+
+    rs = sherpa.algorithms.RandomSearch()
+    gs = SequentialTesting(algorithm=rs,
+                           K=4,
+                           n=(3, 6, 9),
+                           P=0.5)
+
+    best_configs = gs._get_best_configs(parameters, results_df, configs,
+                                        lower_is_better=False,
+                                        alpha=0.05)
+    print(best_configs)
+    print(configs[2:])
+    assert best_configs == configs[2:]
 
 
 def test_get_suggestion():
