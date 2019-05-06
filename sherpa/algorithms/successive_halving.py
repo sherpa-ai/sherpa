@@ -58,7 +58,8 @@ class SuccessiveHalving(Algorithm):
         if self.max_finished_configs and\
                 len(results) > 0 and\
                 len(results[(results.Status == TrialStatus.COMPLETED)
-                            & (results.rung == self.number_of_rungs)]):
+                            & (results.rung == self.number_of_rungs)])\
+                == self.max_finished_configs:
             return AlgorithmState.DONE
 
         config, k = self.get_job(parameters, results, lower_is_better)
