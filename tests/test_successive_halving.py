@@ -232,5 +232,31 @@ def test_concurrent_evaluation():
     running_trials.append(trial)
 
 
+def test_max_configs():
+    """
+    Make sure that ASHA stops when done.
+    """
+    parameters = [sherpa.Continuous('myparam', [0, 1])]
+
+    algorithm = successive_halving.SuccessiveHalving(r=1, R=9, eta=3, s=0,
+                                                     max_finished_configs=5)
+
+    study = sherpa.Study(parameters=parameters,
+                         algorithm=algorithm,
+                         lower_is_better=False,
+                         disable_dashboard=True)
+
+    for trial in study:
+        print(trial.id, trial.parameters)
+
+        study.add_observation(trial=trial, iteration=1,
+                              objective=float(trial.id))
+        study.finalize(trial)
+
+    completed = study.results.query("Status == 'COMPLETED'")
+
+    assert len(completed.loc[completed.rung == 2, :]) == 5
+
+
 if __name__ == '__main__':
     test_no_stragglers_lower_is_better()
