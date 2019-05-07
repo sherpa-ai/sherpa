@@ -118,8 +118,8 @@ class SequentialTesting(Algorithm):
                     self.config_stack = [self.configs_by_stage[self.t][
                                              self.k - 1]] * self.dn[self.t]
 
-        return dict({pname: self.parameter_types[pname](pvalue)
-                     for pname, pvalue in self.config_stack.pop().items()},
+        return dict({param_name: self.parameter_types[param_name](param_value)
+                     for param_name, param_value in self.config_stack.pop().items()},
                     **{'stage': self.t})
 
     @staticmethod
@@ -131,25 +131,22 @@ class SequentialTesting(Algorithm):
         this_stage = completed[completed.stage == stage]
         return len(this_stage) == num_trials_for_stage
 
-    def _get_best_configs(self, parameters, results, configs, lower_is_better, alpha=0.05):
+    def _get_best_configs(self, parameters, results, configs, lower_is_better,
+                          alpha=0.05):
         """
         Implements the testing procedure itself and returns the reduced set
         of parameter configurations.
         """
-        if lower_is_better:
-            df = self._prep_df_for_linreg(parameters, results, configs)
-        else:
-            results.Objective = -1*results.Objective
-            df = self._prep_df_for_linreg(parameters, results, configs)
-        print(df)
+        df = self._prep_df_for_linreg(parameters, results,
+                                      configs, lower_is_better)
         l = 1
         h = df.Rank.max()
         p = h
         while l != h:
             lm = ols('Objective ~ C(Rank)', data=df.loc[df.Rank <= p, :]).fit()
 
-            pval = sm.stats.anova_lm(lm, typ=2).loc[:, "PR(>F)"].ix["C(Rank)"]
-            reject = pval < alpha
+            p_value = sm.stats.anova_lm(lm, typ=2).loc[:, "PR(>F)"].ix["C(Rank)"]
+            reject = p_value < alpha
             if reject:
                 h = p - 1
             else:
@@ -161,7 +158,7 @@ class SequentialTesting(Algorithm):
             'records')
 
     @staticmethod
-    def _prep_df_for_linreg(parameters, results, configs):
+    def _prep_df_for_linreg(parameters, results, configs, lower_is_better):
         """
         Filter results corresponding to parameter configurations in `configs`
         argument and create a grouping variable Rank that corresponds to
@@ -178,11 +175,25 @@ class SequentialTesting(Algorithm):
         config_df = pandas.DataFrame(configs)
         filtered_configs = completed.merge(config_df, how='inner',
                                            on=param_names)
-        group_ranks = filtered_configs.groupby(param_names).agg('mean') \
-                          .loc[:, ['Objective']].rank(axis=0, method='dense') \
-            .astype({'Objective': int}) \
-            .rename({'Objective': 'Rank'}, axis=1) \
-            .reset_index() \
-            .merge(filtered_configs)
-        return group_ranks
+        filtered_configs['MeanObjective'] = filtered_configs.groupby(param_names)[
+            'Objective'].transform('mean')
+        filtered_configs['Rank'] = filtered_configs['MeanObjective'].rank(
+            method='dense', ascending=lower_is_better).astype('int')
+        filtered_configs = filtered_configs.drop("MeanObjective", axis=1)
+        return filtered_configs
+
+    def get_best_result(self, parameters, results, lower_is_better):
+        """
+        Re-implementation for getting the best result.
+        """
+        param_names = [p.name for p in parameters]
+        completed = results[results.Status == TrialStatus.COMPLETED]
+        completed['MeanObjective'] = completed.groupby(param_names)[
+            'Objective'].transform('mean')
+        completed['Rank'] = completed['MeanObjective'].rank(
+            method='dense', ascending=lower_is_better).astype('int')
+
+        return completed.loc[completed.Rank == 1]\
+                        .loc[:, param_names + ["MeanObjective"]]\
+                        .to_dict('records')[0]
 
