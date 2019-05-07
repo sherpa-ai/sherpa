@@ -248,20 +248,10 @@ class Study(object):
         Returns:
             pandas.DataFrame: row of the best result.
         """
-        # Get best result so far
-        best_idx = (self.results.loc[:, 'Objective'].idxmin()
-                    if self.lower_is_better
-                    else self.results.loc[:, 'Objective'].idxmax())
-
-        if not numpy.isfinite(best_idx):
-            # Can happen if there are no valid results,
-            # best_idx=nan when results are nan.
-            logger.warning('Empty results file! Returning empty dictionary.')
-            return {}
-
-        best_result = self.results.loc[best_idx, :].to_dict()
-        best_result.pop('Status')
-        return best_result
+        return self.algorithm.get_best_result(parameters=self.parameters,
+                                              results=self.results,
+                                              lower_is_better=
+                                              self.lower_is_better)
         
     def _run_web_server(self, port):
         """
@@ -570,7 +560,8 @@ class _Runner(object):
 
 def optimize(parameters, algorithm, lower_is_better,
              scheduler,
-             filename,
+             command=None,
+             filename=None,
              output_dir='./output_' + str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S")),
              max_concurrent=1,
              db_port=None, stopping_rule=None,
@@ -585,8 +576,9 @@ def optimize(parameters, algorithm, lower_is_better,
             parameter set.
         parameters (list[sherpa.core.Parameter]): parameters being optimized.
         lower_is_better (bool): whether lower objective values are better.
-        filename (str): the name of the file which is called to evaluate
-            configurations
+        command (str): the command to run for the trial script.
+        filename (str): the filename of the script to run. Will be run as
+            "python <filename>".
         output_dir (str): where scheduler and database files will be stored.
         scheduler (sherpa.schedulers.Scheduler): a scheduler.
         max_concurrent (int): the number of trials that will be evaluated in
@@ -619,6 +611,13 @@ def optimize(parameters, algorithm, lower_is_better,
                   output_dir=output_dir,
                   disable_dashboard=disable_dashboard)
 
+    if command:
+        runner_command = command.split(' ')
+    elif filename:
+        runner_command = ['python', filename]
+    else:
+        raise ValueError("Need to provide either command or filename.")
+
     if load:
         study.load()
 
@@ -631,7 +630,7 @@ def optimize(parameters, algorithm, lower_is_better,
                          scheduler=scheduler,
                          database=db,
                          max_concurrent=max_concurrent,
-                         command=['python', filename],
+                         command=runner_command,
                          resubmit_failed_trials=resubmit_failed_trials)
         runner.run_loop()
     return study.get_best_result()
