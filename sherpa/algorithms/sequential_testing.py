@@ -175,9 +175,9 @@ class SequentialTesting(Algorithm):
         config_df = pandas.DataFrame(configs)
         filtered_configs = completed.merge(config_df, how='inner',
                                            on=param_names)
-        filtered_configs['MeanObjective'] = filtered_configs.groupby(param_names)[
+        filtered_configs.loc[:, 'MeanObjective'] = filtered_configs.groupby(param_names)[
             'Objective'].transform('mean')
-        filtered_configs['Rank'] = filtered_configs['MeanObjective'].rank(
+        filtered_configs.loc[:, 'Rank'] = filtered_configs['MeanObjective'].rank(
             method='dense', ascending=lower_is_better).astype('int')
         filtered_configs = filtered_configs.drop("MeanObjective", axis=1)
         return filtered_configs
@@ -187,10 +187,10 @@ class SequentialTesting(Algorithm):
         Re-implementation for getting the best result.
         """
         param_names = [p.name for p in parameters]
-        completed = results[results.Status == TrialStatus.COMPLETED]
-        completed['MeanObjective'] = completed.groupby(param_names)[
+        completed = results.loc[results.Status == TrialStatus.COMPLETED]
+        completed.loc[:, 'MeanObjective'] = completed.groupby(param_names)[
             'Objective'].transform('mean')
-        completed['Rank'] = completed['MeanObjective'].rank(
+        completed.loc[:, 'Rank'] = completed.loc[:, 'MeanObjective'].rank(
             method='dense', ascending=lower_is_better).astype('int')
 
         return completed.loc[completed.Rank == 1]\
