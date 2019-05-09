@@ -193,12 +193,12 @@ class Study(object):
         
         p = self.algorithm.get_suggestion(self.parameters, self.results,
                                           self.lower_is_better)
-        if not p or p == AlgorithmState.DONE:
-            return None
-        else:
+        if isinstance(p, dict):
             self.num_trials += 1
             t = Trial(id=self.num_trials, parameters=p)
             return t
+        else:
+            return p
 
     def should_trial_stop(self, trial):
         """
@@ -248,20 +248,10 @@ class Study(object):
         Returns:
             pandas.DataFrame: row of the best result.
         """
-        # Get best result so far
-        best_idx = (self.results.loc[:, 'Objective'].idxmin()
-                    if self.lower_is_better
-                    else self.results.loc[:, 'Objective'].idxmax())
-
-        if not numpy.isfinite(best_idx):
-            # Can happen if there are no valid results,
-            # best_idx=nan when results are nan.
-            logger.warning('Empty results file! Returning empty dictionary.')
-            return {}
-
-        best_result = self.results.loc[best_idx, :].to_dict()
-        best_result.pop('Status')
-        return best_result
+        return self.algorithm.get_best_result(parameters=self.parameters,
+                                              results=self.results,
+                                              lower_is_better=
+                                              self.lower_is_better)
         
     def _run_web_server(self, port):
         """
@@ -364,10 +354,10 @@ class Study(object):
         Allows to write `for trial in study:`.
         """
         t = self.get_suggestion()
-        if t is None:
-            raise StopIteration
-        else:
+        if isinstance(t, Trial):
             return t
+        else:
+            raise StopIteration
         
     def next(self):
         return self.__next__()
@@ -570,12 +560,13 @@ class _Runner(object):
 
 def optimize(parameters, algorithm, lower_is_better,
              scheduler,
-             filename,
+             command=None,
+             filename=None,
              output_dir='./output_' + str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S")),
              max_concurrent=1,
              db_port=None, stopping_rule=None,
              dashboard_port=None, resubmit_failed_trials=False, verbose=1,
-             load=False, mongodb_args={}):
+             load=False, mongodb_args={}, disable_dashboard=False):
     """
     Runs a Study with a scheduler and automatically runs a database in the
     background.
@@ -585,8 +576,9 @@ def optimize(parameters, algorithm, lower_is_better,
             parameter set.
         parameters (list[sherpa.core.Parameter]): parameters being optimized.
         lower_is_better (bool): whether lower objective values are better.
-        filename (str): the name of the file which is called to evaluate
-            configurations
+        command (str): the command to run for the trial script.
+        filename (str): the filename of the script to run. Will be run as
+            "python <filename>".
         output_dir (str): where scheduler and database files will be stored.
         scheduler (sherpa.schedulers.Scheduler): a scheduler.
         max_concurrent (int): the number of trials that will be evaluated in
@@ -616,7 +608,15 @@ def optimize(parameters, algorithm, lower_is_better,
                   lower_is_better=lower_is_better,
                   stopping_rule=stopping_rule,
                   dashboard_port=dashboard_port,
-                  output_dir=output_dir)
+                  output_dir=output_dir,
+                  disable_dashboard=disable_dashboard)
+
+    if command:
+        runner_command = command.split(' ')
+    elif filename:
+        runner_command = ['python', filename]
+    else:
+        raise ValueError("Need to provide either command or filename.")
 
     if load:
         study.load()
@@ -630,7 +630,7 @@ def optimize(parameters, algorithm, lower_is_better,
                          scheduler=scheduler,
                          database=db,
                          max_concurrent=max_concurrent,
-                         command=['python', filename],
+                         command=runner_command,
                          resubmit_failed_trials=resubmit_failed_trials)
         runner.run_loop()
     return study.get_best_result()
@@ -760,6 +760,7 @@ class Continuous(Parameter):
     def __init__(self, name, range, scale='linear'):
         super(Continuous, self).__init__(name, range)
         self.scale = scale
+        self.type = float
         if scale == 'log':
             assert all(r > 0. for r in range), "Range parameters must be " \
                                               "positive for log scale."
@@ -782,6 +783,7 @@ class Discrete(Parameter):
     def __init__(self, name, range, scale='linear'):
         super(Discrete, self).__init__(name, range)
         self.scale = scale
+        self.type = int
         if scale == 'log':
             assert all(r > 0 for r in range), "Range parameters must be " \
                                               "positive for log scale."
@@ -803,6 +805,7 @@ class Choice(Parameter):
     """
     def __init__(self, name, range):
         super(Choice, self).__init__(name, range)
+        self.type = type(self.range[0])
 
     def sample(self):
         i = numpy.random.randint(low=0, high=len(self.range))
@@ -815,6 +818,7 @@ class Ordinal(Parameter):
     """
     def __init__(self, name, range):
         super(Ordinal, self).__init__(name, range)
+        self.type = type(self.range[0])
 
     def sample(self):
         i = numpy.random.randint(low=0, high=len(self.range))
