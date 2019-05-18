@@ -95,7 +95,9 @@ class _Database(object):
         dblogger.debug("Starting MongoDB...\nDIR:\t{}\nADDRESS:\t{}:{}".format(
             self.dir, socket.gethostname(), self.port))
         cmd = ['mongod']
-        cmd += [str(item) for keyvalue in args.items() for item in keyvalue]
+        cmd += [str(item) for keyvalue in args.items() for item in keyvalue if item is not '']
+        
+        dblogger.debug("Starting MongoDB using command:{}".format(str(cmd)))
 
         try:
             self.mongo_process = subprocess.Popen(cmd)
