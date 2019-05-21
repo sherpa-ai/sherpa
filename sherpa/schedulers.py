@@ -339,7 +339,7 @@ class SLURMScheduler(Scheduler):
         job_script += 'echo "Running from" ${HOSTNAME}\n'
         for var_name, var_value in env.items():
             job_script += 'export {}={}\n'.format(var_name, var_value)
-        job_script += command  # 'python file.py args...'
+        job_script += " ".join(command)  # 'python file.py args...'
 
         # Submit command to SLURM.
         # Note: submitting job using drmaa didn't work because we weren't able
