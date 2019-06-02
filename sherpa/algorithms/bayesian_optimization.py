@@ -365,7 +365,7 @@ class GPyOpt(sherpa.algorithms.Algorithm):
     """
     def __init__(self, model_type='GP', num_initial_data_points='infer',
                  initial_data_points=[], acquisition_type='EI',
-                 max_concurrent=10, verbosity=False, max_num_trials=None):
+                 max_concurrent=4, verbosity=False, max_num_trials=None):
         self.model_type = model_type
         assert (num_initial_data_points == 'infer'
                 or isinstance(num_initial_data_points, int)),\
@@ -387,7 +387,6 @@ class GPyOpt(sherpa.algorithms.Algorithm):
         self.random_search = sherpa.algorithms.RandomSearch()
 
         self.domain = []
-        self.transformations = {}
 
         self.max_num_trials = max_num_trials
         self.count = 0
@@ -406,27 +405,25 @@ class GPyOpt(sherpa.algorithms.Algorithm):
             self.next_trials.extend(
                 self._process_initial_data_points(self.initial_data_points,
                                                   parameters))
-
-            self.transformations = self._initialize_transforms(parameters)
-            self.domain = self._initialize_domain(parameters,
-                                                  self.transformations)
+            self.domain = self._initialize_domain(parameters)
 
         num_completed_trials = (len(results.query("Status == 'COMPLETED'"))
                                 if results is not None and len(results) > 0 else 0)
 
-        if (num_completed_trials > self._num_initial_data_points
+        if (num_completed_trials >= self._num_initial_data_points
            and num_completed_trials > self.num_points_seen_by_model):
             # generate a new batch from bayes opt and set it as next
             # observations
+
+            # clear previous batch since new data is available
             self.next_trials.clear()
-            X, y, y_var = self._prepare_data_for_bayes_opt(parameters, results,
-                                                           self.transformations)
+
+            X, y, y_var = self._prepare_data_for_bayes_opt(parameters, results)
 
             batch = self._generate_bayesopt_batch(self.domain, X, y, y_var,
                                                   lower_is_better)
 
             batch_list_of_dicts = self._reverse_to_sherpa_format(batch,
-                                                                 self.transformations,
                                                                  parameters)
 
             self.next_trials.extend(batch_list_of_dicts)
@@ -441,10 +438,11 @@ class GPyOpt(sherpa.algorithms.Algorithm):
         return self.next_trials.popleft()
 
     def _generate_bayesopt_batch(self, domain, X, y, y_var, lower_is_better):
+        y_adjusted = y * (-1)**(not lower_is_better)
         if y_var is not None:
             kern = GPy.kern.Matern52(input_dim=X.shape[1], variance=1.) + GPy.kern.Bias(
                 X.shape[1])
-            m = GPy.models.GPHeteroscedasticRegression(X, y, kern)
+            m = GPy.models.GPHeteroscedasticRegression(X, y_adjusted, kern)
             m['.*het_Gauss.variance'] = y_var
             m.het_Gauss.variance.fix()
             m.optimize()
@@ -454,15 +452,14 @@ class GPyOpt(sherpa.algorithms.Algorithm):
 
         bo_step = gpyopt_package.methods.BayesianOptimization(f=None,
                                                               domain=domain,
-                                                              X=X, Y=y,
+                                                              X=X, Y=y_adjusted,
                                                               acquisition_type=self.acquisition_type,
                                                               evaluator_type='local_penalization',
                                                               batch_size=self.max_concurrent,
                                                               verbosity=self.verbosity,
-                                                              maximize=not lower_is_better,
+                                                              maximize=False,
                                                               exact_feval=False,
                                                               **kwargs)
-
         return bo_step.suggest_next_locations()
 
     @staticmethod
@@ -494,11 +491,22 @@ class GPyOpt(sherpa.algorithms.Algorithm):
         return _initial_data_points
 
     @staticmethod
-    def _prepare_data_for_bayes_opt(parameters, results, transformations):
+    def _prepare_data_for_bayes_opt(parameters, results):
+        """
+        Turn historical data from Sherpa results dataframe into design matrix
+        X and objective values y to be consumed by GPyOpt.
+        """
         completed = results.query("Status == 'COMPLETED'")
         X = numpy.zeros((len(completed), len(parameters)))
         for i, p in enumerate(parameters):
-            X[:, i] = completed[p.name].apply(transformations[p.name].transform)
+            if isinstance(p, Choice) or isinstance(p, Ordinal):
+                X[:, i] = completed[p.name].apply(
+                    lambda elem: GPyOpt.ChoiceTransform.transform(
+                        elem, p.range))
+            elif isinstance(p, Continuous) and p.scale == 'log':
+                X[:, i] = GPyOpt.LogTransform.transform(completed[p.name])
+            else:
+                X[:, i] = completed[p.name]
 
         y = numpy.array(completed.Objective).reshape((-1, 1))
         if 'varObjective' in completed.columns:
@@ -507,66 +515,74 @@ class GPyOpt(sherpa.algorithms.Algorithm):
             y_var = None
         return X, y, y_var
 
-    class Transform(object):
-        def __init__(self, log=False, discrete=False):
-            self.log = log
-            self.discrete = discrete
+    class LogTransform(object):
+        """
+        Transforms/reverses Continuous variables if on log-scale.
+        """
+        @staticmethod
+        def transform(x):
+            return numpy.log10(x)
 
-        def transform(self, x):
-            if self.log:
-                x = numpy.log10(x)
-            return x
+        @staticmethod
+        def reverse(x):
+            return 10**x
 
-        def reverse(self, x):
-            if self.log:
-                x = 10**x
-            if self.discrete:
-                x = numpy.round(x).astype('int')
-            return x
+    class ChoiceTransform(object):
+        """
+        Transforms/reverses Choice variables to numeric choices since GPyOpt
+        does not accept string choices.
+        """
+        @staticmethod
+        def transform(element, vals):
+            return vals.index(element)
 
-    class ChoiceTransform(Transform):
-        def __init__(self, vals):
-            GPyOpt.Transform.__init__(self)
-            self.vals = vals
-
-        def transform(self, element):
-            return self.vals.index(element)
-
-        def reverse(self, element):
-            return self.vals[int(element)]
+        @staticmethod
+        def reverse(element, vals):
+            return vals[int(element)]
 
     @staticmethod
-    def _initialize_transforms(parameters):
-        transformations = collections.defaultdict(dict)
+    def _initialize_domain(parameters):
+        """
+        Turn Sherpa parameter definitions into GPyOpt parameter definitions.
+        """
+        domain = []
+        for p in parameters:
+            if isinstance(p, Choice) or isinstance(p, Ordinal):
+                domain.append({'name': p.name, 'type': 'categorical',
+                               'domain': numpy.array(
+                                   [GPyOpt.ChoiceTransform.transform(
+                                       item, p.range)
+                                   for item in p.range])})
+            elif isinstance(p, Discrete):
+                domain.append({'name': p.name, 'type': 'discrete',
+                               'domain': tuple(range(p.range[0],
+                                                     p.range[1]+1))})
+            else:
+                if p.scale == 'log':
+                    lower_bound = GPyOpt.LogTransform.transform(p.range[0])
+                    upper_bound = GPyOpt.LogTransform.transform(p.range[1])
+                else:
+                    lower_bound = p.range[0]
+                    upper_bound = p.range[1]
+                domain.append({'name': p.name, 'type': 'continuous',
+                               'domain': (lower_bound, upper_bound)})
+        return domain
+
+    @staticmethod
+    def _reverse_to_sherpa_format(X_next, parameters):
+        """
+        Turn design matrix from GPyOpt back into a list of dictionaries with
+        Sherpa-style parameters.
+        """
+        col_dict = {}
         for i, p in enumerate(parameters):
             if isinstance(p, Choice) or isinstance(p, Ordinal):
-                transformations[p.name] = GPyOpt.ChoiceTransform(vals=p.range)
-
+                col_dict[p.name] = list(map(
+                    lambda x: GPyOpt.ChoiceTransform.reverse(
+                        x, p.range), X_next[:, i]))
+            elif isinstance(p, Continuous) and p.scale == 'log':
+                col_dict[p.name] = list(GPyOpt.LogTransform.reverse(X_next[:, i]))
             else:
-                transformations[p.name] = GPyOpt.Transform(log=p.scale == 'log',
-                                                           discrete=isinstance(
-                                                               p, Discrete))
-        return transformations
+                col_dict[p.name] = list(X_next[:, i])
 
-    @staticmethod
-    def _initialize_domain(parameters, transformations):
-            domain = []
-            for p in parameters:
-                if isinstance(p, Choice) or isinstance(p, Ordinal):
-                    domain_type = 'discrete'
-                else:
-                    domain_type = 'continuous'
-
-                domain.append({'name': p.name, 'type': domain_type,
-                               'domain': tuple(transformations[p.name].transform(item)
-                                               for item in p.range)})
-            return domain
-
-    @staticmethod
-    def _reverse_to_sherpa_format(X_next, transformations, parameters):
-        # turn batch into list of dictionaries
-        df = pandas.DataFrame({p.name: list(map(
-            transformations[p.name].reverse, list(X_next[:, i])))
-            for i, p in enumerate(parameters)})
-
-        return list(df.T.to_dict().values())
+        return list(pandas.DataFrame(col_dict).T.to_dict().values())
