@@ -1,0 +1,8 @@
+pandas>=0.20.3
+pymongo>=3.5.1
+numpy>=1.8.2
+scipy>=1.0.0
+scikit-learn>=0.19.1
+flask>=0.12.2
+pymongo>=3.5.1
+drmaa>=0.7.7

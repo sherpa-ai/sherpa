@@ -19,6 +19,7 @@ along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import absolute_import
 import os
+import sys
 import numpy
 import pandas
 import collections
@@ -96,6 +97,10 @@ class Study(object):
         self._ids_to_stop = set()
         
         if not disable_dashboard:
+            if sys.platform in ['cygwin', 'win32']:
+                raise EnvironmentError('Dashboard not supported on Windows. Disable the dashboard and save the '
+                                       'finalized study instead.')
+
             self._mgr = multiprocessing.Manager()
             self._results_channel = self._mgr.Namespace()
             self._results_channel.df = self.results
