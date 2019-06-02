@@ -292,7 +292,7 @@ def test_3d():
                   sherpa.Discrete('z', [1, 5])]
 
     bayesian_optimization = GPyOpt(max_concurrent=1,
-                                   max_num_trials=50,
+                                   max_num_trials=100,
                                    model_type='GP',
                                    acquisition_type='EI')
 
@@ -316,7 +316,6 @@ def test_3d():
     assert numpy.isclose(rval['x'], 4., atol=0.1)
     assert rval['y'] == 1
     assert rval['z'] == 5
-    assert False
 
 
 # def test_noisy_parabola():
