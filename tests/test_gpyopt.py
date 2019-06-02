@@ -3,8 +3,10 @@ import pandas
 import pytest
 import numpy
 import collections
+import GPyOpt as gpyopt_package
 from sherpa.algorithms.bayesian_optimization import GPyOpt
 from sherpa.algorithms import Repeat
+
 
 
 @pytest.fixture
@@ -12,14 +14,9 @@ def parameters():
     parameters = [sherpa.Continuous('dropout', [0., 0.5]),
                   sherpa.Continuous('lr', [1e-7, 1e-1], 'log'),
                   sherpa.Choice('activation', ['relu', 'tanh', 'sigmoid']),
-                  sherpa.Discrete('num_hidden', [100, 300]),
-                  sherpa.Discrete('batch_size', [1, 1000], 'log')
+                  sherpa.Discrete('num_hidden', [100, 300])
                   ]
     return parameters
-
-@pytest.fixture
-def transforms(parameters):
-    return GPyOpt._initialize_transforms(parameters)
 
 @pytest.fixture
 def results():
@@ -31,7 +28,6 @@ def results():
              ('lr', [1e-3, 1e-5, 1e-2]),
              ('activation', ['tanh', 'relu', 'sigmoid']),
              ('num_hidden', [111, 222, 288]),
-             ('batch_size', [10, 100, 1000]),
              ('Objective', [0.1, 0.055, 0.15])]
         ))
 
@@ -45,15 +41,14 @@ def results_long():
              ('lr', list(10**numpy.random.uniform(-7, -1, 10))),
              ('activation', list(numpy.random.choice(['relu', 'tanh', 'sigmoid'], 10))),
              ('num_hidden', list(numpy.random.random_integers(100, 300, 10))),
-             ('batch_size', list(10**numpy.random.uniform(1, 3, 10).astype('int'))),
              ('Objective', list(numpy.random.random(10)))]
         ))
 
 
 # Test setup
 def test_infer_num_initial_data_points(parameters):
-    assert GPyOpt._infer_num_initial_data_points('infer', parameters) == 6
-    assert GPyOpt._infer_num_initial_data_points(3, parameters) == 6
+    assert GPyOpt._infer_num_initial_data_points('infer', parameters) == 5
+    assert GPyOpt._infer_num_initial_data_points(3, parameters) == 5
     assert GPyOpt._infer_num_initial_data_points(7, parameters) == 7
 
 
@@ -63,99 +58,98 @@ def test_processing_of_initial_data_points(parameters):
                                     [('dropout', [0.5, 0.1, 0.3]),
                                      ('lr', [1e-4, 1e-3, 1e-7]),
                                      ('activation', ['relu', 'tanh', 'sigmoid']),
-                                     ('num_hidden', [101, 202, 299]),
-                                     ('batch_size', [1, 10, 100])]
+                                     ('num_hidden', [101, 202, 299])]
                                 ))
 
     data_points = GPyOpt._process_initial_data_points(data_points_df,
                                                       parameters)
 
     assert data_points == [{'activation': 'relu', 'dropout': 0.5, 'lr': 0.0001,
-                            'num_hidden': 101, 'batch_size': 1},
+                            'num_hidden': 101},
                            {'activation': 'tanh', 'dropout': 0.1, 'lr': 0.001,
-                            'num_hidden': 202, 'batch_size': 10},
+                            'num_hidden': 202},
                            {'activation': 'sigmoid', 'dropout': 0.3,
-                            'lr': 1e-07, 'num_hidden': 299, 'batch_size': 100}]
+                            'lr': 1e-07, 'num_hidden': 299}]
 
     with pytest.raises(ValueError):
         data_points_missing = GPyOpt._process_initial_data_points(
             data_points_df.drop("activation", axis=1), parameters)
 
+#
+# def test_transformations(transforms):
+#     # transforms
+#     assert list(map(transforms['dropout'].transform, [0., 0.1, 0.5])) == [0.,
+#                                                                           0.1,
+#                                                                           0.5]
+#     assert list(map(transforms['lr'].transform, [1e-2, 3.3e-4, 0.0001])) == [-2,
+#                                                                              -3.4814860601221125,
+#                                                                              -4]
+#     assert list(map(transforms['activation'].transform,
+#                     ['relu', 'sigmoid', 'tanh'])) == [0, 2, 1]
+#     assert list(map(transforms['num_hidden'].transform,
+#                     [101, 202, 299])) == [101, 202, 299]
+#     assert list(map(transforms['batch_size'].transform,
+#                     [1, 10, 100, 1000])) == [0, 1, 2, 3]
+#
+#     # reverse transforms
+#     assert list(map(transforms['dropout'].reverse, [0., 0.1, 0.5])) == [0.,
+#                                                                           0.1,
+#                                                                           0.5]
+#     assert list(map(transforms['lr'].reverse, [-2, -3.48, -4])) == [1e-2, 0.0003311311214825911, 0.0001]
+#     assert list(map(transforms['activation'].reverse,
+#                     [0, 2, 1])) == ['relu', 'sigmoid', 'tanh']
+#     assert list(map(transforms['num_hidden'].reverse,
+#                     [101.1, 201.6, 299.45])) == [101, 202, 299]
+#     assert list(map(transforms['batch_size'].reverse,
+#                     [0.001, 1., 2.001, 2.9999])) == [1, 10, 100, 1000]
 
-def test_transformations(transforms):
-    # transforms
-    assert list(map(transforms['dropout'].transform, [0., 0.1, 0.5])) == [0.,
-                                                                          0.1,
-                                                                          0.5]
-    assert list(map(transforms['lr'].transform, [1e-2, 3.3e-4, 0.0001])) == [-2,
-                                                                             -3.4814860601221125,
-                                                                             -4]
-    assert list(map(transforms['activation'].transform,
-                    ['relu', 'sigmoid', 'tanh'])) == [0, 2, 1]
-    assert list(map(transforms['num_hidden'].transform,
-                    [101, 202, 299])) == [101, 202, 299]
-    assert list(map(transforms['batch_size'].transform,
-                    [1, 10, 100, 1000])) == [0, 1, 2, 3]
 
-    # reverse transforms
-    assert list(map(transforms['dropout'].reverse, [0., 0.1, 0.5])) == [0.,
-                                                                          0.1,
-                                                                          0.5]
-    assert list(map(transforms['lr'].reverse, [-2, -3.48, -4])) == [1e-2, 0.0003311311214825911, 0.0001]
-    assert list(map(transforms['activation'].reverse,
-                    [0, 2, 1])) == ['relu', 'sigmoid', 'tanh']
-    assert list(map(transforms['num_hidden'].reverse,
-                    [101.1, 201.6, 299.45])) == [101, 202, 299]
-    assert list(map(transforms['batch_size'].reverse,
-                    [0.001, 1., 2.001, 2.9999])) == [1, 10, 100, 1000]
-
-
-def test_domain(parameters, transforms):
-    domain = GPyOpt._initialize_domain(parameters, transforms)
+def test_domain(parameters):
+    domain = GPyOpt._initialize_domain(parameters)
 
     assert {'name': 'dropout', 'type': 'continuous',
-            'domain': (0., 0.5)} in domain
+            'domain': (0., 0.5)} == domain[0]
     assert {'name': 'lr', 'type': 'continuous',
-            'domain': (-7, -1)} in domain
-    assert {'name': 'activation', 'type': 'discrete',
-            'domain': (0, 1, 2)} in domain
-    assert {'name': 'num_hidden', 'type': 'continuous',
-            'domain': (100, 300)} in domain
-    assert {'name': 'batch_size', 'type': 'continuous',
-            'domain': (0, 3)} in domain
+            'domain': (-7, -1)} == domain[1]
+    # assert {'name': 'activation', 'type': 'categorical',
+    #         'domain': numpy.array([0, 1, 2])} == domain[2]
+    assert domain[2]['name'] == 'activation'
+    assert domain[2]['type'] == 'categorical'
+    assert numpy.array_equal(domain[2]['domain'], numpy.array([0, 1, 2]))
+    assert {'name': 'num_hidden', 'type': 'discrete',
+            'domain': tuple(range(100,301))} == domain[3]
 
 
-def test_prepare_data_for_bayes_opt(parameters, results, transforms):
+def test_prepare_data_for_bayes_opt(parameters, results):
     X, y, y_var = GPyOpt._prepare_data_for_bayes_opt(
-        parameters, results, transforms)
-    assert numpy.array_equal(X, numpy.array([[0.1, -3., 1, 111, 1],
-                                             [0.4, -5., 0, 222, 2],
-                                             [0.33, -2., 2, 288, 3]]))
+        parameters, results)
+    assert numpy.array_equal(X, numpy.array([[0.1, -3., 1, 111],
+                                             [0.4, -5., 0, 222],
+                                             [0.33, -2., 2, 288]]))
 
     assert numpy.array_equal(y, numpy.array([[0.1], [0.055], [0.15]]))
 
 
-def test_reverse_format(parameters, results, transforms):
+def test_reverse_format(parameters, results):
     X, y, y_var = GPyOpt._prepare_data_for_bayes_opt(parameters,
-                                                     results,
-                                                     transforms)
+                                                     results)
 
-    reversed_X = GPyOpt._reverse_to_sherpa_format(X, transforms, parameters)
+    reversed_X = GPyOpt._reverse_to_sherpa_format(X, parameters)
 
     assert reversed_X[0] == {'dropout': 0.1, 'lr': 1e-3, 'activation': 'tanh',
-                             'num_hidden': 111, 'batch_size': 10}
+                             'num_hidden': 111}
     assert reversed_X[1] == {'dropout': 0.4, 'lr': 1e-5, 'activation': 'relu',
-                             'num_hidden': 222, 'batch_size': 100}
+                             'num_hidden': 222}
     assert reversed_X[2] == {'dropout': 0.33, 'lr': 1e-2, 'activation': 'sigmoid',
-                             'num_hidden': 288, 'batch_size': 1000}
+                             'num_hidden': 288}
 
-def test_bayesopt_batch(parameters, results, transforms):
+def test_bayesopt_batch(parameters, results):
     gpyopt = GPyOpt(max_concurrent=10)
-    domain = gpyopt._initialize_domain(parameters, transforms)
-    X, y, y_var = GPyOpt._prepare_data_for_bayes_opt(parameters, results, transforms)
+    domain = gpyopt._initialize_domain(parameters)
+    X, y, y_var = GPyOpt._prepare_data_for_bayes_opt(parameters, results)
     batch = gpyopt._generate_bayesopt_batch(domain, X, y, y_var, lower_is_better=True)
 
-    assert batch.shape == (10, 5)
+    assert batch.shape == (10, 4)
 
 
 def test_overall():
@@ -169,7 +163,8 @@ def test_overall():
                                            lower_is_better)
         print(suggestion)
 
-def test_1d():
+
+def test_1d_maximize():
     def obj_func(x):
         # Global maximum of 4 is at x=4
         return 4. * numpy.exp(-(x - 4.) ** 2 / 10.) * numpy.cos(
@@ -178,9 +173,12 @@ def test_1d():
     parameters = [sherpa.Continuous('x1', [0., 7.])]
 
     bayesian_optimization = GPyOpt(max_concurrent=1,
-                                   max_num_trials=50,
+                                   max_num_trials=12,
                                    model_type='GP',
-                                   acquisition_type='EI')
+                                   acquisition_type='EI',
+                                   initial_data_points=[{'x1': 2}, {'x1': 5}],
+                                   num_initial_data_points=2)
+
     study = sherpa.Study(algorithm=bayesian_optimization,
                          parameters=parameters,
                          lower_is_better=False,
@@ -197,27 +195,50 @@ def test_1d():
         study.finalize(trial, status='COMPLETED')
     rval = study.get_best_result()
     print(rval)
-    assert numpy.isclose(rval['Objective'], 4., atol=0.2)
+
+    # bounds = [{'name': 'x', 'type': 'continuous', 'domain': (0, 7)}]
+    # Xinit = numpy.array([2, 5]).reshape(-1, 1)
+    # yinit = obj_func(Xinit)
+    # myBopt = gpyopt_package.methods.BayesianOptimization(f=obj_func,
+    #                                              # function to optimize
+    #                                              domain=bounds,
+    #                                              # box-constraints of the problem
+    #                                              acquisition_type='EI',
+    #                                              X=Xinit,
+    #                                              y=yinit,
+    #                                              initial_design_numdata=0,
+    #                                              initial_design_type='random',
+    #                                              evaluator_type='local_penalization',
+    #                                              batch_size=1,
+    #                                              maximize=True,
+    #                                              exact_feval=False)
+    # # Run the optimization
+    # max_iter = 10  # evaluation budget
+    # max_time = 60  # time budget
+    # eps = 10e-6  # Minimum allows distance between the las two observations
+    #
+    # myBopt.run_optimization(max_iter, max_time, eps)
+    # print(myBopt.get_evaluations())
+
+    assert numpy.isclose(rval['x1'], 4., atol=0.1)
 
 
-def test_noisy_parabola():
-    def f(x, sd=1):
-        y = (x - 3) ** 2 + 10.
-        if sd == 0:
-            return y
-        else:
-            return y + numpy.random.normal(loc=0., scale=sd,
-                                           size=numpy.array(x).shape)
+def test_1d_minimize():
+    def obj_func(x):
+        # Global maximum of 4 is at x=4
+        return -4. * numpy.exp(-(x - 4.) ** 2 / 10.) * numpy.cos(
+            1.5 * (x - 4.)) ** 2
 
     parameters = [sherpa.Continuous('x1', [0., 7.])]
 
     bayesian_optimization = GPyOpt(max_concurrent=1,
-                                   max_num_trials=20,
+                                   max_num_trials=12,
                                    model_type='GP',
-                                   acquisition_type='EI')
-    rep = Repeat(algorithm=bayesian_optimization,
-                 num_times=5)
-    study = sherpa.Study(algorithm=rep,
+                                   acquisition_type='EI',
+                                   initial_data_points=[{'x1': 2}, {'x1': 5}],
+                                   num_initial_data_points=2)
+
+    study = sherpa.Study(algorithm=bayesian_optimization,
                          parameters=parameters,
                          lower_is_better=True,
                          disable_dashboard=True)
@@ -225,7 +246,7 @@ def test_noisy_parabola():
     for trial in study:
         print("Trial {}:\t{}".format(trial.id, trial.parameters))
 
-        fval = f(trial.parameters['x1'], sd=1)
+        fval = obj_func(trial.parameters['x1'])
         print("Function Value: {}".format(fval))
         study.add_observation(trial=trial,
                               iteration=1,
@@ -233,8 +254,106 @@ def test_noisy_parabola():
         study.finalize(trial, status='COMPLETED')
     rval = study.get_best_result()
     print(rval)
-    # assert numpy.sqrt((rval['Objective'] - 3.)**2) < 0.2
+
+    # bounds = [{'name': 'x', 'type': 'continuous', 'domain': (0, 7)}]
+    # Xinit = numpy.array([2, 5]).reshape(-1, 1)
+    # yinit = obj_func(Xinit)
+    # myBopt = gpyopt_package.methods.BayesianOptimization(f=obj_func,
+    #                                              # function to optimize
+    #                                              domain=bounds,
+    #                                              # box-constraints of the problem
+    #                                              acquisition_type='EI',
+    #                                              X=Xinit,
+    #                                              y=yinit,
+    #                                              initial_design_numdata=0,
+    #                                              initial_design_type='random',
+    #                                              evaluator_type='local_penalization',
+    #                                              batch_size=1,
+    #                                              maximize=True,
+    #                                              exact_feval=False)
+    # # Run the optimization
+    # max_iter = 10  # evaluation budget
+    # max_time = 60  # time budget
+    # eps = 10e-6  # Minimum allows distance between the las two observations
+    #
+    # myBopt.run_optimization(max_iter, max_time, eps)
+    # print(myBopt.get_evaluations())
+
+    assert numpy.isclose(rval['x1'], 4., atol=0.1)
+
+def test_3d():
+    def obj_func(x, y, z):
+        # Global maximum of 4 is at x=4
+        return -4. * numpy.exp(-(x - 4.) ** 2 / 10.) * numpy.cos(
+            1.5 * (x - 4.)) ** 2 -y * z
+
+    parameters = [sherpa.Continuous('x', [0., 7.]),
+                  sherpa.Choice('y', [-1, 0, 1]),
+                  sherpa.Discrete('z', [1, 5])]
+
+    bayesian_optimization = GPyOpt(max_concurrent=1,
+                                   max_num_trials=50,
+                                   model_type='GP',
+                                   acquisition_type='EI')
+
+    study = sherpa.Study(algorithm=bayesian_optimization,
+                         parameters=parameters,
+                         lower_is_better=True,
+                         disable_dashboard=True)
+
+    for trial in study:
+        print("Trial {}:\t{}".format(trial.id, trial.parameters))
+
+        fval = obj_func(**trial.parameters)
+        print("Function Value: {}".format(fval))
+        study.add_observation(trial=trial,
+                              iteration=1,
+                              objective=fval)
+        study.finalize(trial, status='COMPLETED')
+    rval = study.get_best_result()
+    print(rval)
+
+    assert numpy.isclose(rval['x'], 4., atol=0.1)
+    assert rval['y'] == 1
+    assert rval['z'] == 5
+    assert False
 
 
-if __name__ == '__main__':
-    test_noisy_parabola()
+# def test_noisy_parabola():
+#     def f(x, sd=1):
+#         y = (x - 3) ** 2 + 10.
+#         if sd == 0:
+#             return y
+#         else:
+#             return y + numpy.random.normal(loc=0., scale=sd,
+#                                            size=numpy.array(x).shape)
+#
+#     parameters = [sherpa.Continuous('x1', [0., 7.])]
+#
+#     bayesian_optimization = GPyOpt(max_concurrent=1,
+#                                    max_num_trials=20,
+#                                    model_type='GP',
+#                                    acquisition_type='EI')
+#     rep = Repeat(algorithm=bayesian_optimization,
+#                  num_times=5)
+#     study = sherpa.Study(algorithm=rep,
+#                          parameters=parameters,
+#                          lower_is_better=True,
+#                          disable_dashboard=True)
+#
+#     for trial in study:
+#         print("Trial {}:\t{}".format(trial.id, trial.parameters))
+#
+#         fval = f(trial.parameters['x1'], sd=1)
+#         print("Function Value: {}".format(fval))
+#         study.add_observation(trial=trial,
+#                               iteration=1,
+#                               objective=fval)
+#         study.finalize(trial, status='COMPLETED')
+#     rval = study.get_best_result()
+#     print(rval)
+#     # assert numpy.sqrt((rval['Objective'] - 3.)**2) < 0.2
+
+#
+# if __name__ == '__main__':
+#     test_noisy_parabola()
