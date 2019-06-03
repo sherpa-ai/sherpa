@@ -1,6 +1,7 @@
 import numpy
 import logging
 import sherpa
+from sherpa.algorithms import Algorithm
 import pandas
 import scipy.stats
 import scipy.optimize
@@ -18,7 +19,7 @@ import GPy
 bayesoptlogger = logging.getLogger(__name__)
 
 
-class BayesianOptimization(sherpa.algorithms.Algorithm):
+class BayesianOptimization(Algorithm):
     """
     Bayesian optimization using Gaussian Process and Expected Improvement.
 
@@ -327,7 +328,7 @@ class BayesianOptimization(sherpa.algorithms.Algorithm):
         return row
 
 
-class GPyOpt(sherpa.algorithms.Algorithm):
+class GPyOpt(Algorithm):
     """
     Sherpa wrapper around the GPyOpt package
     (https://github.com/SheffieldML/GPyOpt).

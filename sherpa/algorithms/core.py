@@ -536,10 +536,11 @@ class PopulationBasedTraining(Algorithm):
     Population based training (PBT) as introduced by Jaderberg et al. 2017.
 
     PBT trains a generation of ``population_size`` seed trials (randomly initialized) for a user
-    specified number of iterations. After that the same number of trials are
-    sampled from the top 33% of the seed generation. Those trials are perturbed
-    in their hyperparameter configuration and continue training. After that
-    trials are sampled from that generation etc.
+    specified number of iterations e.g. one epoch. The top 80% then move on
+    unchanged into the second generation. The bottom 20% are re-sampled from
+    the top 20% and perturbed. The second generation again trains for the same
+    number of iterations and the same procedure is repeated to move into the
+    third generation etc.
 
     Args:
         population_size (int): the number of randomly intialized trials at the
@@ -657,8 +658,8 @@ class Genetic(Algorithm):
         Create a new parameter value as a random mixture of some of the best
         trials and sampling from original distribution.
 
-        Return
-        dict: parameter values dictionary
+        Return:
+            dict: parameter values dictionary
         """
         if self.max_num_trials and self.count >= self.max_num_trials:
             return None

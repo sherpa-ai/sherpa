@@ -26,23 +26,28 @@ from sherpa.core import TrialStatus, AlgorithmState
 class SuccessiveHalving(Algorithm):
     """
     Asynchronous Successive Halving as described in:
-    @article{li2018massively,
-      title={Massively parallel hyperparameter tuning},
-      author={Li, Liam and Jamieson, Kevin and Rostamizadeh, Afshin and Gonina, Ekaterina and Hardt, Moritz and Recht, Benjamin and Talwalkar, Ameet},
-      journal={arXiv preprint arXiv:1810.05934},
-      year={2018}
-    }
+
+        @article{li2018massively,
+        title={Massively parallel hyperparameter tuning},
+        author={Li, Liam and Jamieson, Kevin and Rostamizadeh, Afshin and Gonina, Ekaterina and Hardt, Moritz and Recht, Benjamin and Talwalkar, Ameet},
+        journal={arXiv preprint arXiv:1810.05934},
+        year={2018}
+        }
+
+    Asynchronous successive halving operates based on the multi-armed bandit
+    algorithm Successive Halving (SHA) and performs principled early stopping for
+    random search.
 
     Args:
-        r (int): minimum resource
-        R (int): maximum resource
-        eta (int): reduction factor
-        s (int): minimum early-stopping rate
+        r (int): minimum resource that each configuration will be trained for.
+        R (int): maximum resource.
+        eta (int): elimination rate.
+        s (int): minimum early-stopping rate.
         max_finished_configs (int): stop once max_finished_configs models have
             been trained to completion.
 
     """
-    def __init__(self, r, R, eta, s, max_finished_configs=None):
+    def __init__(self, r=1, R=9, eta=3, s=0, max_finished_configs=None):
         self.eta = eta
         self.r = r
         self.R = R

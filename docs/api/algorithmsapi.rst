@@ -16,14 +16,23 @@ Optimization Algorithms
 .. autoclass:: sherpa.algorithms.GridSearch
   :noindex:
 
-.. autoclass:: sherpa.algorithms.LocalSearch
+.. autoclass:: sherpa.algorithms.GPyOpt
   :noindex:
 
-.. autoclass:: sherpa.algorithms.BayesianOptimization
+.. autoclass:: sherpa.algorithms.SuccessiveHalving
+  :noindex:
+
+.. autoclass:: sherpa.algorithms.LocalSearch
   :noindex:
 
 .. autoclass:: sherpa.algorithms.PopulationBasedTraining
    :noindex:
+
+.. autoclass:: sherpa.algorithms.Repeat
+  :noindex:
+
+.. autoclass:: sherpa.algorithms.Iterate
+  :noindex:
 
 Stopping Rules
 --------------
