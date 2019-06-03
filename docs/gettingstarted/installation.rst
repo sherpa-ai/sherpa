@@ -6,12 +6,14 @@ Installation
 Installation from PyPi
 ~~~~~~~~~~~~~~~~~~~~~~
 
-This is the most straightforward way to install Sherpa. The source code may
-however be slightly older than what is found on the GitHub.
+This is the most straightforward way to install Sherpa.
 
 ::
 
     pip install parameter-sherpa
+
+However, since the source
+is regularly updated we **recommend to clone from GitHub** as described below.
 
 
 Installation from GitHub
@@ -21,8 +23,13 @@ Clone from GitHub:
 
 ::
 
-    git clone https://github.com/LarsHH/sherpa.git
+    git clone https://github.com/sherpa-ai/sherpa.git
     export PYTHONPATH=$PYTHONPATH:`pwd`/sherpa
+
+Here you might want to add `export PYTHONPATH=$PYTHONPATH:/home/packages/sherpa/` to your
+`.bash_profile` or `.bash_rc` so you won't have to run that line every time you
+re-open the terminal. Replace `/home/packages/sherpa/` with the absolute path to
+ the Sherpa folder on your system.
 
 Install dependencies:
 
@@ -33,7 +40,7 @@ Install dependencies:
     pip install scipy
     pip install scikit-learn
     pip install flask
-    pip install enum34  # if on < Python 3.4
+    pip install gpyopt
 
 You can run an example to verify SHERPA is working:
 
