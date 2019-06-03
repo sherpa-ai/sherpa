@@ -5,3 +5,4 @@ scipy>=1.0.0
 scikit-learn>=0.19.1
 flask>=0.12.2
 gpyopt>=1.2.5
+pylab
