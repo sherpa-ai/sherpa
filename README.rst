@@ -11,8 +11,8 @@ SHERPA: A Python Hyperparameter Optimization Library
    :target: https://www.gnu.org/licenses/gpl-3.0
    
 .. image:: https://readthedocs.org/projects/parameter-sherpa/badge/?version=latest
-:target: https://parameter-sherpa.readthedocs.io/en/latest/?badge=latest
-:alt: Documentation Status
+    :target: https://parameter-sherpa.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
 
 .. image:: https://pepy.tech/badge/parameter-sherpa
    :target: https://pepy.tech/project/parameter-sherpa
