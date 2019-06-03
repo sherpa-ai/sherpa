@@ -31,6 +31,7 @@ REQUIRED = [
     'numpy>=1.8.2',
     'scipy>=1.0.0',
     'scikit-learn>=0.19.1',
+    'gpyopt>=1.2.5',
     'flask>=0.12.2'
 ]
 
