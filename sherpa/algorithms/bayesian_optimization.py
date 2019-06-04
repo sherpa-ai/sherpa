@@ -583,6 +583,8 @@ class GPyOpt(Algorithm):
                         x, p.range), X_next[:, i]))
             elif isinstance(p, Continuous) and p.scale == 'log':
                 col_dict[p.name] = list(GPyOpt.LogTransform.reverse(X_next[:, i]))
+            elif isinstance(p, Discrete):
+                col_dict[p.name] = list(X_next[:, i].astype('int'))
             else:
                 col_dict[p.name] = list(X_next[:, i])
 

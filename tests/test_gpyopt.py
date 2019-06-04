@@ -283,12 +283,15 @@ def test_1d_minimize():
 
 def test_3d():
     def obj_func(x, y, z):
+        assert isinstance(x, float)
+        assert isinstance(y, str)
+        assert isinstance(z, int)
         # Global maximum of 4 is at x=4
         return -4. * numpy.exp(-(x - 4.) ** 2 / 10.) * numpy.cos(
-            1.5 * (x - 4.)) ** 2 -y * z
+            1.5 * (x - 4.)) ** 2 -int(y) * z
 
     parameters = [sherpa.Continuous('x', [0., 7.]),
-                  sherpa.Choice('y', [-1, 0, 1]),
+                  sherpa.Choice('y', ["-1", "0", "1"]),
                   sherpa.Discrete('z', [1, 5])]
 
     bayesian_optimization = GPyOpt(max_concurrent=1,
