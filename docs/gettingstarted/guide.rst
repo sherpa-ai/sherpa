@@ -33,7 +33,7 @@ the line. For example:
                   sherpa.Continuous(name='dropout', range=[0., 0.4]),
                   sherpa.Ordinal(name='batch_size', range=[16, 32, 64]),
                   sherpa.Discrete(name='num_hidden_units', range=[100, 300]),
-                  sherpa.Choice(name'activation', range=['relu', 'elu', 'prelu'])]
+                  sherpa.Choice(name='activation', range=['relu', 'elu', 'prelu'])]
 
 Note that it is generally recommended not to represent continuous or discrete
 parameters as categorical. This is due to the fact that exploring a range of
