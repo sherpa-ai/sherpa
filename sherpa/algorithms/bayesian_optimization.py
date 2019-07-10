@@ -231,8 +231,8 @@ class GPyOpt(Algorithm):
                 historical_data)
 
         y = numpy.array(completed.Objective).reshape((-1, 1))
-        if 'varObjective' in completed.columns:
-            y_var = numpy.array(completed.varObjective).reshape((-1, 1))
+        if 'ObjectiveStdErr' in completed.columns:
+            y_var = numpy.array(completed.ObjectiveStdErr).reshape((-1, 1))
         else:
             y_var = None
         return X, y, y_var
