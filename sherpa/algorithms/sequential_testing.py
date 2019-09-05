@@ -33,7 +33,7 @@ class SequentialTesting(Repeat):
             }
     """
 
-    def __init__(self, algorithm, K, n=(3, 6, 9), P=0.5, alpha=0.05, verbose=False):
+    def __init__(self, algorithm, K, n=(3, 6, 9), P=0.5, alpha=0.05, verbose=False, homoscedastic=True, agg=True):
         self.algorithm = algorithm
         self.K = {1: K}
         self.k = 0
@@ -59,6 +59,12 @@ class SequentialTesting(Repeat):
         # manually stores the types, so parameters can be restored from the
         # results table
 
+        # set a minimum trial ID to remove potentially existing results
+        # (e.g. Chainer algorithm)
+        self.min_trial_id = None
+        self.homoscedastic = homoscedastic
+        self.agg = agg
+
     def get_suggestion(self, parameters, results=None, lower_is_better=True):
         """
         Variables:
@@ -70,6 +76,15 @@ class SequentialTesting(Repeat):
         Repeats to evaluate: config_stack=[config1, config2, ...]
         Configurations by stage: {1: all the configs stage 1, 2: all configs stage 2, ...}
         """
+        if self.min_trial_id is None:
+            if results is None or len(results) == 0:
+                self.min_trial_id = 0
+            else:
+                self.min_trial_id = results.loc[:, 'Trial-ID'].max() + 1
+
+        if results is not None and len(results) > 0:
+            gs_results = results.loc[results['Trial-ID'] >= self.min_trial_id]
+
         if len(self.config_stack) == 0:
             if self.k == self.K[self.t]:
                 # end of the stage
@@ -77,7 +92,7 @@ class SequentialTesting(Repeat):
                     # end of algorithm
                     return AlgorithmState.DONE
                 else:
-                    if self._is_stage_done(results, stage=self.t,
+                    if self._is_stage_done(gs_results, stage=self.t,
                                            num_trials_for_stage=self.K[self.t] *
                                                    self.dn[self.t]):
                         # if all trials finished, do testing
@@ -85,7 +100,7 @@ class SequentialTesting(Repeat):
 
                         self.configs_by_stage[
                             self.t + 1] = self._get_best_configs(parameters,
-                                                                 results,
+                                                                 gs_results,
                                                                  configs=
                                                                  self.configs_by_stage[
                                                                      self.t],
@@ -110,11 +125,12 @@ class SequentialTesting(Repeat):
                     if results is not None and len(results) > 0:
                         agg_results = self.aggregate_results(results,
                                                              parameters,
-                                                             min_count=self.n[0])
+                                                             min_count=self.n[0],
+                                                             homoscedastic=self.homoscedastic)
                     else:
                         agg_results = None
                     new_config = self.algorithm.get_suggestion(parameters,
-                                                               agg_results,
+                                                               agg_results if self.agg else results,
                                                                lower_is_better)
                     if len(self.parameter_types) == 0:
                         self.parameter_types = {p.name: p.type
