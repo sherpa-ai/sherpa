@@ -81,7 +81,7 @@ class Algorithm(object):
         return best_result
 
 
-class Bracket(Algorithm):
+class Chain(Algorithm):
     """
     Allows to compose algorithms into a schedule by repeating an algorithm
     or chaining different algorithms while maintaining the same results table.
@@ -97,8 +97,9 @@ class Bracket(Algorithm):
 
     def get_suggestion(self, parameters, results, lower_is_better):
         config = self.algorithms[self.alg_counter].get_suggestion(parameters, results, lower_is_better)
-        if config is None and self.alg_counter < len(self.algorithms):
+        if (config is None or config == AlgorithmState.DONE) and self.alg_counter < len(self.algorithms)-1:
             self.alg_counter += 1
+            print("Next algorithm")
             config = self.get_suggestion(parameters, results, lower_is_better)
         return config
 
@@ -118,13 +119,19 @@ class Repeat(Algorithm):
             suggestion until all repetitions are completed. This can be useful
             when the repeats have impact on sequential decision making in the
             wrapped algorithm.
+        agg (bool): whether to aggregate repetitions before passing them to the
+            parameter generating algorithm.
+        homoscedastic (bool): whether to smooth variances when passing them to
+            the parameter generating algorithm (has no effect when agg=False).
     """
-    def __init__(self, algorithm, num_times=5, wait_for_completion=False):
+    def __init__(self, algorithm, num_times=5, wait_for_completion=False, agg=False, homoscedastic=False):
         self.algorithm = algorithm
         self.num_times = num_times
-        self.queue = []
+        self.queue = collections.deque()
         self.prev_completed = 0
         self.wait_for_completion = wait_for_completion
+        self.agg = agg
+        self.homoscedastic = homoscedastic
 
     def get_suggestion(self, parameters, results=None, lower_is_better=True):
         if len(self.queue) == 0:
@@ -136,18 +143,19 @@ class Repeat(Algorithm):
                 self.prev_completed += self.num_times
                 aggregate_results = Repeat.aggregate_results(results,
                                                         parameters,
-                                                        min_count=self.num_times)
+                                                        min_count=self.num_times,
+                                                        homoscedastic=self.homoscedastic)
             else:
                 aggregate_results = None
             suggestion = self.algorithm.get_suggestion(parameters=parameters,
-                                                       results=aggregate_results,
+                                                       results=aggregate_results if self.agg else results,
                                                        lower_is_better=lower_is_better)
             self.queue += [suggestion] * self.num_times
 
-        return self.queue.pop()
+        return self.queue.popleft()
 
     @staticmethod
-    def aggregate_results(results, parameters, min_count=0):
+    def aggregate_results(results, parameters, min_count=0, homoscedastic=False):
         """
         A helper function to aggregate results for repeated trials.
 
@@ -176,6 +184,10 @@ class Repeat(Algorithm):
         aggregate_completed.columns = [''.join(c.capitalize() for c in col).strip()
                                        for col in
                                        aggregate_completed.columns.values]
+        if homoscedastic:
+            aggregate_completed.loc[:,
+            'ObjectiveVar'] = aggregate_completed.loc[:,
+                              'ObjectiveVar'].mean()
 
         # add std err and finalize
         aggregate_completed = aggregate_completed.reset_index() \
@@ -192,6 +204,8 @@ class Repeat(Algorithm):
         aggregate_intermediate.columns = [
             ''.join(c.capitalize() for c in col).strip() for col in
             aggregate_intermediate.columns.values]
+        if homoscedastic:
+            aggregate_intermediate.loc[:, 'ObjectiveVar'] = aggregate_intermediate.loc[:, 'ObjectiveVar'].mean()
         aggregate_intermediate = aggregate_intermediate.reset_index() \
             .assign(
             ObjectiveStdErr=lambda x: numpy.sqrt(x['ObjectiveVar'] / (x['ObjectiveCount'] - 1))) \
