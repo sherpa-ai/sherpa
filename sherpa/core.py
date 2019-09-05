@@ -69,7 +69,7 @@ class TrialStatus(object):
 class Study(object):
     """
     The core of an optimization.
-    
+
     Includes functionality to get new suggested trials and add observations
     for those. Used internally but can also be used directly by the user.
 
@@ -99,7 +99,7 @@ class Study(object):
         self.output_dir = output_dir
 
         self._ids_to_stop = set()
-        
+
         if not disable_dashboard:
             if sys.platform in ['cygwin', 'win32']:
                 raise EnvironmentError('Dashboard not supported on Windows. Disable the dashboard and save the '
@@ -117,7 +117,7 @@ class Study(object):
     def add_observation(self, trial, objective, iteration=1, context={}):
         """
         Add a single observation of the objective value for a given trial.
-        
+
         Args:
             trial (sherpa.core.Trial): trial for which an observation is to be
                 added.
@@ -161,7 +161,7 @@ class Study(object):
         """
         Once a trial will not add any more observations it
         must be finalized with this function.
-        
+
         Args:
             trial (sherpa.core.Trial): trial that is completed.
             status (str): one of 'COMPLETED', 'FAILED', 'STOPPED'.
@@ -198,16 +198,16 @@ class Study(object):
     def get_suggestion(self):
         """
         Obtain a new suggested trial.
-        
+
         This function wraps the algorithm that was passed to the
         study.
-        
+
         Returns:
             dict: a parameter suggestion.
         """
         if len(self._trial_queue) != 0:
             return self._trial_queue.popleft()
-        
+
         p = self.algorithm.get_suggestion(self.parameters, self.results,
                                           self.lower_is_better)
         if isinstance(p, dict):
@@ -220,10 +220,10 @@ class Study(object):
     def should_trial_stop(self, trial):
         """
         Determines whether given trial should stop.
-        
+
         This function wraps the stopping rule provided to the
         study.
-        
+
         Args:
             trial (sherpa.core.Trial): trial to be evaluated.
 
@@ -243,16 +243,16 @@ class Study(object):
                                                         self.lower_is_better)
         else:
             return False
-        
+
     def add_trial(self, trial):
         """
         Adds a trial into queue for next suggestion.
-        
+
         Trials added via this method forego the suggestions
         made by the algorithm and are returned by the
         `get_suggestion` method on a first in first out
         basis.
-        
+
         Args:
             trial (sherpa.core.Trial): the trial to be enqueued.
         """
@@ -261,7 +261,7 @@ class Study(object):
     def get_best_result(self):
         """
         Retrieve the best result so far.
-        
+
         Returns:
             pandas.DataFrame: row of the best result.
         """
@@ -269,7 +269,7 @@ class Study(object):
                                               results=self.results,
                                               lower_is_better=
                                               self.lower_is_better)
-        
+
     def _run_web_server(self, port):
         """
         Runs the SHERPA dashboard.
@@ -292,10 +292,10 @@ class Study(object):
             else:
                 param_types[p.name] = 'string'
         app.parameter_types = param_types
-                
+
         app.set_results_channel(self._results_channel)
         app.set_stopping_channel(self._stopping_channel)
-        
+
         proc = multiprocessing.Process(target=app.run,
                                        kwargs={'port': port,
                                                'debug': True,
@@ -307,7 +307,7 @@ class Study(object):
             socket.gethostbyname(socket.gethostname()), port, "localhost", port)
         msg += "\n" + "-"*55
         logger.info(msg)
-        
+
         proc.daemon = True
         proc.start()
         return proc
@@ -375,7 +375,7 @@ class Study(object):
             return t
         else:
             raise StopIteration
-        
+
     def next(self):
         return self.__next__()
 
@@ -403,7 +403,7 @@ class _Runner(object):
     Encapsulates all functionality needed to run a Study in parallel.
 
     Responsibilities:
-    
+
     * Get rows from database and check if any new observations need to be added
         to ``Study``.
     * Update active trials, finalize any completed/stopped/failed trials.
@@ -421,7 +421,7 @@ class _Runner(object):
             e.g. ["python", "train_nn.py"].
         resubmit_failed_trials (bool): whether a failed trial should be
             resubmitted.
-        
+
     """
     def __init__(self, study, scheduler, database, max_concurrent,
                  command, resubmit_failed_trials=False):
@@ -541,7 +541,7 @@ class _Runner(object):
 
             if next_trial == AlgorithmState.WAIT:
                 break
-            
+
             submit_msg = "\n" + "-"*55 + "\n" + "Submitting Trial {}:\n".format(next_trial.id)
             for pname, pval in next_trial.parameters.items():
                 submit_msg += "\t{0:15}={1:>31}\n".format(str(pname), str(pval))
@@ -617,7 +617,7 @@ def optimize(parameters,
 
     if not scheduler.output_dir:
         scheduler.output_dir = output_dir
-        
+
     if verbose == 0:
         logger.setLevel(level=logging.INFO)
         logging.getLogger('dblogger').setLevel(level=logging.WARNING)
@@ -656,7 +656,7 @@ def run_dashboard(path):
 def _port_finder(start, end):
     """
     Helper function to find free port in range.
-    
+
     Args:
         start (int): start point of port range.
         end (int): end point of port range.
@@ -675,7 +675,7 @@ def _port_finder(start, end):
 
     except socket.gaierror:
         raise BaseException('Hostname could not be resolved. Exiting')
-        
+
     except socket.error:
         raise BaseException("Couldn't connect to server")
 
@@ -696,7 +696,7 @@ class Parameter(object):
         assert isinstance(range, list), "Parameter-Range needs to be a list."
         self.name = name
         self.range = range
-        
+
     @staticmethod
     def from_dict(config):
         """
@@ -738,7 +738,7 @@ class Parameter(object):
         Creates a list of parameters given a parameter grid.
 
         Args:
-            parameter_grid (dict): Dictionary mapping hyperparameter names 
+            parameter_grid (dict): Dictionary mapping hyperparameter names
                                    lists of possible values.
 
         Example:
