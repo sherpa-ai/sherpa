@@ -18,20 +18,24 @@ You should have received a copy of the GNU General Public License
 along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import absolute_import
+
+import collections
+import contextlib
+import datetime
+import logging
+import multiprocessing
 import os
+import socket
 import sys
+import time
+import warnings
+
 import numpy
 import pandas
-import collections
-import time
-import logging
-import socket
-import multiprocessing
-import warnings
-import contextlib
-from .database import _Database
+
+from sherpa.data_collection.database import _Database
 from .schedulers import _JobStatus
-import datetime
+
 try:
     import cPickle as pickle
 except ImportError:  # python 3.x
