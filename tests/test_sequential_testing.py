@@ -5,7 +5,7 @@ import tempfile
 import shutil
 import os
 import numpy
-from sherpa.algorithms import SequentialTesting, Algorithm
+from sherpa.algorithms import SequentialTesting, Algorithm, Chain
 from sherpa.algorithms.bayesian_optimization import GPyOpt
 
 
@@ -434,8 +434,63 @@ def test_bayes_opt():
                               iteration=1,
                               objective=f(trial.parameters['x']))
         study.finalize(trial)
-        print(study.results)
+    print(study.get_best_result())
 
+
+def test_chain_gs():
+    parameters = [sherpa.Continuous('myparam', [0, 1])]
+
+
+    alg = sherpa.algorithms.RandomSearch()
+    chain = sherpa.algorithms.Chain([SequentialTesting(algorithm=alg, K=5,
+                                                       n=(3, 6, 9), P=0.5),
+                                     SequentialTesting(algorithm=alg, K=5,
+                                                       n=(3, 6, 9), P=0.5),
+                                     SequentialTesting(algorithm=alg, K=5,
+                                                       n=(3, 6, 9), P=0.5)])
+    study = sherpa.Study(algorithm=chain,
+                         parameters=parameters,
+                         lower_is_better=True,
+                         disable_dashboard=True)
+    for trial in study:
+        study.add_observation(trial,
+                              iteration=1,
+                              objective=numpy.random.random())
+        study.finalize(trial)
+    print(study.results.query("Status == 'COMPLETED'"))
+    assert len(study.results.query("Status == 'COMPLETED'")) == 135
+
+
+def test_chain_bayesopt():
+    def f(x, sd=1):
+        y = (x - 3) ** 2 + 10.
+        if sd == 0:
+            return y
+        else:
+            return y + numpy.random.normal(loc=0., scale=sd,
+                                           size=numpy.array(x).shape)
+    parameters = [sherpa.Continuous('x', [1, 6])]
+
+
+    alg = GPyOpt(max_num_trials=135)
+    chain = sherpa.algorithms.Chain([SequentialTesting(algorithm=alg, K=5,
+                                                       n=(3, 6, 9), P=0.5),
+                                     SequentialTesting(algorithm=alg, K=5,
+                                                       n=(3, 6, 9), P=0.5),
+                                     SequentialTesting(algorithm=alg, K=5,
+                                                       n=(3, 6, 9), P=0.5)])
+    study = sherpa.Study(algorithm=chain,
+                         parameters=parameters,
+                         lower_is_better=True,
+                         disable_dashboard=True)
+    for trial in study:
+        study.add_observation(trial,
+                              iteration=1,
+                              objective=f(trial.parameters['x']))
+        study.finalize(trial)
+    print(study.results.query("Status == 'COMPLETED'"))
+    assert len(study.results.query("Status == 'COMPLETED'")) == 135
+    assert False
 
 if __name__ == '__main__':
-    test_parallel()
+    test_bayes_opt()
