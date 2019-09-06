@@ -81,7 +81,7 @@ class UploadCommand(Command):
 # Where the magic happens:
 setup(
     name=NAME,
-    version='1.0.0',
+    version='1.0.2',
     description=DESCRIPTION,
     long_description=long_description,
     author=AUTHOR,
