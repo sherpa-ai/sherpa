@@ -152,6 +152,17 @@ def test_bayesopt_batch(parameters, results):
     assert batch.shape == (10, 4)
 
 
+def test_types_are_correct(parameters, results):
+    gpyopt = GPyOpt(max_concurrent=1)
+    suggestion = gpyopt.get_suggestion(parameters,
+                                       results,
+                                       True)
+    assert isinstance(suggestion['dropout'], float)
+    assert isinstance(suggestion['lr'], float)
+    assert isinstance(suggestion['num_hidden'], int)
+    assert isinstance(suggestion['activation'], str)
+
+
 def test_overall():
     gpyopt = GPyOpt(max_concurrent=1)
     parameters, results, lower_is_better = sherpa.algorithms.get_sample_results_and_params()
