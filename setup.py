@@ -83,7 +83,7 @@ setup(
     name=NAME,
     version='1.0.2',
     description=DESCRIPTION,
-    long_description=long_description,
+    long_description='',
     author=AUTHOR,
     author_email=EMAIL,
     url=URL,
