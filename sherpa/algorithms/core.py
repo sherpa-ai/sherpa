@@ -590,17 +590,26 @@ class PopulationBasedTraining(Algorithm):
         """
         # Select correct generation and sort generation members
         completed = results.loc[results['Status'] == 'COMPLETED', :]
-        generation_df = completed.loc[(completed.generation
-                                       == self.generation - 1), :]\
-                                 .sort_values(by='Objective',
-                                              ascending=lower_is_better)
+
 
         if (self.count - 1) % self.population_size / self.population_size < 0.8:
             # Go through top 80% of generation
+            generation_df = completed.loc[(completed.generation
+                                           == self.generation - 1), :] \
+                                     .sort_values(by='Objective',
+                                                  ascending=lower_is_better)
             d = generation_df.iloc[(self.count - 1) % self.population_size].to_dict()
         else:
-            # For the rest, sample from top 20% and perturb
-            idx = numpy.random.randint(low=0, high=self.population_size//5)
+            # For the rest, sample from top 20% of the last two generations and perturb
+            if self.generation > 2:
+                target_generations = [self.generation-1, self.generation-2]
+            else:
+                target_generations = [self.generation - 1]
+            generation_df = completed.loc[(completed.generation.isin(
+                target_generations)), :] \
+                                     .sort_values(by='Objective',
+                                                  ascending=lower_is_better)
+            idx = numpy.random.randint(low=0, high=self.population_size*len(target_generations)//5)
             d = generation_df.iloc[idx].to_dict()
             d = self._perturb(candidate=d, parameters=parameters)
         trial = {param.name: d[param.name] for param in parameters}

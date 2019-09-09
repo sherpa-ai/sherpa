@@ -236,7 +236,7 @@ def test_pbt():
                 trial.parameters['param_a'] == 1.2 * parent_param or
                 trial.parameters['param_a'] == 0. or
                 trial.parameters['param_a'] == 1.2)
-        assert int(trial.parameters['load_from']) in [21, 22, 23, 24]
+        assert int(trial.parameters['load_from']) in list(range(1, 9)) + list(range(21, 29))
         study.add_observation(trial=trial, iteration=1, objective=trial.id)
         study.finalize(trial=trial,
                        status='COMPLETED')
