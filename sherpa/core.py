@@ -288,7 +288,7 @@ class Study(object):
                                        kwargs={'port': port,
                                                'debug': True,
                                                'use_reloader': False,
-                                               'host': '',
+                                               'host': '0.0.0.0',
                                                'threaded': True})
         msg = "\n" + "-"*55 + "\n"
         msg += "SHERPA Dashboard running. Access via\nhttp://{}:{} if on a cluster or\nhttp://{}:{} if running locally.".format(
