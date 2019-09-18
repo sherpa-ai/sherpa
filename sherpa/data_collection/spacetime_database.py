@@ -43,33 +43,42 @@ dblogger = logging.getLogger(__name__)
 
 def run_server(dataframe: Dataframe):
     dataframe.checkout()
-
     fr = FrameRateKeeper(60)
 
-    # These 'Trial' will be assigned to any ML scripts that join the server, and ML scripts will return 'Results' after receiving 'Trail'
     all_trial_results = []
-    for i in range(10):
-        t = Trial(i, {1: i, 2: i + 1})
-        all_trial_results.append(Trial_Results(t, "Trial_Results_{}".format(i)))
-    dataframe.add_many(Trial_Results, all_trial_results)
-    dataframe.commit()
 
     # For tracking changes in trails and results across while-loop iterations
     known_completed_trial_results = set()
     known_clients = set()
 
-    print("Connect ML scripts to this server, \n"
-          "and they will be assigned Trial_Results from the following list to start working on:")
-    print("Trial_Results to complete: {}".format([trial.trial_id for trial in all_trial_results if not trial.completed]))
-
     while True:
-
         fr.tick()
+
+
+        cmd = None
+        if end2.poll():
+            cmd = end2.recv()
+
+        # exit the subprocess
+        if cmd == "close":
+            break
+
+        # enqueue a Trial_Results to the dataframe
+        elif cmd == "enqueue":
+            if end2.poll():
+                trial = end2.recv()
+                trial_result = Trial_Results(trial,"name")
+                all_trial_results.append(trial_result)
+                dataframe.add_one(Trial_Results,trial_result)
+                dataframe.commit()
+                end2.send(1)
+            else:
+                end2.send(-1)
 
         # Read in the current list of ML scripts, and compare it with known ML scripts from the last loop iteration.
         # Print if any ML scripts joined or done
         dataframe.checkout()
-        clients = dataframe.read_all(Client)
+        clients = dataframe.read_all(Client_set)
         for client in clients:
             if client not in known_clients:
                 known_clients.add(client)
@@ -107,152 +116,54 @@ def run_server(dataframe: Dataframe):
                 trails_changed = True
         if trials_changed:
             print("Trial_Results to complete: {}".format([trial_result.trial_id for trial_result in all_trial_results if not trial_result.completed]))
-
+        ''' TBD
         # Exit condition
         if len(known_completed_trial_results) == len(all_trial_results):
             print("All trial_results completed.")
             break
+        '''
 
 
-class _Database(object):
+class SpacetimeServer(object):
     """
-    Manages a Mongo-DB for storing metrics and delivering parameters to trials.
-    The Mongo-DB contains one database that serves as a queue of future trials
-    and one to store results of active and finished trials.
+    Manages a Spacetime Node for storing metrics and delivering parameters to trials.
+    The Spacetime Node contains one database that stores Trial_Results objects for
+    futrue tirals and active/finished trials.
     Attributes:
-        dbpath (str): the path where Mongo-DB stores its files.
-        port (int): the port on which the Mongo-DB should run.
-        reinstantiated (bool): whether an instance of the MongoDB is being loaded.
-        mongodb_args (dict): keyword arguments to MongoDB
+        port (int): the port on which the Spacetime Node should run.
     """
     def __init__(self, port=27010):
-    #self, db_dir, port=27010, reinstantiated=False,mongodb_args={}):
-        self.server_app = Node(run_server, port, Types=[Trial_Results, Client_set])
-        self.server_process = None
+        self.server_app = Node(run_server, server_port = port, Types=[Trial_Results, Client_set])
+        self.server_end = end1
         self.port = port
-        '''
-        self.client = MongoClient(port=port)
-        self.db = self.client.sherpa
-        self.collected_results = set()
-        self.mongo_process = None
-        self.dir = db_dir
-        self.port = port
-        self.reinstantiated = reinstantiated
-        self.mongodb_args = mongodb_args
-        '''
-
 
     def start(self):
         """
         Runs the server in a sub-process.
         """
-        '''
-        args = {"--" + k: v for k, v in self.mongodb_args.items()}
-        if "--dbpath" in args:
-            warnings.warn("Writing MongoDB to custom path {} instead of "
-                          "output dir {}".format(args["--dbpath"], self.dir),
-                          UserWarning)
-        else:
-            args["--dbpath"] = self.dir
-        if "--logpath" in args:
-            warnings.warn("Writing MongoDB logs to custom path {} instead of "
-                          "output dir {}".format(
-                args["--logpath"], os.path.join(self.dir, "log.txt")),
-                UserWarning)
-        else:
-            args["--logpath"] = os.path.join(self.dir, "log.txt")
-        if "--port" in args:
-            warnings.warn("Starting MongoDB on port {} instead of "
-                          "port {}. Set port via the db_port argument in "
-                          "sherpa.optimize".format(args["--port"], self.port),
-                          UserWarning)
-        else:
-            args["--port"] = str(self.port)
-        '''
+        self.server_app.start_async()
         dblogger.debug("Starting Spacetime server...{}".format(self.port))
 
-        '''
-        cmd = ['mongod']
-        cmd += [str(item) for keyvalue in args.items() for item in keyvalue if item is not '']
-
-        dblogger.debug("Starting MongoDB using command:{}".format(str(cmd)))
-
-        try:
-            self.mongo_process = subprocess.Popen(cmd)
-        except FileNotFoundError as e:
-            raise FileNotFoundError(str(e) + "\nCheck that MongoDB is installed and in PATH.")
-        time.sleep(1)
-        self.check_db_status()
-        if self.reinstantiated:
-            self.get_new_results()
-        '''
-
     def close(self):
-        print('Closing Server!')
-        self.server_process.terminate()
+        """
+        Closes the server
+        """
+        self.server_end.send("close")
+        dblogger.debug("Closing Spacetime server...{}".format(self.port))
 
-    def check_db_status(self): #
+    def enqueue_trial_results(self, trial):
         """
-        Checks whether database is still running.
+        Puts a new Trial_Results in the queue for clients to get
         """
-        status = self.mongo_process.poll()
-        if status:
-            raise EnvironmentError("Database exited with code {}".format(status))
-
-    def get_new_results(self):
-        """
-        Checks database for new results.
-        Returns:
-            (list[dict]) where each dict is one row from the DB.
-        """
-        self.check_db_status()
-        new_results = []
-        for entry in self.db.results.find():
-            result = entry
-            mongo_id = result.pop('_id')
-            if mongo_id not in self.collected_results:
-                new_results.append(result)
-                self.collected_results.add(mongo_id)
-        return new_results
-
-    def enqueue_trial(self, trial):
-        """
-        Puts a new trial in the queue for trial scripts to get.
-        """
-        self.check_db_status()
-        trial = {'trial_id': trial.id,
-                 'parameters': trial.parameters}
+        #trial_result = Trial_Results(trial, "trial")
         try:
-            t_id = self.db.trials.insert_one(trial).inserted_id
-        except pymongo.errors.InvalidDocument:
-            new_params = {}
-            for k, v in trial['parameters'].items():
-                if isinstance(v, numpy.int64):
-                    v = int(v)
+            self.server_end.send("enqueue")
+            self.server_end.send(trial)
+            if self.server_end.poll():
+                assert self.server_end.recv() == 1
+        except:
+            dblogger.debug("Failed to enqueue the trial result")
 
-                new_params[k] = v
-
-            trial['parameters'] = new_params
-            t_id = self.db.trials.insert_one(trial).inserted_id
-
-    def add_for_stopping(self, trial_id): #
-        """
-        Adds a trial for stopping.
-        In the trial-script this will raise an exception causing the trial to
-        stop.
-        Args:
-            trial_id (int): the ID of the trial to stop.
-        """
-        self.check_db_status()
-        dblogger.debug("Adding {} to DB".format({'trial_id': trial_id}))
-        self.db.stop.insert_one({'trial_id': trial_id}).inserted_id
-
-    def __enter__(self):
-        self.start()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
 
 def _client_app(dataframe: Dataframe, client_name: str, remote):
 
