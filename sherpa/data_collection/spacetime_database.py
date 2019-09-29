@@ -13,6 +13,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
 """
+import sys, os
+sys.path.append((os.path.abspath(os.path.join(os.path.dirname(__file__), './'))))
 import logging
 import numpy
 import pymongo
@@ -24,7 +26,7 @@ import socket
 import warnings
 
 from spacetime import Node, Dataframe
-from sherpa_datamodel import Trial_Results, Client as Trial_Results, Client_set
+from sherpa_datamodel import Trial_Results, Client_set
 import random
 import sys
 import multiprocessing as mp
@@ -40,6 +42,7 @@ import sherpa
 
 
 dblogger = logging.getLogger(__name__)
+end1, end2 = mp.Pipe()
 
 def run_server(dataframe: Dataframe):
     dataframe.checkout()
@@ -163,6 +166,12 @@ class SpacetimeServer(object):
                 assert self.server_end.recv() == 1
         except:
             dblogger.debug("Failed to enqueue the trial result")
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
 
 def _client_app(dataframe: Dataframe, client_name: str, remote):
@@ -260,7 +269,7 @@ def _client_app(dataframe: Dataframe, client_name: str, remote):
         print('KeyboardInterrupt')
 
     # Remove client from the dataframe so the server doesn't think we still exist
-    dataframe.delete_one(Client, client)
+    dataframe.delete_one(Client_set, client)
     dataframe.commit()
     dataframe.push()
 
@@ -272,7 +281,7 @@ def _start_client_app(remote, parent_remote, server_hostname, server_port, clien
 
     node = Node(_client_app,
                      dataframe=(server_hostname, server_port),
-                     Types=[Trial_Results, Client])
+                     Types=[Trial_Results, Client_set])
 
     node.start(client_name, remote)
 
@@ -284,8 +293,6 @@ class Client(object):
     spacetime and piping a subprocess.
     This function is called from trial-scripts only.
 
-
-        TBD
     Attributes:
         host (str): the host that runs the database. Passed host, host set via
             environment variable or 'localhost' in that order.
@@ -365,7 +372,7 @@ class Client(object):
         for k,v in context.items():
             if type(v) == numpy.float32:
                 context[k] = numpy.float64(v)
-        results = [('parameters', list(trial.parameters.items()),
+        results = [('parameters', list(trial.parameters.items())),
                   ('trial_id', trial.id),
                   ('objective', objective),
                   ('iteration', iteration),
