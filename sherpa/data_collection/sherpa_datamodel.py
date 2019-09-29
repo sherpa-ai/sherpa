@@ -9,7 +9,7 @@ import numpy as np
 
 # pcc_set client_id -- Client
 @pcc_set
-class Client(object):
+class Client_set(object):
     client_id = primarykey(int)
     name = dimension(str)
     result = dimension(list)
