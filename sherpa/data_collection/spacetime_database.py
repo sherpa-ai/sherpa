@@ -77,7 +77,7 @@ def run_server(dataframe: Dataframe):
                 end2.send(1)
             else:
                 end2.send(-1)
-
+        '''
         # Read in the current list of ML scripts, and compare it with known ML scripts from the last loop iteration.
         # Print if any ML scripts joined or done
         dataframe.checkout()
@@ -119,13 +119,12 @@ def run_server(dataframe: Dataframe):
                 trails_changed = True
         if trials_changed:
             print("Trial_Results to complete: {}".format([trial_result.trial_id for trial_result in all_trial_results if not trial_result.completed]))
-        ''' TBD
+            TBD
         # Exit condition
         if len(known_completed_trial_results) == len(all_trial_results):
             print("All trial_results completed.")
             break
         '''
-
 
 class SpacetimeServer(object):
     """
@@ -188,7 +187,7 @@ def _client_app(dataframe: Dataframe, client_name: str, remote):
             break
 
     # Add our worker to the dataframe so the server can see that we exist
-    client = Client_set(id_no, client_name, {1: 111, 2: 222})
+    client = Client_set(id_no, client_name, [])
     dataframe.add_one(Client_set, client)
     dataframe.commit()
     dataframe.push()
@@ -208,32 +207,19 @@ def _client_app(dataframe: Dataframe, client_name: str, remote):
                     remote.send(None)
                     continue
 
-                # Trial_Results are available, let the server know that we would like one
-                client.ready_for_new_trial_result = True
-                dataframe.commit()
-                dataframe.push()
-
-                # Wait for the server to give us a new trial_results, keep pulling until the server has marked
-                # us as no longer ready because it assigned us a new trial_results
-                while True:
-                    fr.tick()
-                    dataframe.pull()
-                    dataframe.checkout()
-
-                    if not client.ready_for_new_trial_result:
-                        break
-
-                # Return the new trial_results' name
+                # Return the new trial_id corresponding to the trial_results
                 new_trial_results = None
+
                 for t in trial_results_list:
                     if t.trial_id == data:
                         new_trial_results = t
                         client.assigned_trial_result = t.trial_id
                         break
+                print("Trial_id we got is {}".format(new_trial_results.trial_id))
                 if new_trial_results == None:
                     remote.send(None)
                 else:
-                    remote.send(new_trial_results)
+                    remote.send(new_trial_results.trial_id)
 
             elif cmd == 'submit_result':
 
@@ -328,6 +314,9 @@ class Client(object):
             self.proc.start()
             client_remote.close()
 
+    def quit(self):
+        self.remote.send(("quit", None))
+
     def get_trial(self):
         """
         Returns the next trial from a Sherpa Study.
@@ -342,12 +331,14 @@ class Client(object):
 
         print("Client {} waiting for new trial_results...".format(self._client_name))
         self.remote.send(("get_new_trial_results", trial_id))
-        trial_results = self.remote.recv()
-        if trial_results == None:
-            raise RuntimeError("No Trial Found in the spacetime frame.")
-        print("Client {} got trial_results {}".format(self._client_name, trial_results.name))
 
-        return sherpa.Trial(id=trial_results.trial_id, parameters=trial_results.parameters)
+        trial_id = self.remote.recv()
+
+        if trial_id == None:
+            raise RuntimeError("No Trial Found in the spacetime frame.")
+        print("Client {} got trial_results {}".format(self._client_name, trial_id))
+
+        return trial_id
 
     def send_metrics(self, trial, iteration, objective, context={}):
         """
