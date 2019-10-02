@@ -7,7 +7,7 @@ import numpy as np
     in the form of (objective, iteration, context)
 '''
 
-# pcc_set client_id -- Client
+# pcc_set client_id -- Client_set
 @pcc_set
 class Client_set(object):
     client_id = primarykey(int)
