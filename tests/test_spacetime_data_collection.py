@@ -88,7 +88,7 @@ def test_spacetime_data_collection(test_dir):
     test_trial = get_test_trial()
     testlogger.debug(test_dir)
     db_port = sherpa.core._port_finder(27000, 28000)
-    with sherpa.data_collection.spacetime_database.SpacetimeServer(port=7777) as db:
+    with sherpa.data_collection.spacetime_database.SpacetimeServer(port=db_port) as db:
         time.sleep(2)
         testlogger.debug("Enqueuing...")
 
@@ -96,13 +96,19 @@ def test_spacetime_data_collection(test_dir):
 
         testlogger.debug("Starting Client...")
 
-        client = sherpa.data_collection.spacetime_database.Client(port=7777)
+        client = sherpa.data_collection.spacetime_database.Client(port=db_port)
 
         testlogger.debug("Getting Trial...")
         os.environ['SHERPA_TRIAL_ID'] = '1'
-        #assert False
-        id = client.get_trial()
-        client.quit()
 
-        assert id == 1
-        #assert  id == {'a': 1, 'b': 2}
+        trial = client.get_trial()
+
+
+        assert trial.id == 1
+        assert  trial.parameters == {'a': 1, 'b': 2}
+
+        testlogger.debug("Sending Metrics...")
+        client.send_metrics(trial=trial, iteration=1,
+                           objective=0.1, context={'other_metric': 0.2})
+
+        client.quit()
