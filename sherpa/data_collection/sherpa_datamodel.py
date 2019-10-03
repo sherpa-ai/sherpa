@@ -7,6 +7,7 @@ import numpy as np
     in the form of (objective, iteration, context)
 '''
 
+
 # pcc_set client_id -- Client_set
 @pcc_set
 class Client_set(object):
@@ -38,7 +39,7 @@ class Client_set(object):
 @pcc_set
 class Trial_Results(object):
     trial_id = primarykey(int)
-    parameters = dimension(dict)
+    parameters = dimension(list)
     meta = dimension(dict)
     assigned_client = dimension(int)
     completed = dimension(bool)
@@ -53,7 +54,7 @@ class Trial_Results(object):
     '''
     def __init__(self, trial, name):
         self.trial_id = trial.id
-        self.parameters = trial.parameters
+        self.parameters = list(trial.parameters.items())
         self.meta = {}
         self.assigned_client = -1
         self.completed = False
