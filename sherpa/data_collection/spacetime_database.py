@@ -70,7 +70,9 @@ def run_server(dataframe: Dataframe):
         elif cmd == "enqueue":
             if end2.poll():
                 trial = end2.recv()
+                #print("My trial_parameters",trial.parameters)
                 trial_result = Trial_Results(trial,"name")
+                #print("Trial_Results parameters: ",trial_result.parameters)
                 all_trial_results.append(trial_result)
                 dataframe.add_one(Trial_Results,trial_result)
                 dataframe.commit()
@@ -207,7 +209,7 @@ def _client_app(dataframe: Dataframe, client_name: str, remote):
                     remote.send(None)
                     continue
 
-                # Return the new trial_id corresponding to the trial_results
+                # Make sure trial_id is correct and return the parameters corresponding to the trial_results
                 new_trial_results = None
 
                 for t in trial_results_list:
@@ -215,11 +217,12 @@ def _client_app(dataframe: Dataframe, client_name: str, remote):
                         new_trial_results = t
                         client.assigned_trial_result = t.trial_id
                         break
-                print("Trial_id we got is {}".format(new_trial_results.trial_id))
+
                 if new_trial_results == None:
                     remote.send(None)
                 else:
-                    remote.send(new_trial_results.trial_id)
+                    print("MY PARAMS:", new_trial_results.parameters)
+                    remote.send(new_trial_results.parameters)
 
             elif cmd == 'submit_result':
 
@@ -314,6 +317,8 @@ class Client(object):
             self.proc.start()
             client_remote.close()
 
+
+
     def quit(self):
         self.remote.send(("quit", None))
 
@@ -332,13 +337,13 @@ class Client(object):
         print("Client {} waiting for new trial_results...".format(self._client_name))
         self.remote.send(("get_new_trial_results", trial_id))
 
-        trial_id = self.remote.recv()
+        serialized_trial = self.remote.recv()
+        new_trial = Trial(trial_id,parameters={k: v for k, v in serialized_trial})
 
-        if trial_id == None:
+        if new_trial == None:
             raise RuntimeError("No Trial Found in the spacetime frame.")
-        print("Client {} got trial_results {}".format(self._client_name, trial_id))
 
-        return trial_id
+        return new_trial
 
     def send_metrics(self, trial, iteration, objective, context={}):
         """
