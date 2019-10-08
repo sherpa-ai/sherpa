@@ -23,6 +23,7 @@ import pandas
 import sherpa
 import logging
 import itertools
+import pytest
 from test_sherpa import get_test_trial
 
 
@@ -59,61 +60,62 @@ def test_median_stopping_rule():
                                          lower_is_better=True)
 
 
-def test_local_search():
-    parameters = [sherpa.Continuous('cont', [0, 1]),
-                  sherpa.Ordinal('ord', [1, 2, 3])]
-
-    seed = {'cont': 0.5, 'ord': 2}
+def get_local_search_study_lower_is_better(params, seed):
     alg = sherpa.algorithms.LocalSearch(seed_configuration=seed)
 
-    study = sherpa.Study(parameters=parameters, algorithm=alg,
+    study = sherpa.Study(parameters=params, algorithm=alg,
                          lower_is_better=True,
                          disable_dashboard=True)
-
-    def mock_objective(p):
-        return p['cont']/p['ord']
-
-    # Initial suggestion.
-    t = study.get_suggestion()
-    tlist = [t]
-    tbest = t
-    assert t.parameters == seed
-    study.add_observation(t, objective=mock_objective(t.parameters),
-                          iteration=1)
-    study.finalize(t)
+    return study
 
 
-    # Perform a suggestion.
-    t = study.get_suggestion()
-    tlist.append(t)
-    if mock_objective(t.parameters) < mock_objective(tbest.parameters):
-           tbest = t     
-    study.add_observation(t, objective=mock_objective(t.parameters),
-                          iteration=1)
-    study.finalize(t)
-    if t.parameters['ord'] == 2:
-        assert t.parameters['cont'] != 0.5
-        assert abs(t.parameters['cont'] - 0.5) < 0.2
-    else:
-        assert t.parameters['cont'] == 0.5
-        t.parameters['ord'] in [1,3]
-    
-    # Do more iterations.
-    for i in range(50):
-        t = study.get_suggestion()
-        #print(t.parameters)
-        assert t.parameters['ord'] in [1,2,3]
-        assert t.parameters['cont'] >= 0.0 
-        assert t.parameters['cont'] <= 1.0 
-        # All new suggestions should be based on tbest.
-        assert t.parameters['ord'] == tbest.parameters['ord'] \
-               or t.parameters['cont'] == tbest.parameters['cont']
-        tlist.append(t)
-        if mock_objective(t.parameters) < mock_objective(tbest.parameters):
-           tbest = t
-        study.add_observation(t, objective=mock_objective(t.parameters),
-                              iteration=1)
-        study.finalize(t)
+class TestLocalSearch:
+    @pytest.mark.parametrize("parameter,seed,expected",
+                             [(sherpa.Ordinal('p', [0, 1, 2, 3, 4]), {'p': 2}, [1, 3]),
+                              (sherpa.Continuous('p', [0, 1]), {'p': 0.5}, [0.5*0.8, 0.5*1.2]),
+                              (sherpa.Discrete('p', [0, 10]), {'p': 5}, [4, 6]),
+                              (sherpa.Choice('p', [0, 1, 2, 3, 4]), {'p': 2}, [0, 1, 3, 4])])
+    def test_seed_and_first_suggestion(self, parameter, seed, expected):
+        study = get_local_search_study_lower_is_better([parameter],
+                                                       seed)
+        trial = study.get_suggestion()
+        assert trial.parameters['p'] == seed['p']
+        study.add_observation(trial, objective=trial.parameters['p'], iteration=1)
+        study.finalize(trial)
+
+        trial = study.get_suggestion()
+        assert trial.parameters['p'] in expected
+
+    @pytest.mark.parametrize("parameter,seed,expected",
+                             [(sherpa.Ordinal('p', [0, 1, 2, 3, 4]), {'p': 2}, [0, 1]),
+                              (sherpa.Continuous('p', [0, 1]), {'p': 0.5}, [0.5*(0.8), 0.5*(0.8)**2]),
+                              (sherpa.Discrete('p', [0, 10]), {'p': 5}, [int(5*(0.8)), int(5*(0.8)**2)]),
+                              (sherpa.Choice('p', [0, 1, 2]), {'p': 2}, [0])])
+    def test_expected_value_after_three_iterations(self, parameter, seed, expected):
+        study = get_local_search_study_lower_is_better([parameter],
+                                                       seed)
+        for trial in study:
+            study.add_observation(trial, objective=trial.parameters['p'], iteration=1)
+            study.finalize(trial)
+            if trial.id == 3:
+                break
+
+        assert study.get_best_result()['Objective'] in expected
+
+    @pytest.mark.parametrize("param1,seed1,param2,seed2", [(sherpa.Ordinal('p1', [0, 1, 2, 3, 4]), {'p1': 2},
+                                                            sherpa.Continuous('p2', [0, 1]), {'p2': 0.5})])
+    def test_only_one_parameter_is_perturbed_at_a_time(self, param1, seed1, param2, seed2):
+        seed = dict(seed1, **seed2)
+        study = get_local_search_study_lower_is_better([param1, param2],
+                                                       seed=seed)
+        trial = study.get_suggestion()
+        study.add_observation(trial, objective=1, iteration=1)
+        study.finalize(trial)
+
+        trial = study.get_suggestion()
+        assert not all(
+            param_value != seed[param_name] for param_name, param_value in
+            trial.parameters.items())
 
 
 def test_Iterate_search():
@@ -419,7 +421,7 @@ def test_repeat_wait_for_completion():
         # Obtained 10/10 repeats for the configuration, but haven't added
         # results for the last one. Obtaining a new suggestion we expect WAIT.
         twait = study.get_suggestion()
-        assert twait.parameters == sherpa.AlgorithmState.WAIT
+        assert twait == sherpa.AlgorithmState.WAIT
         study.add_observation(t, objective=float(i),
                               iteration=1)
         study.finalize(t)
