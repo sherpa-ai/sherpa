@@ -48,10 +48,14 @@ def results_long():
 
 @pytest.mark.parametrize("num_initial_data_points,expected",
                      [('infer', 5),
-                      (3, 5),
                       (7, 7)])
 def test_infer_num_initial_data_points(num_initial_data_points, expected, parameters):
     assert GPyOpt._infer_num_initial_data_points(num_initial_data_points, parameters) == expected
+
+
+def test_infer_num_initial_data_points_too_few_specified(parameters):
+    with pytest.warns(UserWarning, match="num_initial_data_points < number of parameters found"):
+        assert GPyOpt._infer_num_initial_data_points(3, parameters) == 5
 
 
 def test_processing_of_initial_data_points(parameters):
