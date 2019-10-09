@@ -7,4 +7,3 @@ flask>=0.12.2
 GPyOpt>='1.2.5'
 enum34
 matplotlib
-pylab
