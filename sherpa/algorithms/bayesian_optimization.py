@@ -192,16 +192,13 @@ class GPyOpt(Algorithm):
         X and objective values y to be consumed by GPyOpt.
         """
         completed = results.query("Status == 'COMPLETED'")
+
         X = numpy.zeros((len(completed), len(parameters)))
         for i, p in enumerate(parameters):
-            if isinstance(p, Choice) or isinstance(p, Ordinal):
-                X[:, i] = completed[p.name].apply(
-                    lambda elem: GPyOpt.ChoiceTransform.transform(
-                        elem, p.range))
-            elif isinstance(p, Continuous) and p.scale == 'log':
-                X[:, i] = GPyOpt.LogTransform.transform(completed[p.name])
-            else:
-                X[:, i] = completed[p.name]
+            transform = ParameterTransform.from_parameter(p)
+            historical_data = completed[p.name]
+            X[:, i] = transform.sherpa_format_to_gpyopt_design_format(
+                historical_data)
 
         y = numpy.array(completed.Objective).reshape((-1, 1))
         if 'varObjective' in completed.columns:
@@ -210,31 +207,6 @@ class GPyOpt(Algorithm):
             y_var = None
         return X, y, y_var
 
-    class LogTransform(object):
-        """
-        Transforms/reverses Continuous variables if on log-scale.
-        """
-        @staticmethod
-        def transform(x):
-            return numpy.log10(x)
-
-        @staticmethod
-        def reverse(x):
-            return 10**x
-
-    class ChoiceTransform(object):
-        """
-        Transforms/reverses Choice variables to numeric choices since GPyOpt
-        does not accept string choices.
-        """
-        @staticmethod
-        def transform(element, vals):
-            return vals.index(element)
-
-        @staticmethod
-        def reverse(element, vals):
-            return vals[int(element)]
-
     @staticmethod
     def _initialize_domain(parameters):
         """
@@ -242,28 +214,8 @@ class GPyOpt(Algorithm):
         """
         domain = []
         for p in parameters:
-            if isinstance(p, Choice) or isinstance(p, Ordinal):
-                domain.append({'name': p.name, 'type': 'categorical',
-                               'domain': numpy.array(
-                                   [GPyOpt.ChoiceTransform.transform(
-                                       item, p.range)
-                                   for item in p.range])})
-            elif isinstance(p, Discrete):
-                domain.append({'name': p.name, 'type': 'discrete',
-                               'domain': tuple(range(p.range[0],
-                                                     p.range[1]+1))})
-                if p.scale == 'log':
-                    warnings.warn("GPyOpt discrete parameter does not "
-                                  "support log-scale.", UserWarning)
-            else:
-                if p.scale == 'log':
-                    lower_bound = GPyOpt.LogTransform.transform(p.range[0])
-                    upper_bound = GPyOpt.LogTransform.transform(p.range[1])
-                else:
-                    lower_bound = p.range[0]
-                    upper_bound = p.range[1]
-                domain.append({'name': p.name, 'type': 'continuous',
-                               'domain': (lower_bound, upper_bound)})
+            domain.append(
+                ParameterTransform.from_parameter(p).to_gpyopt_domain())
         return domain
 
     @staticmethod
@@ -274,15 +226,106 @@ class GPyOpt(Algorithm):
         """
         col_dict = {}
         for i, p in enumerate(parameters):
-            if isinstance(p, Choice) or isinstance(p, Ordinal):
-                col_dict[p.name] = list(map(
-                    lambda x: GPyOpt.ChoiceTransform.reverse(
-                        x, p.range), X_next[:, i]))
-            elif isinstance(p, Continuous) and p.scale == 'log':
-                col_dict[p.name] = list(GPyOpt.LogTransform.reverse(X_next[:, i]))
-            elif isinstance(p, Discrete):
-                col_dict[p.name] = list(X_next[:, i].astype('int'))
-            else:
-                col_dict[p.name] = list(X_next[:, i])
+            transform = ParameterTransform.from_parameter(p)
+            col_dict[p.name] = transform.gpyopt_design_format_to_list_in_sherpa_format(X_next[:, i])
 
         return list(pandas.DataFrame(col_dict).T.to_dict().values())
+
+
+class ParameterTransform(object):
+    """
+    ParamterTransform base class, creates correct object
+    depending on parameter.
+    """
+    def __init__(self, parameter):
+        self.parameter = parameter
+
+    @staticmethod
+    def from_parameter(parameter):
+        if isinstance(parameter, Choice) or isinstance(parameter, Ordinal):
+            return ChoiceTransform(parameter)
+        elif isinstance(parameter, Continuous):
+            if parameter.scale == 'log':
+                return LogContinuousTransform(parameter)
+            else:
+                return ContinuousTransform(parameter)
+        elif isinstance(parameter, Discrete):
+            if parameter.scale == 'log':
+                warnings.warn("GPyOpt discrete parameter does not "
+                              "support log-scale.", UserWarning)
+            return DiscreteTransform(parameter)
+
+    def to_gpyopt_domain(self):
+        raise NotImplementedError
+
+    def gpyopt_design_format_to_list_in_sherpa_format(self, x):
+        raise NotImplementedError
+
+    def sherpa_format_to_gpyopt_design_format(self, x):
+        raise NotImplementedError
+
+
+class ContinuousTransform(ParameterTransform):
+    """
+    Transforms/reverses Continuous variables.
+    """
+    def to_gpyopt_domain(self):
+        return {'name': self.parameter.name,
+                'type': 'continuous',
+                'domain': tuple(self.parameter.range)}
+
+    def gpyopt_design_format_to_list_in_sherpa_format(self, x):
+        return x
+
+    def sherpa_format_to_gpyopt_design_format(self, x):
+        return x
+
+
+class LogContinuousTransform(ParameterTransform):
+    """
+    Transforms/reverses Continuous variables if on log-scale.
+    """
+    def to_gpyopt_domain(self):
+        return {'name': self.parameter.name,
+                'type': 'continuous',
+                'domain': (numpy.log10(self.parameter.range[0]),
+                           numpy.log10(self.parameter.range[1]))}
+
+    def gpyopt_design_format_to_list_in_sherpa_format(self, x):
+        return 10**x
+
+    def sherpa_format_to_gpyopt_design_format(self, x):
+        return numpy.log10(x)
+
+
+class ChoiceTransform(ParameterTransform):
+    """
+    Transforms/reverses Choice variables to numeric choices since GPyOpt
+    does not accept string choices.
+    """
+    def to_gpyopt_domain(self):
+        return {'name': self.parameter.name, 'type': 'categorical',
+                'domain': numpy.array(range(len(self.parameter.range)))}
+
+    def gpyopt_design_format_to_list_in_sherpa_format(self, x):
+        return [self.parameter.range[int(elem)] for elem in x]
+
+    def sherpa_format_to_gpyopt_design_format(self, x):
+        return [self.parameter.range.index(elem) for elem in x]
+
+
+class DiscreteTransform(ParameterTransform):
+    """
+    Transforms Discrete parameter from/to GPyOpt
+    """
+    def to_gpyopt_domain(self):
+        return {'name': self.parameter.name,
+                'type': 'discrete',
+                'domain': tuple(range(self.parameter.range[0],
+                                      self.parameter.range[1]+1))}
+
+    def gpyopt_design_format_to_list_in_sherpa_format(self, x):
+        return list(x.astype('int'))
+
+    def sherpa_format_to_gpyopt_design_format(self, x):
+        return x
