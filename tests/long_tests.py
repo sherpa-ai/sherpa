@@ -44,7 +44,7 @@ for i in range(num_iterations):
 @pytest.mark.skipif(shutil.which('mongod') is None,
                     reason="requires MongoDB")
 def test_wrong_db_host_or_port(test_dir):
-
+    print("MONGODB: ", shutil.which('mongod'))
     tempdir = test_dir
 
     parameters = [sherpa.Choice(name="param_a",
