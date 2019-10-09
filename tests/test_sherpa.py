@@ -215,7 +215,8 @@ def get_test_study():
     s = sherpa.Study(parameters=list(get_test_parameters()),
                      algorithm=mock_algorithm,
                      stopping_rule=mock_stopping_rule,
-                     lower_is_better=True)
+                     lower_is_better=True,
+                     disable_dashboard=True)
 
     return s
 
@@ -246,13 +247,13 @@ def test_runner_update_results():
     assert r.study.results['Trial-ID'].isin([1]).sum()
 
     # new observation
-    mock_db.get_results.return_value = [{'context': {'other_metric': 0.3},
+    mock_db.get_new_results.return_value = [{'context': {'other_metric': 0.3},
                                          'iteration': 2,
                                          'objective': 0.2,
                                          'parameters': {'a': 1, 'b': 2},
                                          'trial_id': 1}]
     r.update_results()
-    assert 0.2 in r.study.results['Objective']
+    assert 0.2 in list(r.study.results['Objective'])
 
 
 def test_runner_update_active_trials():
