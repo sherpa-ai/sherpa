@@ -41,7 +41,7 @@ for i in range(num_iterations):
                         objective=pseudo_objective)
 """
 
-@pytest.mark.skipif(not shutil.which('mongod'),
+@pytest.mark.skipif(shutil.which('mongod') is None,
                     reason="requires MongoDB")
 def test_wrong_db_host_or_port(test_dir):
 
@@ -80,7 +80,7 @@ trial = client.get_trial()
 1/0
 """
 
-@pytest.mark.skipif(not shutil.which('mongod'),
+@pytest.mark.skipif(shutil.which('mongod') is None,
                     reason="requires MongoDB")
 def test_user_code_fails(test_dir):
 
