@@ -7,6 +7,7 @@ from sherpa.core import Choice, Continuous, Discrete, Ordinal
 import collections
 import GPyOpt as gpyopt_package
 import GPy
+import warnings
 
 
 bayesoptlogger = logging.getLogger(__name__)
@@ -149,19 +150,28 @@ class GPyOpt(Algorithm):
 
     @staticmethod
     def _infer_num_initial_data_points(num_initial_data_points, parameters):
+        """
+        Infers number of initial data points, or overwrites and warns user if
+        she defined less than the number of points needed.
+        """
         if num_initial_data_points == 'infer':
             return len(parameters) + 1
         elif num_initial_data_points >= len(parameters):
             return num_initial_data_points
         else:
-            bayesoptlogger.warn("num_initial_data_points < number of "
+            warnings.warn("num_initial_data_points < number of "
                                 "parameters found. Setting "
                                 "num_initial_data_points to "
-                                "len(parameters)+1.")
+                                "len(parameters)+1.", UserWarning)
             return len(parameters) + 1
 
     @staticmethod
     def _process_initial_data_points(initial_data_points, parameters):
+        """
+        Turns initial_data_points into list of dicts (if Pandas.DataFrame) and
+        assures that all defined parameters have settings in the
+        initial_data_points.
+        """
         if isinstance(initial_data_points, pandas.DataFrame):
             _initial_data_points = list(initial_data_points.T.to_dict().values())
         else:
@@ -242,6 +252,9 @@ class GPyOpt(Algorithm):
                 domain.append({'name': p.name, 'type': 'discrete',
                                'domain': tuple(range(p.range[0],
                                                      p.range[1]+1))})
+                if p.scale == 'log':
+                    warnings.warn("GPyOpt discrete parameter does not "
+                                  "support log-scale.", UserWarning)
             else:
                 if p.scale == 'log':
                     lower_bound = GPyOpt.LogTransform.transform(p.range[0])
