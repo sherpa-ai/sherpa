@@ -176,6 +176,7 @@ def test_types_are_correct(parameters, results):
     assert isinstance(suggestion['activation'], str)
 
 
+@pytest.mark.skip(reason="sample results do not copy when doing `pip install .`")
 def test_overall():
     gpyopt = GPyOpt(max_concurrent=1)
     parameters, results, lower_is_better = sherpa.algorithms.get_sample_results_and_params()
