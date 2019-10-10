@@ -24,6 +24,6 @@ from .database import Client
 from . import algorithms
 import logging
 
-__version__ = '1.0.2'
+__version__ = '1.0.3'
 
 logging.basicConfig(level=logging.INFO)
