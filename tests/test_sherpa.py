@@ -183,7 +183,7 @@ def test_database_args(test_dir):
             with pytest.raises(OSError):
                 db2.start()
                 
-def test_client_test_mode():
+def test_client_test_mode_send_metrics_does_nothing():
     client = sherpa.Client(test_mode=True)
     trial = client.get_trial()
     
@@ -191,7 +191,21 @@ def test_client_test_mode():
     assert trial.parameters == {}
     
     client.send_metrics(trial=trial, iteration=1, objective=0.1)
-    callback = client.keras_send_metrics(trial=trial, objective_name='val_acc', context_names=['val_loss', 'loss', 'acc'])
+
+
+@pytest.mark.skipif('keras' not in sys.modules,
+                    reason="requires the Keras library")
+def test_client_test_mode_keras_send_metrics_does_nothing():
+    client = sherpa.Client(test_mode=True)
+    trial = client.get_trial()
+
+    assert trial.id == 1
+    assert trial.parameters == {}
+
+    callback = client.keras_send_metrics(trial=trial, objective_name='val_acc',
+                                         context_names=['val_loss', 'loss',
+                                                        'acc'])
+
 
 def get_test_study():
     mock_algorithm = mock.MagicMock()
@@ -201,7 +215,8 @@ def get_test_study():
     s = sherpa.Study(parameters=list(get_test_parameters()),
                      algorithm=mock_algorithm,
                      stopping_rule=mock_stopping_rule,
-                     lower_is_better=True)
+                     lower_is_better=True,
+                     disable_dashboard=True)
 
     return s
 
@@ -232,13 +247,13 @@ def test_runner_update_results():
     assert r.study.results['Trial-ID'].isin([1]).sum()
 
     # new observation
-    mock_db.get_results.return_value = [{'context': {'other_metric': 0.3},
+    mock_db.get_new_results.return_value = [{'context': {'other_metric': 0.3},
                                          'iteration': 2,
                                          'objective': 0.2,
                                          'parameters': {'a': 1, 'b': 2},
                                          'trial_id': 1}]
     r.update_results()
-    assert 0.2 in r.study.results['Objective']
+    assert 0.2 in list(r.study.results['Objective'])
 
 
 def test_runner_update_active_trials():

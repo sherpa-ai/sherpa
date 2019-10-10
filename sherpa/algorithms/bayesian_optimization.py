@@ -3,329 +3,14 @@ import logging
 import sherpa
 from sherpa.algorithms import Algorithm
 import pandas
-import scipy.stats
-import scipy.optimize
-import sklearn.gaussian_process
 from sherpa.core import Choice, Continuous, Discrete, Ordinal
-import sklearn.model_selection
-from sklearn import preprocessing
 import collections
-import copy
-import six
 import GPyOpt as gpyopt_package
 import GPy
+import warnings
 
 
 bayesoptlogger = logging.getLogger(__name__)
-
-
-class BayesianOptimization(Algorithm):
-    """
-    Bayesian optimization using Gaussian Process and Expected Improvement.
-
-    Bayesian optimization is a black-box optimization method that uses a
-    probabilistic model to build a surrogate of the unknown objective function.
-    It chooses points to evaluate using an acquisition function that trades off
-    exploitation (e.g. high mean) and exploration (e.g. high variance).
-
-    Args:
-        num_grid_points (int): the number of grid points for continuous/discrete
-            parameters. These will be evaluated first.
-        max_num_trials (int): the number of trials after which the algorithm will
-            stop. Defaults to ``None`` i.e. runs forever.
-        acquisition_function (str): currently only ``'ei'`` for expected improvement.
-
-    """
-    def __init__(self, num_grid_points=2, max_num_trials=None, log_y=False,
-                 fine_tune=True):
-        self.num_grid_points = num_grid_points
-        self.count = 0
-        self.num_candidates = 10000
-        self.num_optimized = 50
-        self.max_num_trials = max_num_trials
-        self.random_sampler = sherpa.algorithms.RandomSearch()
-        self.grid_search = sherpa.algorithms.GridSearch(num_grid_points=num_grid_points)
-        self.best_y = None
-        self.epsilon = 0.
-        self.lower_is_better = None
-        self.gp = None
-        self.log_y = log_y
-        self.fine_tune = fine_tune
-
-        self.Xcolumns = {}  # mapping: param name -> columns in X
-        self.transformers = {}  # mapping: param name -> transformation object
-
-    def get_suggestion(self, parameters, results=None,
-                       lower_is_better=True):
-        self.count += 1
-        self.lower_is_better = lower_is_better
-
-        if self.max_num_trials and self.count > self.max_num_trials:
-            # Algorithm finished
-            return None
-
-        seed = self.grid_search.get_suggestion(parameters=parameters)
-        if seed:
-            # Algorithm still in seed stage
-            return seed
-
-        completed = results.query("Status == 'COMPLETED'")
-        if len(completed) == 0:
-            # No completed results, return random trial
-            return self.random_sampler.get_suggestion(parameters=parameters)
-
-        # Prepare data for GP
-        Xtrain = self._to_design(completed.loc[:, [p.name for p in parameters]],
-                                 parameters)
-        ytrain = numpy.array(completed.loc[:, 'Objective'])
-        if self.log_y:
-            assert all(y > 0. for y in ytrain), "Only positive objective" \
-                                                "values are allowed"
-            ytrain = numpy.log10(ytrain)
-
-        self.best_y = ytrain.min() if lower_is_better else ytrain.max()
-
-        kernel = sklearn.gaussian_process.kernels.Matern(nu=2.5, length_scale=float(2./len(ytrain)))
-
-        self.gp = sklearn.gaussian_process.GaussianProcessRegressor(kernel=kernel,
-                                                                    alpha=1e-8,
-                                                                    optimizer='fmin_l_bfgs_b' if len(ytrain) >= 8*len(parameters) else None,
-                                                                    n_restarts_optimizer=10,
-                                                                    normalize_y=True)
-        self.gp.fit(Xtrain, ytrain)
-
-        candidate_df = self._generate_candidates(parameters)
-        Xcandidate = self._to_design(candidate_df, parameters)
-        EI_Xcandidate = self.get_expected_improvement(Xcandidate)
-
-        if (not all(isinstance(p, Choice) for p in parameters)) and self.fine_tune:
-            # Get indexes of candidates with highest expected improvement
-            best_idxs = EI_Xcandidate.argsort()[-self.num_optimized:][::-1]
-            Xoptimized, EI_Xoptimized = self._maximize(Xcandidate[best_idxs],
-                                                       max_function=self.get_expected_improvement)
-
-            X_total = numpy.concatenate([Xoptimized, Xcandidate])
-            EI_total = numpy.concatenate([EI_Xoptimized, EI_Xcandidate])
-        else:
-            X_total = Xcandidate
-            EI_total = EI_Xcandidate
-
-        # _from_design returns a dataframe so to get it into the right
-        # dictionary form the row needs to be extracted
-        df = self._from_design(X_total[EI_total.argmax()])
-
-        # For debugging, so that these can be accessed from outside
-        self.Xtrain = Xtrain
-        self.ytrain = ytrain
-        self.X_total = X_total
-        self.EI_total = EI_total
-
-        return df.iloc[0].to_dict()
-
-    def _generate_candidates(self, parameters):
-        """
-        Generates candidate parameter configurations via random samples.
-
-        Args:
-            parameters (list[sherpa.core.Parameter]): list of hyperparameters.
-
-        Returns:
-            pandas.DataFrame: table with hyperparameters being columns.
-        """
-        d = [self.random_sampler.get_suggestion(parameters)
-             for _ in range(self.num_candidates)]
-        return pandas.DataFrame.from_dict(d)
-
-    class ChoiceTransformer(object):
-        def __init__(self, parameter):
-            self.le = preprocessing.LabelEncoder()
-            self.le.fit(parameter.range)
-            self.enc = preprocessing.OneHotEncoder()
-            self.enc.fit(numpy.reshape(self.le.transform(parameter.range),
-                                       (-1, 1)))
-
-        def transform(self, s):
-            labels = self.le.transform(numpy.array(s))
-            onehot = self.enc.transform(numpy.reshape(labels, (-1, 1)))
-            return onehot.toarray()
-
-        def reverse(self, onehot):
-            labels = onehot.argmax(axis=-1)
-            return self.le.inverse_transform(labels)
-
-    class ContinuousTransformer(object):
-        def __init__(self, parameter):
-            self.scaler = preprocessing.MinMaxScaler()
-            self.log = (parameter.scale == 'log')
-            if self.log:
-                self.scaler.fit(numpy.log10(self._reshape(parameter.range)))
-            else:
-                self.scaler.fit(self._reshape(parameter.range))
-
-        @staticmethod
-        def _reshape(x):
-            return numpy.array(x).astype('float').reshape((-1, 1))
-
-        def transform(self, s):
-            if self.log:
-                x = self.scaler.transform(numpy.log10(self._reshape(s)))
-            else:
-                x = self.scaler.transform(self._reshape(s))
-            return x.reshape(-1)
-
-        def reverse(self, x):
-            if self.log:
-                original = 10.**self.scaler.inverse_transform(self._reshape(x))
-            else:
-                original = self.scaler.inverse_transform(self._reshape(x))
-            return original.reshape(-1)
-
-    class DiscreteTransformer(ContinuousTransformer):
-        def __init__(self, parameter):
-            super(BayesianOptimization.DiscreteTransformer, self).__init__(parameter)
-
-        def reverse(self, x):
-            return numpy.round(super(BayesianOptimization.DiscreteTransformer, self).reverse(x)).astype('int')
-
-    def _to_design(self, df, parameters):
-        """
-        Turns a dataframe of parameter configurations into a design matrix.
-
-        Args:
-            df (pandas.DataFrame): dataframe with one column per parameter.
-            parameters (list[sherpa.core.Parameter]): the parameters.
-
-        Returns:
-            numpy.darray: the design matrix.
-        """
-        X = []
-        self.Xcolumns = {}
-        column_count = 0
-        for p in parameters:
-            if isinstance(p, Choice) and len(p.range) == 1:
-                raise ValueError("Currently constant parameters are not allowed"
-                                 " for Bayesian Optimization.")
-
-            elif isinstance(p, Choice):
-                self.transformers[
-                    p.name] = BayesianOptimization.ChoiceTransformer(p)
-                this_feature = self.transformers[p.name].transform(df[p.name])
-
-            elif isinstance(p, Continuous):
-                self.transformers[
-                    p.name] = BayesianOptimization.ContinuousTransformer(p)
-                this_feature = self.transformers[p.name].transform(
-                    df[p.name]).reshape((-1, 1))
-            elif isinstance(p, Discrete):
-                self.transformers[
-                    p.name] = BayesianOptimization.DiscreteTransformer(p)
-                this_feature = self.transformers[p.name].transform(
-                    df[p.name]).reshape((-1, 1))
-
-            self.Xcolumns[p.name] = list(range(column_count, column_count
-                                               + this_feature.shape[1]))
-            column_count += this_feature.shape[1]
-            X.append(this_feature)
-        return numpy.concatenate(X, axis=-1)
-
-    def _from_design(self, X):
-        """
-        Turns a design matrix back into a dataframe.
-
-        Args:
-            X (numpy.darray): Design matrix.
-
-        Returns:
-            pandas.DataFrame: Dataframe of hyperparameter values.
-        """
-        columns = {}
-        for pname, pcols in self.Xcolumns.items():
-            columns[pname] = self.transformers[pname].reverse(numpy.atleast_2d(X)[:, pcols])
-        return pandas.DataFrame.from_dict(columns)
-
-    def _expected_improvement(self, y, y_std):
-        with numpy.errstate(divide='ignore'):
-            scaling_factor = (-1) ** self.lower_is_better
-            z = scaling_factor * (y - self.best_y - self.epsilon)/y_std
-            expected_improvement = scaling_factor * (y - self.best_y -
-                                                     self.epsilon)*scipy.stats.norm.cdf(z) + y_std*scipy.stats.norm.pdf(z)
-        return expected_improvement
-
-    def get_expected_improvement(self, X):
-        """
-        Args:
-            X (numpy.ndarray): the continuous parameters.
-
-        Returns:
-            numpy.ndarray: expected improvement for x and args.
-        """
-        y, y_std = self.gp.predict(numpy.atleast_2d(X), return_std=True)
-        return self._expected_improvement(y, y_std)
-
-    def _maximize(self, X, max_function):
-        """
-        Numerically optimize continuous/discrete columns for each row in X.
-
-        Args:
-            X (numpy.ndarray): the rows to be optimized, in design form.
-            max_function (callable): function to be maximized, takes as input
-                rows of X.
-
-        Returns:
-            numpy.ndarray: the best solution for each row.
-            numpy.ndarray: the respective function values.
-        """
-
-        Xoptimized = numpy.zeros_like(X)
-        fun_value = numpy.zeros((len(Xoptimized),))
-
-        def _wrapper(x, *args):
-            row = self._add_choice(x, *args)
-            fval = max_function(row)
-            return -1*fval
-
-        for i, row in enumerate(X):
-            x0, args = self._strip_choice(row)
-            result = scipy.optimize.minimize(fun=_wrapper,
-                                             x0=x0,
-                                             method='L-BFGS-B',
-                                             args=args,
-                                             bounds=[(0, 1)] * x0.shape[0])
-
-            Xoptimized[i] = self._add_choice(result.x, *args)
-            fun_value[i] = result.fun
-        return Xoptimized, -1*fun_value
-
-    def _strip_choice(self, arow):
-        """
-        Separate choice variables from continuous and discrete.
-
-        Args:
-            row (numpy.ndarray): one row of the design matrix.
-
-        Returns:
-            numpy.ndarray: values for continuous/discrete variables
-            tuple[numpy.ndarray]: values for choice variables
-        """
-        x = []
-        args = []
-        for pname, pcols in self.Xcolumns.items():
-            if len(pcols) == 1:
-                x.append(arow[pcols])
-            else:
-                args.append(arow[pcols])
-        return numpy.array(x), tuple(args)
-
-    def _add_choice(self, x, *args):
-        xq = collections.deque(x)
-        argsq = collections.deque(args)
-        row = numpy.array([])
-        for pname, pcols in self.Xcolumns.items():
-            if len(pcols) == 1:
-                row = numpy.append(row, xq.popleft())
-            else:
-                row = numpy.append(row, argsq.popleft())
-        return row
 
 
 class GPyOpt(Algorithm):
@@ -465,19 +150,28 @@ class GPyOpt(Algorithm):
 
     @staticmethod
     def _infer_num_initial_data_points(num_initial_data_points, parameters):
+        """
+        Infers number of initial data points, or overwrites and warns user if
+        she defined less than the number of points needed.
+        """
         if num_initial_data_points == 'infer':
             return len(parameters) + 1
         elif num_initial_data_points >= len(parameters):
             return num_initial_data_points
         else:
-            bayesoptlogger.warn("num_initial_data_points < number of "
+            warnings.warn("num_initial_data_points < number of "
                                 "parameters found. Setting "
                                 "num_initial_data_points to "
-                                "len(parameters)+1.")
+                                "len(parameters)+1.", UserWarning)
             return len(parameters) + 1
 
     @staticmethod
     def _process_initial_data_points(initial_data_points, parameters):
+        """
+        Turns initial_data_points into list of dicts (if Pandas.DataFrame) and
+        assures that all defined parameters have settings in the
+        initial_data_points.
+        """
         if isinstance(initial_data_points, pandas.DataFrame):
             _initial_data_points = list(initial_data_points.T.to_dict().values())
         else:
@@ -498,16 +192,13 @@ class GPyOpt(Algorithm):
         X and objective values y to be consumed by GPyOpt.
         """
         completed = results.query("Status == 'COMPLETED'")
+
         X = numpy.zeros((len(completed), len(parameters)))
         for i, p in enumerate(parameters):
-            if isinstance(p, Choice) or isinstance(p, Ordinal):
-                X[:, i] = completed[p.name].apply(
-                    lambda elem: GPyOpt.ChoiceTransform.transform(
-                        elem, p.range))
-            elif isinstance(p, Continuous) and p.scale == 'log':
-                X[:, i] = GPyOpt.LogTransform.transform(completed[p.name])
-            else:
-                X[:, i] = completed[p.name]
+            transform = ParameterTransform.from_parameter(p)
+            historical_data = completed[p.name]
+            X[:, i] = transform.sherpa_format_to_gpyopt_design_format(
+                historical_data)
 
         y = numpy.array(completed.Objective).reshape((-1, 1))
         if 'varObjective' in completed.columns:
@@ -516,31 +207,6 @@ class GPyOpt(Algorithm):
             y_var = None
         return X, y, y_var
 
-    class LogTransform(object):
-        """
-        Transforms/reverses Continuous variables if on log-scale.
-        """
-        @staticmethod
-        def transform(x):
-            return numpy.log10(x)
-
-        @staticmethod
-        def reverse(x):
-            return 10**x
-
-    class ChoiceTransform(object):
-        """
-        Transforms/reverses Choice variables to numeric choices since GPyOpt
-        does not accept string choices.
-        """
-        @staticmethod
-        def transform(element, vals):
-            return vals.index(element)
-
-        @staticmethod
-        def reverse(element, vals):
-            return vals[int(element)]
-
     @staticmethod
     def _initialize_domain(parameters):
         """
@@ -548,25 +214,8 @@ class GPyOpt(Algorithm):
         """
         domain = []
         for p in parameters:
-            if isinstance(p, Choice) or isinstance(p, Ordinal):
-                domain.append({'name': p.name, 'type': 'categorical',
-                               'domain': numpy.array(
-                                   [GPyOpt.ChoiceTransform.transform(
-                                       item, p.range)
-                                   for item in p.range])})
-            elif isinstance(p, Discrete):
-                domain.append({'name': p.name, 'type': 'discrete',
-                               'domain': tuple(range(p.range[0],
-                                                     p.range[1]+1))})
-            else:
-                if p.scale == 'log':
-                    lower_bound = GPyOpt.LogTransform.transform(p.range[0])
-                    upper_bound = GPyOpt.LogTransform.transform(p.range[1])
-                else:
-                    lower_bound = p.range[0]
-                    upper_bound = p.range[1]
-                domain.append({'name': p.name, 'type': 'continuous',
-                               'domain': (lower_bound, upper_bound)})
+            domain.append(
+                ParameterTransform.from_parameter(p).to_gpyopt_domain())
         return domain
 
     @staticmethod
@@ -577,15 +226,106 @@ class GPyOpt(Algorithm):
         """
         col_dict = {}
         for i, p in enumerate(parameters):
-            if isinstance(p, Choice) or isinstance(p, Ordinal):
-                col_dict[p.name] = list(map(
-                    lambda x: GPyOpt.ChoiceTransform.reverse(
-                        x, p.range), X_next[:, i]))
-            elif isinstance(p, Continuous) and p.scale == 'log':
-                col_dict[p.name] = list(GPyOpt.LogTransform.reverse(X_next[:, i]))
-            elif isinstance(p, Discrete):
-                col_dict[p.name] = list(X_next[:, i].astype('int'))
-            else:
-                col_dict[p.name] = list(X_next[:, i])
+            transform = ParameterTransform.from_parameter(p)
+            col_dict[p.name] = transform.gpyopt_design_format_to_list_in_sherpa_format(X_next[:, i])
 
         return list(pandas.DataFrame(col_dict).T.to_dict().values())
+
+
+class ParameterTransform(object):
+    """
+    ParamterTransform base class, creates correct object
+    depending on parameter.
+    """
+    def __init__(self, parameter):
+        self.parameter = parameter
+
+    @staticmethod
+    def from_parameter(parameter):
+        if isinstance(parameter, Choice) or isinstance(parameter, Ordinal):
+            return ChoiceTransform(parameter)
+        elif isinstance(parameter, Continuous):
+            if parameter.scale == 'log':
+                return LogContinuousTransform(parameter)
+            else:
+                return ContinuousTransform(parameter)
+        elif isinstance(parameter, Discrete):
+            if parameter.scale == 'log':
+                warnings.warn("GPyOpt discrete parameter does not "
+                              "support log-scale.", UserWarning)
+            return DiscreteTransform(parameter)
+
+    def to_gpyopt_domain(self):
+        raise NotImplementedError
+
+    def gpyopt_design_format_to_list_in_sherpa_format(self, x):
+        raise NotImplementedError
+
+    def sherpa_format_to_gpyopt_design_format(self, x):
+        raise NotImplementedError
+
+
+class ContinuousTransform(ParameterTransform):
+    """
+    Transforms/reverses Continuous variables.
+    """
+    def to_gpyopt_domain(self):
+        return {'name': self.parameter.name,
+                'type': 'continuous',
+                'domain': tuple(self.parameter.range)}
+
+    def gpyopt_design_format_to_list_in_sherpa_format(self, x):
+        return x
+
+    def sherpa_format_to_gpyopt_design_format(self, x):
+        return x
+
+
+class LogContinuousTransform(ParameterTransform):
+    """
+    Transforms/reverses Continuous variables if on log-scale.
+    """
+    def to_gpyopt_domain(self):
+        return {'name': self.parameter.name,
+                'type': 'continuous',
+                'domain': (numpy.log10(self.parameter.range[0]),
+                           numpy.log10(self.parameter.range[1]))}
+
+    def gpyopt_design_format_to_list_in_sherpa_format(self, x):
+        return 10**x
+
+    def sherpa_format_to_gpyopt_design_format(self, x):
+        return numpy.log10(x)
+
+
+class ChoiceTransform(ParameterTransform):
+    """
+    Transforms/reverses Choice variables to numeric choices since GPyOpt
+    does not accept string choices.
+    """
+    def to_gpyopt_domain(self):
+        return {'name': self.parameter.name, 'type': 'categorical',
+                'domain': numpy.array(range(len(self.parameter.range)))}
+
+    def gpyopt_design_format_to_list_in_sherpa_format(self, x):
+        return [self.parameter.range[int(elem)] for elem in x]
+
+    def sherpa_format_to_gpyopt_design_format(self, x):
+        return [self.parameter.range.index(elem) for elem in x]
+
+
+class DiscreteTransform(ParameterTransform):
+    """
+    Transforms Discrete parameter from/to GPyOpt
+    """
+    def to_gpyopt_domain(self):
+        return {'name': self.parameter.name,
+                'type': 'discrete',
+                'domain': tuple(range(self.parameter.range[0],
+                                      self.parameter.range[1]+1))}
+
+    def gpyopt_design_format_to_list_in_sherpa_format(self, x):
+        return list(x.astype('int'))
+
+    def sherpa_format_to_gpyopt_design_format(self, x):
+        return x

@@ -1,0 +1,16 @@
+language: python
+python:
+- '3.6'
+install:
+- pip install -r requirements.txt
+- pip install .
+script:
+- pytest tests/*
+deploy:
+  provider: pypi
+  user: __token__
+  password:
+    secure: PKOnBIWj/uhnWcmEY9oA1XWivbSOPXFzW5mXSSp67Zk8BYVhDbnHTa88qXsdDHg7xUNMOaXIiprVONlfSnJV33cBKdwdD2DDJLOG4NTeJrnOZL2lvaeqi63fHpg65Td63ohjrGAjFJ4PSNd4XHYsKjo4xodA21axV1SMZ9ucF1c4RomvuDC9nhD6LNZxpGNPi9zbkPjX/jY0dnfHMQ0ZeP6/3NyM63YBpWiCPgCtWA5LD2314X4Zvrl27hvhDVD2h1C1caYY1p2A9ILPcTCBD2XoG1sJJPd8YRUdjP+RnmE7qUfaSId1Ml5BsKuOq5qbwaykjXSyEpJ84tURFiUqlify0Rnb8ZX5NLPTZVmpJvxwD2/vRQXSp1RwwcbD1ukd7sjmtP6Mn56w6ftO+FuuQvRVAtA4I2otJZk443MlNo5hKU1hNZZfYc8XSpzgk6zfznw1ZLacEbr2nq0AKsDDzS1ol/kiBfd48U1aAOhazwM8HDowY484kzPNkS6VjU+BVtY3qWeOrCKf/a/5xzvPjZQjT0iw19wGUBcbynDscCKGcUVIqBOpNHo1qCmomrUIBML26n6WU3Mf4lJ6R0lQ+Gxv+1v9ca6cV8ma8cV71l7kjeSfyfldBK2Pyvb3Bs4uLxHQtmUvwfVsRDGHxBySEl4FrWB54hddSCwlU4rn08U=
+  on:
+    tags: true
+    branch: master

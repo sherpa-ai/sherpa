@@ -45,11 +45,17 @@ def results_long():
         ))
 
 
-# Test setup
-def test_infer_num_initial_data_points(parameters):
-    assert GPyOpt._infer_num_initial_data_points('infer', parameters) == 5
-    assert GPyOpt._infer_num_initial_data_points(3, parameters) == 5
-    assert GPyOpt._infer_num_initial_data_points(7, parameters) == 7
+
+@pytest.mark.parametrize("num_initial_data_points,expected",
+                     [('infer', 5),
+                      (7, 7)])
+def test_infer_num_initial_data_points(num_initial_data_points, expected, parameters):
+    assert GPyOpt._infer_num_initial_data_points(num_initial_data_points, parameters) == expected
+
+
+def test_infer_num_initial_data_points_too_few_specified(parameters):
+    with pytest.warns(UserWarning, match="num_initial_data_points < number of parameters found"):
+        assert GPyOpt._infer_num_initial_data_points(3, parameters) == 5
 
 
 def test_processing_of_initial_data_points(parameters):
@@ -75,44 +81,51 @@ def test_processing_of_initial_data_points(parameters):
         data_points_missing = GPyOpt._process_initial_data_points(
             data_points_df.drop("activation", axis=1), parameters)
 
-#
-# def test_transformations(transforms):
-#     # transforms
-#     assert list(map(transforms['dropout'].transform, [0., 0.1, 0.5])) == [0.,
-#                                                                           0.1,
-#                                                                           0.5]
-#     assert list(map(transforms['lr'].transform, [1e-2, 3.3e-4, 0.0001])) == [-2,
-#                                                                              -3.4814860601221125,
-#                                                                              -4]
-#     assert list(map(transforms['activation'].transform,
-#                     ['relu', 'sigmoid', 'tanh'])) == [0, 2, 1]
-#     assert list(map(transforms['num_hidden'].transform,
-#                     [101, 202, 299])) == [101, 202, 299]
-#     assert list(map(transforms['batch_size'].transform,
-#                     [1, 10, 100, 1000])) == [0, 1, 2, 3]
-#
-#     # reverse transforms
-#     assert list(map(transforms['dropout'].reverse, [0., 0.1, 0.5])) == [0.,
-#                                                                           0.1,
-#                                                                           0.5]
-#     assert list(map(transforms['lr'].reverse, [-2, -3.48, -4])) == [1e-2, 0.0003311311214825911, 0.0001]
-#     assert list(map(transforms['activation'].reverse,
-#                     [0, 2, 1])) == ['relu', 'sigmoid', 'tanh']
-#     assert list(map(transforms['num_hidden'].reverse,
-#                     [101.1, 201.6, 299.45])) == [101, 202, 299]
-#     assert list(map(transforms['batch_size'].reverse,
-#                     [0.001, 1., 2.001, 2.9999])) == [1, 10, 100, 1000]
+
+@pytest.mark.parametrize("parameters", [([sherpa.Continuous('a', [0, 1])]),
+                                    ([sherpa.Continuous('a', [0, 1]), sherpa.Continuous('b', [10., 100])])])
+def test_transformation_to_gpyopt_domain_continuous(parameters):
+    domain = GPyOpt._initialize_domain(parameters)
+    for p, d in zip(parameters, domain):
+        assert d['name'] == p.name
+        assert d['type'] == 'continuous'
+        assert d['domain'] == tuple(p.range)
 
 
-def test_domain(parameters):
+@pytest.mark.parametrize("parameters", [([sherpa.Continuous('a', [0.1, 1], 'log')]),
+                                    ([sherpa.Continuous('a', [0.1, 1], 'log'), sherpa.Continuous('b', [10., 100], 'log')])])
+def test_transformation_to_gpyopt_domain_log_continuous(parameters):
+    domain = GPyOpt._initialize_domain(parameters)
+    for p, d in zip(parameters, domain):
+        assert d['name'] == p.name
+        assert d['type'] == 'continuous'
+        assert d['domain'] == tuple([numpy.log10(p.range[0]),
+                                     numpy.log10(p.range[1])])
+
+
+@pytest.mark.parametrize("parameters", [([sherpa.Discrete('a', [0, 100])]),
+                                    ([sherpa.Discrete('a', [1, 100]), sherpa.Discrete('b', [0, 100])])])
+def test_transformation_to_gpyopt_domain_discrete(parameters):
+    domain = GPyOpt._initialize_domain(parameters)
+    for p, d in zip(parameters, domain):
+        assert d['name'] == p.name
+        assert d['type'] == 'discrete'
+        assert d['domain'] == tuple(range(p.range[0], p.range[1]+1))
+
+
+def test_transformation_to_gpyopt_domain_log_discrete():
+    parameters = [sherpa.Discrete('a', [1, 100], 'log')]
+    with pytest.warns(UserWarning, match='does not support log-scale'):
+        GPyOpt._initialize_domain(parameters)
+
+
+def test_transformation_to_gpyopt_domain_with_multiple_parameters(parameters):
     domain = GPyOpt._initialize_domain(parameters)
 
     assert {'name': 'dropout', 'type': 'continuous',
             'domain': (0., 0.5)} == domain[0]
     assert {'name': 'lr', 'type': 'continuous',
             'domain': (-7, -1)} == domain[1]
-    # assert {'name': 'activation', 'type': 'categorical',
-    #         'domain': numpy.array([0, 1, 2])} == domain[2]
     assert domain[2]['name'] == 'activation'
     assert domain[2]['type'] == 'categorical'
     assert numpy.array_equal(domain[2]['domain'], numpy.array([0, 1, 2]))
@@ -133,7 +146,6 @@ def test_prepare_data_for_bayes_opt(parameters, results):
 def test_reverse_format(parameters, results):
     X, y, y_var = GPyOpt._prepare_data_for_bayes_opt(parameters,
                                                      results)
-
     reversed_X = GPyOpt._reverse_to_sherpa_format(X, parameters)
 
     assert reversed_X[0] == {'dropout': 0.1, 'lr': 1e-3, 'activation': 'tanh',
@@ -142,6 +154,7 @@ def test_reverse_format(parameters, results):
                              'num_hidden': 222}
     assert reversed_X[2] == {'dropout': 0.33, 'lr': 1e-2, 'activation': 'sigmoid',
                              'num_hidden': 288}
+
 
 def test_bayesopt_batch(parameters, results):
     gpyopt = GPyOpt(max_concurrent=10)
@@ -163,6 +176,7 @@ def test_types_are_correct(parameters, results):
     assert isinstance(suggestion['activation'], str)
 
 
+@pytest.mark.skip(reason="sample results do not copy when doing `pip install .`")
 def test_overall():
     gpyopt = GPyOpt(max_concurrent=1)
     parameters, results, lower_is_better = sherpa.algorithms.get_sample_results_and_params()
@@ -292,7 +306,7 @@ def test_1d_minimize():
 
     assert numpy.isclose(rval['x1'], 4., atol=0.1)
 
-def test_3d():
+def dont_test_3d():
     def obj_func(x, y, z):
         assert isinstance(x, float)
         assert isinstance(y, str)
