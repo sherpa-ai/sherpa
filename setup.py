@@ -10,6 +10,7 @@ import sys
 from shutil import rmtree
 import argparse
 from setuptools import find_packages, setup, Command
+import sherpa
 
 
 # parser = argparse.ArgumentParser()
@@ -81,7 +82,7 @@ class UploadCommand(Command):
 # Where the magic happens:
 setup(
     name=NAME,
-    version='1.0.2',
+    version=sherpa.__version__,
     description=DESCRIPTION,
     long_description='',
     author=AUTHOR,
