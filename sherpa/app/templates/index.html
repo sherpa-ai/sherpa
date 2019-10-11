@@ -78,7 +78,7 @@ intermediateTrials.forEach(function(d,i) { d.Iteration = parseInt(d.Iteration);
 
 parcoords
 .data(completedTrials)
-.hideAxis(["Iteration", "id", "TrialID"])
+.hideAxis(["Iteration", "id", "TrialID", "Status"])
 .render()
 .reorderable()
 .brushMode("1D-axes");
