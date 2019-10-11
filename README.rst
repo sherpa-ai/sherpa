@@ -10,9 +10,11 @@ SHERPA: A Python Hyperparameter Optimization Library
 .. image:: https://img.shields.io/badge/License-GPL%20v3-blue.svg
    :target: https://www.gnu.org/licenses/gpl-3.0
    
-.. image:: https://readthedocs.org/projects/parameter-sherpa/badge/?version=latest
-    :target: https://parameter-sherpa.readthedocs.io/en/latest/?badge=latest
-    :alt: Documentation Status
+    
+.. image:: https://travis-ci.org/sherpa-ai/sherpa.svg?branch=master
+    :target: https://travis-ci.org/sherpa-ai/sherpa.svg?branch=master
+    :alt: Build Status
+    
 
 .. image:: https://pepy.tech/badge/parameter-sherpa
    :target: https://pepy.tech/project/parameter-sherpa
