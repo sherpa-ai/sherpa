@@ -95,6 +95,9 @@
                 <!-- Dropdown for Stopping -->
                  <ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu mdl-js-ripple-effect"
                      for="stop-trial-button">
+                   {% if not active_trials %}
+                     <li disabled class="mdl-menu__item">No trials available for stopping.</li>
+                   {% endif %}
                    {% for t in active_trials %}
                    <li class="mdl-menu__item" id="stoptrial{{t.id}}">Trial {{t.id}}</li>
                    {% endfor %}
