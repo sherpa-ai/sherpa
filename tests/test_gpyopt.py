@@ -189,6 +189,7 @@ def test_overall():
         print(suggestion)
 
 
+@pytest.mark.skip(reason="This test needs to be made deterministic.")
 def test_1d_maximize():
     def obj_func(x):
         # Global maximum of 4 is at x=4
@@ -248,6 +249,7 @@ def test_1d_maximize():
     assert numpy.isclose(rval['x1'], 4., atol=0.1)
 
 
+@pytest.mark.skip(reason="This test needs to be made deterministic.")
 def test_1d_minimize():
     def obj_func(x):
         # Global maximum of 4 is at x=4
@@ -306,7 +308,9 @@ def test_1d_minimize():
 
     assert numpy.isclose(rval['x1'], 4., atol=0.1)
 
-def dont_test_3d():
+
+@pytest.mark.skip(reason="This test needs to be made deterministic.")
+def test_3d():
     def obj_func(x, y, z):
         assert isinstance(x, float)
         assert isinstance(y, str)
