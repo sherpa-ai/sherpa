@@ -38,8 +38,9 @@ video by clicking on the image below or read on to find out more.
 .. _Feedback-Form: https://forms.gle/b3HoyJZHjQnYtv677
 
 
-.. image:: http://img.youtube.com/vi/L95sasMLgP4/0.jpg
-   :target: https://www.youtube.com/watch?feature=player_embedded&v=L95sasMLgP4
+.. image:: http://img.youtube.com/vi/-exnF3uv0Ws/0.jpg
+   :target: https://www.youtube.com/watch?feature=player_embedded&v=-exnF3uv0Ws
+
 
 If you use SHERPA in your research please cite:
 
