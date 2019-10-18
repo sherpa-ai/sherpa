@@ -60,30 +60,6 @@ def test_dir():
     yield dirpath
     shutil.rmtree(dirpath)
 
-
-
-
-def get_test_parameters():
-    c = sherpa.Parameter.from_dict({'type': 'continuous',
-                                    'name': 'a',
-                                    'range': [1, 2]})
-    cl = sherpa.Parameter.from_dict({'type': 'continuous',
-                                     'name': 'b',
-                                     'range': [1, 2],
-                                     'scale': 'log'})
-    d = sherpa.Parameter.from_dict({'type': 'discrete',
-                                    'name': 'c',
-                                    'range': [1, 10]})
-    dl = sherpa.Parameter.from_dict({'type': 'discrete',
-                                     'name': 'd',
-                                     'range': [1, 10],
-                                     'scale': 'log'})
-    ch = sherpa.Parameter.from_dict({'type': 'choice',
-                                     'name': 'e',
-                                     'range': [1, 10]})
-    return c, cl, d, dl, ch
-
-
 def test_spacetime_data_collection(test_dir):
     test_trial = get_test_trial()
     testlogger.debug(test_dir)

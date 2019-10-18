@@ -48,16 +48,12 @@ def run_server(dataframe: Dataframe):
     dataframe.checkout()
     fr = FrameRateKeeper(60)
 
-    #all_trial_results = []
-
     # For tracking changes in trails and results across while-loop iterations
     known_completed_trial_results = set()
     known_clients = set()
 
     while True:
         fr.tick()
-
-
         cmd = None
         if end2.poll():
             cmd = end2.recv()
@@ -94,55 +90,6 @@ def run_server(dataframe: Dataframe):
                 end2.send(new_results)
             else:
                 end2.send(-1)
-
-        '''
-        # Read in the current list of ML scripts, and compare it with known ML scripts from the last loop iteration.
-        # Print if any ML scripts joined or done
-        dataframe.checkout()
-        clients = dataframe.read_all(Client_set)
-        for client in clients:
-            if client not in known_clients:
-                known_clients.add(client)
-                print("Client \"{}\" joined".format(client.name))
-
-        clients_that_left = []
-        for client in known_clients:
-            if client not in clients:
-                clients_that_left.append(client)
-                print("Client \"{}\" left".format(client.name))
-        for client in clients_that_left:
-            known_clients.remove(client)
-
-        # If any ML script clients are not done yet, assign a trial_result yet to be completed to them.
-        for client in clients:
-            if client.ready_for_new_trial_result:
-                for trial_result in all_trial_results:
-                    if trial_result.assigned_client == -1:
-                        trial_result.assigned_client = client.client_id
-                        client.assigned_trial_result = trial_result.trial_id
-                        client.ready_for_new_trial_result = False
-                        dataframe.commit()
-                        dataframe.push()
-                        print("Assigned trial_result \"{}\" to ML script {}".format(trial_result.name, client.name))
-                        break
-
-        # If any results are newly done, print them out
-        completed_trial_results = (trial_result for trial_result in all_trial_results if trial_result.completed) #here we need to change
-        trials_changed = False
-        for trial_result in completed_trial_results:
-            if trial_result not in known_completed_trial_results:
-
-                print("Finished trial_result_{} with results {}".format(trial_result.trial_id, trial_result.result))
-                known_completed_trial_results.add(trial_result)
-                trails_changed = True
-        if trials_changed:
-            print("Trial_Results to complete: {}".format([trial_result.trial_id for trial_result in all_trial_results if not trial_result.completed]))
-            TBD
-        # Exit condition
-        if len(known_completed_trial_results) == len(all_trial_results):
-            print("All trial_results completed.")
-            break
-        '''
 
 class SpacetimeServer(object):
     """
@@ -395,13 +342,7 @@ class Client(object):
         """
         if self.test_mode:
             return
-        '''
-        result = {'parameters': trial.parameters,
-                  'trial_id': trial.id,
-                  'objective': objective,
-                  'iteration': iteration,
-                  'context': context}
-        '''
+            
         # Convert float32 to float64.
         # Note: Keras ReduceLROnPlateau callback requires this.
         for k,v in context.items():
