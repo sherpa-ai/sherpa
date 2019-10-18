@@ -48,7 +48,7 @@ def run_server(dataframe: Dataframe):
     dataframe.checkout()
     fr = FrameRateKeeper(60)
 
-    all_trial_results = []
+    #all_trial_results = []
 
     # For tracking changes in trails and results across while-loop iterations
     known_completed_trial_results = set()
@@ -70,15 +70,31 @@ def run_server(dataframe: Dataframe):
         elif cmd == "enqueue":
             if end2.poll():
                 trial = end2.recv()
-                #print("My trial_parameters",trial.parameters)
                 trial_result = Trial_Results(trial,"name")
-                #print("Trial_Results parameters: ",trial_result.parameters)
-                all_trial_results.append(trial_result)
+                #all_trial_results.append(trial_result)
                 dataframe.add_one(Trial_Results,trial_result)
                 dataframe.commit()
                 end2.send(1)
             else:
                 end2.send(-1)
+
+        # get all new results
+        elif cmd == "get_new_results":
+            if end2.poll():
+                dataframe.pull()
+                dataframe.checkout()
+                new_results = []
+                collected_results = end2.recv()
+                all_trial_results = dataframe.read_all(Trial_Results)
+                for TR in all_trial_results:
+                    print("Anything: ",TR.result)
+                    if TR.trial_id not in collected_results:
+                        new_results.append(TR.result)
+                print("Server side result: ", new_results)
+                end2.send(new_results)
+            else:
+                end2.send(-1)
+
         '''
         # Read in the current list of ML scripts, and compare it with known ML scripts from the last loop iteration.
         # Print if any ML scripts joined or done
@@ -140,6 +156,7 @@ class SpacetimeServer(object):
         self.server_app = Node(run_server, server_port = port, Types=[Trial_Results, Client_set])
         self.server_end = end1
         self.port = port
+        self.collected_results = set()
 
     def start(self):
         """
@@ -167,6 +184,27 @@ class SpacetimeServer(object):
                 assert self.server_end.recv() == 1
         except:
             dblogger.debug("Failed to enqueue the trial result")
+
+    def get_new_results(self):
+        """
+        Checks Spacetime server for new results.
+
+        Returns:
+            (list[dict]) where each dict is one row from the DB.
+        """
+        try:
+            self.server_end.send("get_new_results")
+            self.server_end.send(self.collected_results)
+            if self.server_end.poll():
+                assert 1 == self.server_end.recv()
+                new_results = self.server_end.recv()
+                # for r in new_results:
+                #   self.collected_results.add(r.trial_id)
+        except:
+            dblogger.debug("Failed to retrieve new results")
+
+        return new_results
+
     def __enter__(self):
         self.start()
         return self
@@ -221,7 +259,7 @@ def _client_app(dataframe: Dataframe, client_name: str, remote):
                 if new_trial_results == None:
                     remote.send(None)
                 else:
-                    print("MY PARAMS:", new_trial_results.parameters)
+                    #print("MY PARAMS:", new_trial_results.parameters)
                     remote.send(new_trial_results.parameters)
 
             elif cmd == 'submit_result':
@@ -241,6 +279,7 @@ def _client_app(dataframe: Dataframe, client_name: str, remote):
                 assigned_trial_result.completed = True
                 assigned_trial_result.result = data
                 client.assigned_trial_result = -1
+                print("Client_app received results: ", assigned_trial_result.result)
                 dataframe.commit()
                 dataframe.push()
 
