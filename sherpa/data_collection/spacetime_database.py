@@ -303,8 +303,6 @@ class Client(object):
             self.proc.start()
             client_remote.close()
 
-
-
     def quit(self):
         self.remote.send(("quit", None))
 
@@ -342,7 +340,7 @@ class Client(object):
         """
         if self.test_mode:
             return
-            
+
         # Convert float32 to float64.
         # Note: Keras ReduceLROnPlateau callback requires this.
         for k,v in context.items():

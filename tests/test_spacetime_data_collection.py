@@ -94,5 +94,4 @@ def test_spacetime_data_collection(test_dir):
                                 ('iteration', 1),
                                 ('context', [('other_metric', 0.2)])]]
 
-
         client.quit()
