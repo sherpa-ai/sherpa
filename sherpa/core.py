@@ -110,7 +110,7 @@ class Study(object):
         else:
             self.dashboard_process = None
 
-    def add_observation(self, trial, iteration, objective, context={}):
+    def add_observation(self, trial, objective, iteration=1, context={}):
         """
         Add a single observation of the objective value for a given trial.
         
@@ -122,6 +122,14 @@ class Study(object):
             context (dict): other metrics or values to record.
         """
         assert isinstance(trial, Trial), "Trial must be sherpa.core.Trial"
+        if not self.results.empty and\
+                ((self.results['Trial-ID'] == trial.id)
+                     & (self.results['Iteration'] == iteration)).any():
+            raise ValueError("Observation for Trial-ID {} at Iteration {} "
+                             "already exists.".format(trial.id, iteration))
+        if not all(p.name in trial.parameters for p in self.parameters):
+            raise ValueError("The trial is missing parameter entries. It "
+                             "may not be from this study.")
 
         row = [
             ('Trial-ID', trial.id),
