@@ -89,21 +89,66 @@ def test_parameters():
     assert all(ch.sample() in [1, 10] for _ in range(10))
 
 
-def test_study():
+def get_mock_study():
     mock_algorithm = mock.MagicMock()
     mock_algorithm.get_suggestion.return_value = {'a': 1, 'b': 2}
     mock_stopping_rule = mock.MagicMock()
 
-    s = sherpa.Study(parameters=get_test_parameters(),
-                     algorithm=mock_algorithm,
-                     stopping_rule=mock_stopping_rule,
-                     lower_is_better=True)
+    return sherpa.Study(parameters=get_test_parameters(),
+                        algorithm=mock_algorithm,
+                        stopping_rule=mock_stopping_rule,
+                        lower_is_better=True,
+                        disable_dashboard=True)
+
+
+def test_study_add_observation_no_iteration():
+    s = get_mock_study()
+    t = s.get_suggestion()
+    s.add_observation(trial=t, objective=0.1, context={'other_metrics': 0.2})
+    assert list(s.results.T.to_dict().values()) == [{'Trial-ID': 1, 'Objective': 0.1, 'other_metrics': 0.2, 'a':1 , 'b':2, 'Status': sherpa.TrialStatus.INTERMEDIATE, 'Iteration': 1}]
+
+
+def test_study_add_observation_same_iteration_twice():
+    s = get_mock_study()
+    t = s.get_suggestion()
+    s.add_observation(trial=t, objective=0.1, context={'other_metrics': 0.2}, iteration=1)
+    with pytest.raises(ValueError):
+        s.add_observation(trial=t, objective=0.1, context={'other_metrics': 0.2}, iteration=1)
+
+
+def test_study_add_observation_with_iteration():
+    s = get_mock_study()
+    t = s.get_suggestion()
+    s.add_observation(trial=t, objective=0.1, context={'other_metrics': 0.2},
+                      iteration=1)
+    s.add_observation(trial=t, objective=0.01, context={'other_metrics': 0.02},
+                      iteration=2)
+    expected_df = pandas.DataFrame(collections.OrderedDict(
+        [('Trial-ID', [1, 1]),
+         ('Status', ['INTERMEDIATE', 'INTERMEDIATE']),
+         ('Iteration', [1, 2]),
+         ('a', [1, 1]),
+         ('b', [2, 2]),
+         ('Objective', [0.1, 0.01]),
+         ('other_metrics', [0.2, 0.02])]
+    ))
+    assert s.results.equals(expected_df)
+
+
+def test_study_add_observation_invalid_trial():
+    s = get_mock_study()
+    with pytest.raises(ValueError):
+        s.add_observation(trial=sherpa.Trial(id=1, parameters={'abcd': 1}), objective=0.1, context={'other_metrics': 0.2}, iteration=1)
+
+
+def test_study_finalize():
+    s = get_mock_study()
 
     t = s.get_suggestion()
     assert t.id == 1
     assert t.parameters == {'a': 1, 'b': 2}
-    mock_algorithm.get_suggestion.assert_called_with(s.parameters, s.results,
-                                                     s.lower_is_better)
+    s.algorithm.get_suggestion.assert_called_with(s.parameters, s.results,
+                                                  s.lower_is_better)
 
     s.add_observation(trial=t, iteration=1, objective=0.1,
                       context={'other_metrics': 0.2})
