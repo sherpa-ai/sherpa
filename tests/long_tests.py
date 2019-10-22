@@ -18,13 +18,11 @@ You should have received a copy of the GNU General Public License
 along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import print_function
-import tempfile
-import shutil
 import os
 import pytest
 import sherpa
 import sherpa.schedulers
-from test_sherpa import test_dir
+from testing_utils import *
 
 
 ### The *training script*
