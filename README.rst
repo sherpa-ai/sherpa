@@ -24,7 +24,8 @@ SHERPA is a Python library for hyperparameter tuning of machine learning models.
 
 * hyperparameter optimization for machine learning researchers
 * it can be used with any Python machine learning library such as Keras, Tensorflow, or Scikit-Learn
-* a choice of hyperparameter optimization algorithms such as **Bayesian optimization via GPyOpt**, **Asynchronous Successive Halving** (aka Hyperband), and **Population Based Training**.
+* a choice of hyperparameter optimization algorithms such as **Bayesian optimization via GPyOpt** ( `example notebook<https://github.com/sherpa-ai/sherpa/tree/master/examples/keras_mnist_mlp.ipynb>`_)
+, **Asynchronous Successive Halving** (aka Hyperband) (`example notebook`__), and **Population Based Training** (`example notebook`__).
 * **parallel** computation that can be fitted to the user's needs
 * a live **dashboard** for the exploratory analysis of results.
 
