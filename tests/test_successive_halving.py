@@ -19,16 +19,8 @@ along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import absolute_import
 import collections
-import pandas
-import sherpa
 from sherpa.algorithms import successive_halving
-import logging
-import itertools
-from test_sherpa import get_test_trial
-
-
-logging.basicConfig(level=logging.DEBUG)
-testlogger = logging.getLogger(__name__)
+from testing_utils import *
 
 
 def test_no_stragglers_lower_is_better():

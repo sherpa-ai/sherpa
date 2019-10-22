@@ -24,11 +24,7 @@ import sherpa
 import logging
 import itertools
 import pytest
-from test_sherpa import get_test_trial
-
-
-logging.basicConfig(level=logging.DEBUG)
-testlogger = logging.getLogger(__name__)
+from testing_utils import *
 
 
 def test_median_stopping_rule():

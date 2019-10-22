@@ -20,17 +20,12 @@ along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
 import os
 import sherpa
 import sherpa.schedulers
-import socket
 import tempfile
 import time
-import logging
 import itertools
 import shutil
-from test_sherpa import test_dir
+from testing_utils import *
 
-
-logging.basicConfig(level=logging.DEBUG)
-testlogger = logging.getLogger(__name__)
 
 # Adjust for testing
 SGE_QUEUE_NAME = 'arcus.q'
@@ -100,7 +95,8 @@ def test_local_scheduler(test_dir):
 
     time.sleep(5)
     testlogger.debug(s.get_status(job_id))
-    assert s.get_status(job_id) == sherpa.schedulers._JobStatus.finished
+    assert s.get_status(job_id) in [sherpa.schedulers._JobStatus.finished, sherpa.schedulers._JobStatus.other]
+
 
     job_id = s.submit_job(["python", "{}/test.py".format(test_dir)])
     time.sleep(1)
@@ -141,6 +137,6 @@ def test_local_scheduler_resources(test_dir):
 
         time.sleep(5)
         for id in job_ids:
-            assert s.get_status(id) == sherpa.schedulers._JobStatus.finished
+            assert s.get_status(id) in [sherpa.schedulers._JobStatus.finished, sherpa.schedulers._JobStatus.other]
         
         assert len(s.resources) == 4*multiple
