@@ -576,14 +576,12 @@ class _Runner(object):
 
 
 def optimize(parameters, algorithm, lower_is_better,
-             scheduler,
-             command=None,
-             filename=None,
+             scheduler, backend, command,
              output_dir='./output_' + str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S")),
              max_concurrent=1,
-             db_port=None, stopping_rule=None,
+             stopping_rule=None,
              dashboard_port=None, resubmit_failed_trials=False, verbose=1,
-             load=False, mongodb_args={}, disable_dashboard=False):
+             disable_dashboard=False):
     """
     Runs a Study with a scheduler and automatically runs a database in the
     background.
@@ -593,9 +591,8 @@ def optimize(parameters, algorithm, lower_is_better,
             parameter set.
         parameters (list[sherpa.core.Parameter]): parameters being optimized.
         lower_is_better (bool): whether lower objective values are better.
+        backend (sherpa.data_collection.Backend): backend object.
         command (str): the command to run for the trial script.
-        filename (str): the filename of the script to run. Will be run as
-            "python <filename>".
         output_dir (str): where scheduler and database files will be stored.
         scheduler (sherpa.schedulers.Scheduler): a scheduler.
         max_concurrent (int): the number of trials that will be evaluated in
@@ -606,9 +603,6 @@ def optimize(parameters, algorithm, lower_is_better,
         dashboard_port (int): port to run the dashboard web-server on.
         resubmit_failed_trials (bool): whether to resubmit a trial if it failed.
         verbose (int, default=1): whether to print submit messages (0=no, 1=yes).
-        load (bool): option to load study, currently not fully implemented.
-        mongodb_args (dict[str, any]): arguments to MongoDB beyond port, dir,
-            and log-path. Keys are the argument name without "--".
     """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -628,24 +622,12 @@ def optimize(parameters, algorithm, lower_is_better,
                   output_dir=output_dir,
                   disable_dashboard=disable_dashboard)
 
-    if command:
-        runner_command = command.split(' ')
-    elif filename:
-        runner_command = ['python', filename]
-    else:
-        raise ValueError("Need to provide either command or filename.")
+    runner_command = command.split(' ')
 
-    if load:
-        study.load()
-
-    if not db_port:
-        db_port = _port_finder(27001, 27050)
-
-    with _Database(db_dir=output_dir, port=db_port,
-                   reinstantiated=load, mongodb_args=mongodb_args) as db:
+    with backend as b:
         runner = _Runner(study=study,
                          scheduler=scheduler,
-                         database=db,
+                         database=b,
                          max_concurrent=max_concurrent,
                          command=runner_command,
                          resubmit_failed_trials=resubmit_failed_trials)
