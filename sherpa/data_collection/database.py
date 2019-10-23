@@ -36,8 +36,49 @@ import sherpa
 
 dblogger = logging.getLogger(__name__)
 
+class Backend(object):
+    def __init__(self, dir, port, **kwargs):
+        raise NotImplementedError
 
-class _Database(object):
+    def close(self):
+        raise NotImplementedError
+
+    def start(self):
+        """
+        Runs the backend in a sub-process (if necessary).
+        """
+        raise NotImplementedError
+
+    def check_status(self):
+        """
+        Checks whether backend is still running.
+        """
+        raise NotImplementedError
+
+    def get_new_results(self):
+        """
+        Checks for new results.
+
+        Returns:
+            (list[dict]) where each dict is one row from the DB.
+        """
+        raise NotImplementedError
+
+    def enqueue_trial(self, trial):
+        """
+        Puts a new trial in the queue for trial scripts to get.
+        """
+        raise NotImplementedError
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+
+class MongoDBBackend(Backend):
     """
     Manages a Mongo-DB for storing metrics and delivering parameters to trials.
 
@@ -176,6 +217,67 @@ class _Database(object):
 
 
 class Client(object):
+    """
+    Registers a session with a Sherpa Study via the port of the database.
+
+    This function is called from trial-scripts only.
+
+    Attributes:
+        host (str): the host that runs the database. Passed host, host set via
+            environment variable or 'localhost' in that order.
+        port (int): port that database is running on. Passed port, port set via
+            environment variable or 27010 in that order.
+    """
+
+    def __init__(self, **client_args):
+        """
+        Args:
+            host (str): the host that runs the database. Generally not needed since
+                the scheduler passes the DB-host as an environment variable.
+            port (int): port that database is running on. Generally not needed since
+                the scheduler passes the DB-port as an environment variable.
+            test_mode (bool): mock the client, that is, get_trial returns a trial
+                that is empty, keras_send_metrics accepts calls but does not do any-
+                thing, as does send_metrics. Useful for trial script debugging.
+        """
+        return MongoDBClient(**client_args)
+
+    def get_trial(self):
+        """
+        Returns the next trial from a Sherpa Study.
+
+        Returns:
+            sherpa.core.Trial: The trial to run.
+        """
+        raise NotImplementedError
+
+    def send_metrics(self, trial, iteration, objective, context={}):
+        """
+        Sends metrics for a trial to database.
+
+        Args:
+            trial (sherpa.core.Trial): trial to send metrics for.
+            iteration (int): the iteration e.g. epoch the metrics are for.
+            objective (float): the objective value.
+            context (dict): other metric-values.
+        """
+        raise NotImplementedError
+
+    def keras_send_metrics(self, trial, objective_name, context_names=[]):
+        """
+        Keras Callbacks to send metrics to SHERPA.
+
+        Args:
+            trial (sherpa.core.Trial): trial to send metrics for.
+            objective_name (str): the name of the objective e.g. ``loss``,
+                ``val_loss``, or any of the submitted metrics.
+            context_names (list[str]): names of all other metrics to be
+                monitored.
+        """
+        raise NotImplementedError
+
+
+class MongoDBClient(Client):
     """
     Registers a session with a Sherpa Study via the port of the database.
 
