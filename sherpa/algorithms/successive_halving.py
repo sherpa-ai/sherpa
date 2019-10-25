@@ -47,7 +47,7 @@ class SuccessiveHalving(Algorithm):
             been trained to completion.
 
     """
-    def __init__(self, r=1, R=9, eta=3, s=0, max_finished_configs=None):
+    def __init__(self, r=1, R=9, eta=3, s=0, max_finished_configs=50):
         self.eta = eta
         self.r = r
         self.R = R
