@@ -94,5 +94,7 @@ def test_spacetime_data_collection(test_dir):
                                 ('iteration', 1),
                                 ('context', [('other_metric', 0.2)]),
                                 ('result_id', 1)]]
+        new_results = db.get_new_results()
+        assert new_results == None
 
         client.quit()

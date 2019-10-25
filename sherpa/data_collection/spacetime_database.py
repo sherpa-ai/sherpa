@@ -159,10 +159,11 @@ class SpacetimeServer(object):
                             rid = i[1]
                     cid = (tid, rid)
                     self.collected_results.add(cid)
+                print("new_result = ",new_results)
+                return new_results
         except:
             dblogger.debug("Failed to retrieve new results")
-        print("new_result = ",new_results)
-        return new_results
+        
 
     def __enter__(self):
         self.start()
