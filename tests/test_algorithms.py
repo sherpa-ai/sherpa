@@ -162,7 +162,8 @@ def test_grid_search():
 def test_pbt():
     parameters = [sherpa.Continuous(name='param_a', range=[0, 1])]
 
-    algorithm = sherpa.algorithms.PopulationBasedTraining(population_size=20,
+    algorithm = sherpa.algorithms.PopulationBasedTraining(num_generations=3,
+                                                          population_size=20,
                                                           parameter_range={'param_a': [0., 1.2]})
 
     study = sherpa.Study(parameters=parameters,
@@ -239,19 +240,22 @@ def test_pbt():
         study.finalize(trial=trial,
                        status='COMPLETED')
 
+    assert study.get_suggestion() == sherpa.AlgorithmState.DONE
+
 
 
 def test_pbt_ordinal():
     parameters = [sherpa.Ordinal(name='param_a', range=[-1, 0, 1])]
 
-    algorithm = sherpa.algorithms.PopulationBasedTraining(population_size=10)
+    algorithm = sherpa.algorithms.PopulationBasedTraining(num_generations=2,
+                                                          population_size=10)
 
     study = sherpa.Study(parameters=parameters,
                          algorithm=algorithm,
                          lower_is_better=True,
                          disable_dashboard=True)
 
-    for _ in range(20):
+    for _ in range(10):
         trial = study.get_suggestion()
         print("Trial-ID={}".format(trial.id))
         print(trial.parameters)
@@ -260,7 +264,7 @@ def test_pbt_ordinal():
         study.finalize(trial=trial,
                        status='COMPLETED')
 
-    for _ in range(20):
+    for _ in range(10):
         trial = study.get_suggestion()
         print("Trial-ID={}".format(trial.id))
         print(trial.parameters)

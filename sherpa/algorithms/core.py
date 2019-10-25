@@ -543,6 +543,7 @@ class PopulationBasedTraining(Algorithm):
     third generation etc.
 
     Args:
+        num_generations (int): the number of generations to run for.
         population_size (int): the number of randomly intialized trials at the
             beginning and number of concurrent trials after that.
         parameter_range (dict[Union[list,tuple]): upper and lower bounds beyond
@@ -551,8 +552,9 @@ class PopulationBasedTraining(Algorithm):
             parameters are multiplied upon perturbation; one is sampled randomly
             at a time.
     """
-    def __init__(self, population_size=20, parameter_range={},
-                 perturbation_factors=(0.8, 1.0, 1.2)):
+    def __init__(self, num_generations, population_size=20, parameter_range={},
+                 perturbation_factors=(0.8, 1.2)):
+        self.num_generations = num_generations
         self.population_size = population_size
         self.parameter_range = parameter_range
         self.perturbation_factors = perturbation_factors
@@ -570,6 +572,8 @@ class PopulationBasedTraining(Algorithm):
             trial['lineage'] = ''
             trial['load_from'] = ''
             trial['save_to'] = str(self.count)
+        elif self.generation > self.num_generations:
+            return AlgorithmState.DONE
         else:
             trial = self._truncation_selection(parameters=parameters,
                                                results=results,
@@ -600,11 +604,8 @@ class PopulationBasedTraining(Algorithm):
                                                   ascending=lower_is_better)
             d = generation_df.iloc[(self.count - 1) % self.population_size].to_dict()
         else:
-            # For the rest, sample from top 20% of the last two generations and perturb
-            if self.generation > 2:
-                target_generations = [self.generation-1, self.generation-2]
-            else:
-                target_generations = [self.generation - 1]
+            # For the rest, sample from top 20% of the last generation
+            target_generations = [self.generation - 1]
             generation_df = completed.loc[(completed.generation.isin(
                 target_generations)), :] \
                                      .sort_values(by='Objective',
