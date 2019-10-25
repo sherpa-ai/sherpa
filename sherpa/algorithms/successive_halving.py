@@ -47,7 +47,7 @@ class SuccessiveHalving(Algorithm):
             been trained to completion.
 
     """
-    def __init__(self, r=1, R=9, eta=3, s=0, max_finished_configs=None):
+    def __init__(self, r=1, R=9, eta=3, s=0, max_finished_configs=50):
         self.eta = eta
         self.r = r
         self.R = R
@@ -59,12 +59,16 @@ class SuccessiveHalving(Algorithm):
         self.promoted_trials = set()
         self.max_finished_configs = max_finished_configs
 
+    @staticmethod
+    def _get_completed_results(results, rung):
+        return results[(results.Status == TrialStatus.COMPLETED)
+                        & (results.rung == rung)]
+
     def get_suggestion(self, parameters, results, lower_is_better):
         if self.max_finished_configs and\
                 len(results) > 0 and\
-                len(results[(results.Status == TrialStatus.COMPLETED)
-                            & (results.rung == self.number_of_rungs)])\
-                == self.max_finished_configs:
+                len(self._get_completed_results(results, self.number_of_rungs))\
+                >= self.max_finished_configs:
             return AlgorithmState.DONE
 
         config, k = self.get_job(parameters, results, lower_is_better)
@@ -109,8 +113,8 @@ class SuccessiveHalving(Algorithm):
         if len(results) == 0:
             return pandas.DataFrame({'save_to': []})
         columns = [p.name for p in parameters] + ['save_to']
-        rung_results = results[(results.Status == TrialStatus.COMPLETED)
-                               & (results.rung == rung)]
+
+        rung_results = SuccessiveHalving._get_completed_results(results, rung)
 
         n = len(rung_results) // eta
         top_n = rung_results.sort_values(by="Objective",
