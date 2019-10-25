@@ -37,16 +37,20 @@ algorithm. This is followed by a short comparison benchmark and the algorithms t
 
 For the specification of each algorithm see below.
 
-Comparison on MNIST MLP
-~~~~~~~~~~~~~~~~~~~~~~~
+Comparison using Fashion MNIST MLP
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The figure below shows the mean, minimum, and maximum across five runs of Random Search against the same number of
-GPyOpt Bayesian optimization, and Local Search runs. For the Local Search the
-individual trials are shown since each run finished after a different number of
-trials.
+We constructed a simple and fast to run benchmark to run these algorithms on. This uses a fully connected neural
+network trained on the Fashion MNIST dataset. The tuning parameters are the learning rate, the learning rate
+decay, the momentum, minibatch size, and the dropout rate. We compare Random Search, GPyOpt, Population Based Training (pbt),
+and Successive Halving. All algorithms are allowed an equal budget corresponding to 100 models trained for 26 epochs. The
+plot below shows the mean taken over five runs of each algorithm. The shaded regions correspond to two standard deviations.
+On the y-axis is the classification accuracy of the best model found. On the x-axis are the epochs spent. We run 20 evaluations
+in parallel. Note that the results of GPyOpt may be impacted by the high number of parallel evaluations. The code to reproduce
+this benchmark can be found at ``sherpa/examples/parallel-examples/fashion_mnist_benchmark``. 
 
-.. figure:: mean-loss.png
-   :alt: Individual Losses.
+.. figure:: fashion-mlp-benchmark.png
+   :alt: Fashion MNIST comparison results..
 
 The currently available algorithms in Sherpa are listed below:
 
