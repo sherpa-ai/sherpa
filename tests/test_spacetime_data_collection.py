@@ -88,13 +88,15 @@ def test_spacetime_data_collection(test_dir):
                            objective=0.1, context={'other_metric': 0.2})
         new_results = db.get_new_results()
         testlogger.debug(new_results)
-        assert new_results == [[('parameters', [('a', 1), ('b', 2)]),
-                                ('trial_id', 1),
-                                ('objective', 0.1),
-                                ('iteration', 1),
-                                ('context', [('other_metric', 0.2)]),
-                                ('result_id', 1)]]
+        print("New : ",new_results)
+        assert new_results == [{'context': {'other_metric': 0.2},
+                                'iteration': 1,
+                                'objective': 0.1,
+                                'parameters': {'a': 1, 'b': 2},
+                                'trial_id': 1,
+                                'result_id': 1}]
         new_results = db.get_new_results()
-        assert new_results == None
+        assert new_results == []
+        #assert False
 
         client.quit()

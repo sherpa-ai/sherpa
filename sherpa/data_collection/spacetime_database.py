@@ -145,6 +145,8 @@ class SpacetimeServer(object):
         Returns:
             (list[dict]) where each dict is one row from the DB.
         """
+        new_results = None
+        dict_new_results = []
         try:
             self.server_end.send("get_new_results")
             self.server_end.send(self.collected_results)
@@ -152,17 +154,15 @@ class SpacetimeServer(object):
                 assert 1 == self.server_end.recv()
                 new_results = self.server_end.recv()
                 for r in new_results:
-                    for i in r:
-                        if i[0] == 'trial_id':
-                                tid = i[1]
-                        if i[0] == 'result_id':
-                            rid = i[1]
-                    cid = (tid, rid)
+                    dict_result = dict(r)
+                    dict_result['parameters'] = dict(dict(r)['parameters'])
+                    dict_result['context'] = dict(dict(r)['context'])
+                    cid = (dict_result['trial_id'],dict_result['result_id'])
                     self.collected_results.add(cid)
-                print("new_result = ",new_results)
-                return new_results
+                    dict_new_results.append(dict_result)
         except:
             dblogger.debug("Failed to retrieve new results")
+        return dict_new_results
         
 
     def __enter__(self):
