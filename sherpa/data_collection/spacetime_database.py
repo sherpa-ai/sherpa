@@ -84,8 +84,14 @@ def run_server(dataframe: Dataframe):
                 all_trial_results = dataframe.read_all(Trial_Results)
                 for TR in all_trial_results:
                     print("Anything: ",TR.result)
-                    if TR.trial_id not in collected_results:
-                        new_results.append(TR.result)
+                    for r in TR.result:
+                        for i in r:
+                            if i[0] == 'trial_id':
+                                tid = i[1]
+                            if i[0] == 'result_id':
+                                rid = i[1]
+                        if (tid, rid) not in collected_results:
+                            new_results.append(r)
                 print("Server side result: ", new_results)
                 end2.send(new_results)
             else:
@@ -145,11 +151,17 @@ class SpacetimeServer(object):
             if self.server_end.poll():
                 assert 1 == self.server_end.recv()
                 new_results = self.server_end.recv()
-                # for r in new_results:
-                #   self.collected_results.add(r.trial_id)
+                for r in new_results:
+                    for i in r:
+                        if i[0] == 'trial_id':
+                                tid = i[1]
+                        if i[0] == 'result_id':
+                            rid = i[1]
+                    cid = (tid, rid)
+                    self.collected_results.add(cid)
         except:
             dblogger.debug("Failed to retrieve new results")
-
+        print("new_result = ",new_results)
         return new_results
 
     def __enter__(self):
@@ -223,8 +235,19 @@ def _client_app(dataframe: Dataframe, client_name: str, remote):
                     remote.send(False)
 
                 # Submit out results
-                assigned_trial_result.completed = True
-                assigned_trial_result.result = data
+                #assigned_trial_result.completed = True
+                old_result_id = []
+                for r in assigned_trial_result.result:
+                    for i in r:
+                        if i[0] == 'result_id':
+                            old_result_id.append(i[1])
+                if len(old_result_id) == 0:
+                    data.append(('result_id', 1))
+                else:
+                    data.append(('result_id',len(old_result_id) + 1))
+                prev = assigned_trial_result.result
+                prev.append(data)
+                assigned_trial_result.result = prev
                 client.assigned_trial_result = -1
                 print("Client_app received results: ", assigned_trial_result.result)
                 dataframe.commit()
