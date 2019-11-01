@@ -27,8 +27,9 @@ Documentation Contents
 
     algorithms/algorithms
     algorithms/gpyopt
+    algorithms/keras_mnist_mlp_population_based_training
+    algorithms/keras_mnist_mlp_successive_halving
     algorithms/localsearch
-    algorithms/pbt
     algorithms/writingyourown
 
 .. toctree::

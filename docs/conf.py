@@ -68,8 +68,10 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
-    'sphinx.ext.napoleon'
+    'sphinx.ext.napoleon',
+    'nbsphinx'
 ]
+exclude_patterns = ['_build', '**.ipynb_checkpoints']
 
 napoleon_google_docstring = True
 napoleon_use_param = False
