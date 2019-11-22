@@ -19,9 +19,6 @@ along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
 """
 import pytest
 import sherpa
-import sherpa.core
-import sherpa.schedulers
-import sherpa.database
 import pandas
 import collections
 try:

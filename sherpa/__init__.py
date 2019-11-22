@@ -19,8 +19,7 @@ along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import absolute_import
 from .core import *
-from .data_collection import database
-from .data_collection.database import Client
+from .data_collection.database import MongoDBClient as Client
 from . import algorithms
 import logging
 

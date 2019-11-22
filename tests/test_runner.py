@@ -1,7 +1,6 @@
 import sherpa
 import sherpa.core
 import sherpa.schedulers
-import sherpa.database
 try:
     import unittest.mock as mock
 except ImportError:

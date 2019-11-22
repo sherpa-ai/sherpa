@@ -21,8 +21,9 @@ from __future__ import print_function
 import os
 import pytest
 import sherpa
-import sherpa.schedulers
+from sherpa.data_collection import MongoDBBackend
 from testing_utils import *
+import shutil
 
 
 ### The *training script*
@@ -59,15 +60,17 @@ def test_wrong_db_host_or_port(test_dir):
     with open(filename, 'w') as f:
         f.write(testscript)
 
+    command = ' '.join(["python", filename])
+
     with pytest.warns(RuntimeWarning):
-        results = sherpa.optimize(filename=filename,
+        results = sherpa.optimize(command=command,
                                   lower_is_better=True,
                                   algorithm=algorithm,
                                   parameters=parameters,
+                                  backend=MongoDBBackend(port=db_port),
                                   output_dir=tempdir,
                                   scheduler=scheduler,
-                                  max_concurrent=1,
-                                  db_port=db_port)
+                                  max_concurrent=1)
 
 
 ### The *training script*
@@ -98,12 +101,13 @@ def test_user_code_fails(test_dir):
     with open(filename, 'w') as f:
         f.write(testscript2)
 
+    command = ' '.join(["python", filename])
+
     with pytest.warns(RuntimeWarning):
-        results = sherpa.optimize(filename=filename,
+        results = sherpa.optimize(command=command,
                                   lower_is_better=True,
                                   algorithm=algorithm,
                                   parameters=parameters,
                                   output_dir=tempdir,
                                   scheduler=scheduler,
-                                  max_concurrent=1,
-                                  db_port=db_port)
+                                  max_concurrent=1)
