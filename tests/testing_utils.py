@@ -2,7 +2,6 @@ import pytest
 import sherpa
 import sherpa.core
 import sherpa.schedulers
-import sherpa.database
 import logging
 try:
     import unittest.mock as mock
