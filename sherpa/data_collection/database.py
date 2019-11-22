@@ -240,7 +240,7 @@ class Client(object):
                 that is empty, keras_send_metrics accepts calls but does not do any-
                 thing, as does send_metrics. Useful for trial script debugging.
         """
-        return MongoDBClient(**client_args)
+        raise NotImplementedError("Please use MongoDBClient or SpaceTimeClient instead.")
 
     def get_trial(self):
         """
