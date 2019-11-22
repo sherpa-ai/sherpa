@@ -33,7 +33,7 @@ import warnings
 import numpy
 import pandas
 
-from sherpa.data_collection.database import _Database
+from sherpa.data_collection.database import MongoDBBackend
 from .schedulers import _JobStatus
 
 try:
@@ -575,24 +575,29 @@ class _Runner(object):
             time.sleep(5)
 
 
-def optimize(parameters, algorithm, lower_is_better,
-             scheduler, backend, command,
+def optimize(parameters,
+             algorithm,
+             lower_is_better,
+             scheduler,
+             command,
+             backend=MongoDBBackend(),
              output_dir='./output_' + str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S")),
              max_concurrent=1,
              stopping_rule=None,
-             dashboard_port=None, resubmit_failed_trials=False, verbose=1,
+             dashboard_port=None,
+             resubmit_failed_trials=False,
+             verbose=1,
              disable_dashboard=False):
     """
-    Runs a Study with a scheduler and automatically runs a database in the
-    background.
+    Runs a Study with a scheduler and backend.
 
     Args:
         algorithm (sherpa.algorithms.Algorithm): takes results table and returns
             parameter set.
         parameters (list[sherpa.core.Parameter]): parameters being optimized.
         lower_is_better (bool): whether lower objective values are better.
-        backend (sherpa.data_collection.Backend): backend object.
         command (str): the command to run for the trial script.
+        backend (sherpa.data_collection.Backend): backend object.
         output_dir (str): where scheduler and database files will be stored.
         scheduler (sherpa.schedulers.Scheduler): a scheduler.
         max_concurrent (int): the number of trials that will be evaluated in
@@ -606,6 +611,9 @@ def optimize(parameters, algorithm, lower_is_better,
     """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+
+    if not backend.dir:
+        backend.dir = output_dir
 
     if not scheduler.output_dir:
         scheduler.output_dir = output_dir

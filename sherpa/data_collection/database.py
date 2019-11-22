@@ -91,7 +91,7 @@ class MongoDBBackend(Backend):
         reinstantiated (bool): whether an instance of the MongoDB is being loaded.
         mongodb_args (dict): keyword arguments to MongoDB
     """
-    def __init__(self, db_dir, port=27010, reinstantiated=False,
+    def __init__(self, db_dir=None, port=27010, reinstantiated=False,
                  mongodb_args={}):
         self.client = MongoClient(port=port)
         self.db = self.client.sherpa
