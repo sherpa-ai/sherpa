@@ -27,6 +27,7 @@ import scipy.stats
 import scipy.optimize
 import sklearn.gaussian_process
 from sherpa.core import Choice, Continuous, Discrete, Ordinal, AlgorithmState
+from sherpa.core import rng as sherpa_rng
 import sklearn.model_selection
 from sklearn import preprocessing
 import warnings
@@ -610,7 +611,7 @@ class PopulationBasedTraining(Algorithm):
                 target_generations)), :] \
                                      .sort_values(by='Objective',
                                                   ascending=lower_is_better)
-            idx = numpy.random.randint(low=0, high=self.population_size*len(target_generations)//5)
+            idx = sherpa_rng.randint(low=0, high=self.population_size*len(target_generations)//5)
             d = generation_df.iloc[idx].to_dict()
             d = self._perturb(candidate=d, parameters=parameters)
         trial = {param.name: d[param.name] for param in parameters}
@@ -631,7 +632,7 @@ class PopulationBasedTraining(Algorithm):
         """
         for param in parameters:
             if isinstance(param, Continuous) or isinstance(param, Discrete):
-                factor = numpy.random.choice(self.perturbation_factors)
+                factor = sherpa_rng.choice(self.perturbation_factors)
                 candidate[param.name] *= factor
 
                 if isinstance(param, Discrete):
@@ -642,7 +643,7 @@ class PopulationBasedTraining(Algorithm):
                                                    max(self.parameter_range.get(param.name) or param.range))
 
             elif isinstance(param, Ordinal):
-                shift = numpy.random.choice([-1, 0, +1])
+                shift = sherpa_rng.choice([-1, 0, +1])
                 values = self.parameter_range.get(param.name) or param.range
                 newidx = values.index(candidate[param.name]) + shift
                 newidx = numpy.clip(newidx, 0, len(values)-1)
@@ -680,7 +681,7 @@ class Genetic(Algorithm):
                                              lower_is_better)
         params_values_for_next_trial = {}
         for param_name in trial_1_params.keys():
-            param_origin = numpy.random.random()  # randomly choose where to get the value from
+            param_origin = sherpa_rng.random()  # randomly choose where to get the value from
             if param_origin < self.mutation_rate:  # Use mutation
                 for parameter_object in parameters:
                     if param_name == parameter_object.name:
@@ -717,7 +718,7 @@ class Genetic(Algorithm):
             return trial_param_values
         population = population.sort_values(by='Objective',
                                             ascending=lower_is_better)
-        idx = numpy.random.randint(low=0, high=population.shape[
+        idx = sherpa_rng.randint(low=0, high=population.shape[
                                                    0] // 3)  # pick randomly among top 33%
         trial_all_values = population.iloc[
             idx].to_dict()  # extract the trial values on results table
