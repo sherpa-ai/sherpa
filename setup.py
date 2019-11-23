@@ -12,11 +12,11 @@ import argparse
 from setuptools import find_packages, setup, Command
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--parallel', help='Install packages required'
-                                       'by Parallel-mode.',
-                    action='store_true', default=False)
-args = parser.parse_args()
+# parser = argparse.ArgumentParser()
+# parser.add_argument('--parallel', help='Install packages required'
+#                                        'by Parallel-mode.',
+#                     action='store_true', default=False)
+# args = parser.parse_args()
 
 # Package meta-data.
 NAME = 'parameter-sherpa'
@@ -37,12 +37,12 @@ REQUIRED = [
     'matplotlib',
 ]
 
-if args.parallel:
-    PARALLEL = ['pymongo>=3.5.1', 'drmaa>=0.7.7']
-    REQUIRED += PARALLEL
-    print("DRMAA path needs to be set e.g.:"
-          "export DRMAA_LIBRARY_PATH=/usr/lib/libdrmaa.so.1.0\n"
-          "See https://pypi.python.org/pypi/drmaa for details.")
+# if args.parallel:
+#     PARALLEL = ['pymongo>=3.5.1', 'drmaa>=0.7.7']
+#     REQUIRED += PARALLEL
+#     print("DRMAA path needs to be set e.g.:"
+#           "export DRMAA_LIBRARY_PATH=/usr/lib/libdrmaa.so.1.0\n"
+#           "See https://pypi.python.org/pypi/drmaa for details.")
 
 here = os.path.abspath(os.path.dirname(__file__))
 
