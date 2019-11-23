@@ -646,7 +646,7 @@ class Genetic(Algorithm):
                                              lower_is_better)
         params_values_for_next_trial = {}
         for param_name in trial_1_params.keys():
-            param_origin = sherpa_rng.random()  # randomly choose where to get the value from
+            param_origin = sherpa_rng.random_sample()  # randomly choose where to get the value from
             if param_origin < self.mutation_rate:  # Use mutation
                 for parameter_object in parameters:
                     if param_name == parameter_object.name:
