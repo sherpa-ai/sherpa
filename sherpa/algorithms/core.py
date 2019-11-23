@@ -232,35 +232,22 @@ class GridSearch(Algorithm):
         num_grid_points (int): number of grid points for continuous / discrete.
 
     """
-    def __init__(self, num_grid_points=2, repeat=1):
+    def __init__(self, num_grid_points=2):
         self.grid = None
         self.num_grid_points = num_grid_points
-        self.i = 0  # number of sampled configs
-        self.m = repeat  # number of times to repeat each config
-        self.j = 0  # number of trials submitted with this config
-        self.theta_i = {}  # current parameter config
+        self.count = 0  # number of sampled configs
 
     def get_suggestion(self, parameters, results=None, lower_is_better=True):
-        if self.i == 0 and self.j == 0:
+        if self.count == 0:
             param_dict = self._get_param_dict(parameters)
             self.grid = list(sklearn.model_selection.ParameterGrid(param_dict))
-        
-        # If number of repetitions are reached set them back to zero
-        if self.j == self.m:
-            self.j = 0
-            self.i += 1
 
-        # If the maximum number of configs is reached, return None
-        if self.i == len(self.grid):
-            return None
-        # Else increase the count of this config by one and return it
+        if self.count >= len(self.grid):
+            return AlgorithmState.DONE
         else:
-            # If there are no repetitions yet, get a new config
-            if self.j == 0:
-                self.theta_i = self.grid[self.i]
-            
-            self.j += 1
-            return self.theta_i
+            config = self.grid[self.count]
+            self.count += 1
+            return config
 
     def _get_param_dict(self, parameters):
         param_dict = {}

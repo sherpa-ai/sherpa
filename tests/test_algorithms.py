@@ -149,7 +149,7 @@ def test_grid_search():
     suggestion = alg.get_suggestion(parameters)
     seen = set()
 
-    while suggestion:
+    while suggestion != sherpa.AlgorithmState.DONE:
         seen.add((suggestion['a'], suggestion['b'], suggestion['c']))
         suggestion = alg.get_suggestion(parameters)
 
@@ -371,7 +371,7 @@ def test_repeat_grid_search():
     suggestion = alg.get_suggestion(parameters)
     seen = list()
 
-    while suggestion:
+    while suggestion != sherpa.AlgorithmState.DONE:
         seen.append((suggestion['a'], suggestion['b'], suggestion['c']))
         suggestion = alg.get_suggestion(parameters)
 
