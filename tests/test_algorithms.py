@@ -391,8 +391,7 @@ def test_repeat_rs():
 
 def test_repeat_grid_search():
     parameters = [sherpa.Choice('a', [1, 2]),
-                  sherpa.Choice('b', ['a', 'b']),
-                  sherpa.Continuous('c', [1, 4])]
+                  sherpa.Choice('b', ['a', 'b'])]
 
     alg = sherpa.algorithms.GridSearch()
     alg = sherpa.algorithms.Repeat(algorithm=alg, num_times=3)
@@ -401,13 +400,13 @@ def test_repeat_grid_search():
     seen = list()
 
     while suggestion != sherpa.AlgorithmState.DONE:
-        seen.append((suggestion['a'], suggestion['b'], suggestion['c']))
+        seen.append((suggestion['a'], suggestion['b']))
         suggestion = alg.get_suggestion(parameters)
 
-    expected_params = [(1, 'a', 2.0), (1, 'a', 3.0),
-                       (1, 'b', 2.0), (1, 'b', 3.0),
-                       (2, 'a', 2.0), (2, 'a', 3.0),
-                       (2, 'b', 2.0), (2, 'b', 3.0)]
+    expected_params = [(1, 'a'),
+                       (1, 'b'),
+                       (2, 'a'),
+                       (2, 'b')]
 
     expected = list(itertools.chain.from_iterable(
         itertools.repeat(x, 3) for x in expected_params))
