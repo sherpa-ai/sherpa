@@ -23,7 +23,6 @@ from . import database
 from .database import Client
 from . import algorithms
 import logging
-import numpy
 
 __version__ = '1.0.5'
 
