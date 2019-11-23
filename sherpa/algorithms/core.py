@@ -253,23 +253,17 @@ class GridSearch(Algorithm):
         param_dict = {}
         for p in parameters:
             if isinstance(p, Continuous) or isinstance(p, Discrete):
-                values = []
-                for i in range(self.num_grid_points):
-                    if p.scale == 'log':
-                        v = numpy.log10(p.range[1]) - numpy.log10(p.range[0])
-                        v *= (i + 1) / (self.num_grid_points + 1)
-                        v += numpy.log10(p.range[0])
-                        v = 10**v
-                        if isinstance(p, Discrete):
-                            v = int(v)
-                        values.append(v)
-                    else:
-                        v = p.range[1]-p.range[0]
-                        v *= (i + 1)/(self.num_grid_points + 1)
-                        v += p.range[0]
-                        if isinstance(p, Discrete):
-                            v = int(v)
-                        values.append(v)
+                dtype = int if isinstance(p, Discrete) else float
+                if p.scale == 'log':
+                    func = numpy.logspace
+                    range = [numpy.log10(x) for x in p.range]
+                else:
+                    func = numpy.linspace
+                    range = p.range
+                values = func(*range,
+                              num=self.num_grid_points,
+                              endpoint=True,
+                              dtype=dtype)
             else:
                 values = p.range
             param_dict[p.name] = values

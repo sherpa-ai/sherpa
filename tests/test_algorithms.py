@@ -140,23 +140,52 @@ def test_Iterate_search():
 
 
 def test_grid_search():
-    parameters = [sherpa.Choice('a', [1, 2]),
-                  sherpa.Choice('b', ['a', 'b']),
-                  sherpa.Continuous('c', [1, 4])]
+    parameters = [sherpa.Choice('choice', ['a', 'b']),
+                  sherpa.Continuous('continuous', [2, 3])]
 
-    alg = sherpa.algorithms.GridSearch()
+    alg = sherpa.algorithms.GridSearch(num_grid_points=2)
 
     suggestion = alg.get_suggestion(parameters)
     seen = set()
 
     while suggestion != sherpa.AlgorithmState.DONE:
-        seen.add((suggestion['a'], suggestion['b'], suggestion['c']))
+        seen.add((suggestion['choice'], suggestion['continuous']))
         suggestion = alg.get_suggestion(parameters)
 
-    assert seen == {(1, 'a', 2.0), (1, 'a', 3.0),
-                    (1, 'b', 2.0), (1, 'b', 3.0),
-                    (2, 'a', 2.0), (2, 'a', 3.0),
-                    (2, 'b', 2.0), (2, 'b', 3.0)}
+    assert seen == {('a', 2.0),
+                    ('a', 3.0),
+                    ('b', 2.0),
+                    ('b', 3.0)}
+
+
+def test_grid_search_continuous():
+    parameters = [sherpa.Continuous('continuous', [1, 3])]
+
+    alg = sherpa.algorithms.GridSearch(num_grid_points=3)
+
+    suggestion = alg.get_suggestion(parameters)
+    seen = set()
+
+    while suggestion != sherpa.AlgorithmState.DONE:
+        seen.add(suggestion['continuous'])
+        suggestion = alg.get_suggestion(parameters)
+
+    assert seen == {1., 2., 3.}
+
+
+def test_grid_search_log_continuous():
+    parameters = [sherpa.Continuous('log-continuous', [1e-4,1e-2], 'log')]
+
+    alg = sherpa.algorithms.GridSearch(num_grid_points=3)
+
+    suggestion = alg.get_suggestion(parameters)
+    seen = set()
+
+    while suggestion != sherpa.AlgorithmState.DONE:
+        seen.add(suggestion['log-continuous'])
+        suggestion = alg.get_suggestion(parameters)
+
+    assert seen == {1e-4, 1e-3, 1e-2}
 
 
 def test_pbt():
