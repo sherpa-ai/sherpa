@@ -140,23 +140,52 @@ def test_Iterate_search():
 
 
 def test_grid_search():
-    parameters = [sherpa.Choice('a', [1, 2]),
-                  sherpa.Choice('b', ['a', 'b']),
-                  sherpa.Continuous('c', [1, 4])]
+    parameters = [sherpa.Choice('choice', ['a', 'b']),
+                  sherpa.Continuous('continuous', [2, 3])]
 
-    alg = sherpa.algorithms.GridSearch()
+    alg = sherpa.algorithms.GridSearch(num_grid_points=2)
 
     suggestion = alg.get_suggestion(parameters)
     seen = set()
 
-    while suggestion:
-        seen.add((suggestion['a'], suggestion['b'], suggestion['c']))
+    while suggestion != sherpa.AlgorithmState.DONE:
+        seen.add((suggestion['choice'], suggestion['continuous']))
         suggestion = alg.get_suggestion(parameters)
 
-    assert seen == {(1, 'a', 2.0), (1, 'a', 3.0),
-                    (1, 'b', 2.0), (1, 'b', 3.0),
-                    (2, 'a', 2.0), (2, 'a', 3.0),
-                    (2, 'b', 2.0), (2, 'b', 3.0)}
+    assert seen == {('a', 2.0),
+                    ('a', 3.0),
+                    ('b', 2.0),
+                    ('b', 3.0)}
+
+
+def test_grid_search_continuous():
+    parameters = [sherpa.Continuous('continuous', [1, 3])]
+
+    alg = sherpa.algorithms.GridSearch(num_grid_points=3)
+
+    suggestion = alg.get_suggestion(parameters)
+    seen = set()
+
+    while suggestion != sherpa.AlgorithmState.DONE:
+        seen.add(suggestion['continuous'])
+        suggestion = alg.get_suggestion(parameters)
+
+    assert seen == {1., 2., 3.}
+
+
+def test_grid_search_log_continuous():
+    parameters = [sherpa.Continuous('log-continuous', [1e-4,1e-2], 'log')]
+
+    alg = sherpa.algorithms.GridSearch(num_grid_points=3)
+
+    suggestion = alg.get_suggestion(parameters)
+    seen = set()
+
+    while suggestion != sherpa.AlgorithmState.DONE:
+        seen.add(suggestion['log-continuous'])
+        suggestion = alg.get_suggestion(parameters)
+
+    assert seen == {1e-4, 1e-3, 1e-2}
 
 
 def test_pbt():
@@ -323,7 +352,7 @@ def test_random_search():
     parameters = [sherpa.Continuous('a', [0, 1]),
                   sherpa.Choice('b', ['x', 'y', 'z'])]
 
-    rs = sherpa.algorithms.RandomSearch(max_num_trials=10, repeat=1)
+    rs = sherpa.algorithms.RandomSearch(max_num_trials=10)
     last_config = {}
 
     for i in range(10):
@@ -331,7 +360,7 @@ def test_random_search():
         assert config != last_config
         last_config = config
 
-    assert rs.get_suggestion(parameters=parameters) is None
+    assert rs.get_suggestion(parameters=parameters) == sherpa.AlgorithmState.DONE
 
 
     rs = sherpa.algorithms.RandomSearch()
@@ -357,13 +386,12 @@ def test_repeat_rs():
             config_repeat = rs.get_suggestion(parameters=parameters)
             assert config == config_repeat
 
-    assert rs.get_suggestion(parameters=parameters) is None
+    assert rs.get_suggestion(parameters=parameters) == sherpa.AlgorithmState.DONE
 
 
 def test_repeat_grid_search():
     parameters = [sherpa.Choice('a', [1, 2]),
-                  sherpa.Choice('b', ['a', 'b']),
-                  sherpa.Continuous('c', [1, 4])]
+                  sherpa.Choice('b', ['a', 'b'])]
 
     alg = sherpa.algorithms.GridSearch()
     alg = sherpa.algorithms.Repeat(algorithm=alg, num_times=3)
@@ -371,14 +399,14 @@ def test_repeat_grid_search():
     suggestion = alg.get_suggestion(parameters)
     seen = list()
 
-    while suggestion:
-        seen.append((suggestion['a'], suggestion['b'], suggestion['c']))
+    while suggestion != sherpa.AlgorithmState.DONE:
+        seen.append((suggestion['a'], suggestion['b']))
         suggestion = alg.get_suggestion(parameters)
 
-    expected_params = [(1, 'a', 2.0), (1, 'a', 3.0),
-                       (1, 'b', 2.0), (1, 'b', 3.0),
-                       (2, 'a', 2.0), (2, 'a', 3.0),
-                       (2, 'b', 2.0), (2, 'b', 3.0)]
+    expected_params = [(1, 'a'),
+                       (1, 'b'),
+                       (2, 'a'),
+                       (2, 'b')]
 
     expected = list(itertools.chain.from_iterable(
         itertools.repeat(x, 3) for x in expected_params))
@@ -427,4 +455,4 @@ def test_repeat_wait_for_completion():
         study.finalize(t)
 
     tdone = study.get_suggestion()
-    assert tdone is None
+    assert tdone == sherpa.AlgorithmState.DONE

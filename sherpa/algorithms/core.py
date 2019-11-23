@@ -27,6 +27,7 @@ import scipy.stats
 import scipy.optimize
 import sklearn.gaussian_process
 from sherpa.core import Choice, Continuous, Discrete, Ordinal, AlgorithmState
+from sherpa.core import rng as sherpa_rng
 import sklearn.model_selection
 from sklearn import preprocessing
 import warnings
@@ -144,33 +145,17 @@ class RandomSearch(Algorithm):
         max_num_trials (int): number of trials, otherwise runs indefinitely.
         repeat (int): number of times to repeat a parameter configuration.
     """
-    def __init__(self, max_num_trials=None, repeat=1):
-        self.i = 0  # number of sampled configs
-        self.n = max_num_trials or 2**32  # total number of configs to be sampled
-        self.m = repeat  # number of times to repeat each config
-        self.j = 0  # number of trials submitted with this config
-        self.theta_i = {}  # current parameter config
+    def __init__(self, max_num_trials=None):
+        self.max_num_trials = max_num_trials or 2**32  # total number of configs to be sampled
+        self.count = 0
 
     def get_suggestion(self, parameters, results=None, lower_is_better=True):
-        # If number of repetitions are reached set them back to zero
-        if self.j == self.m:
-            self.j = 0
-
-        # If there are no repetitions yet, sample a new config
-        if self.j == 0:
-            self.theta_i = {p.name: p.sample() for p in parameters}
-            self.i += 1
-
-        # If the maximum number of configs is reached, return None
-        if self.i > self.n:
-            return None
-        # Else increase the count of this config by one and return it
+        if self.count >= self.max_num_trials:
+            return AlgorithmState.DONE
         else:
-            self.j += 1
-            return self.theta_i
+            self.count += 1
+            return {p.name: p.sample() for p in parameters}
 
-
-                
 
 class Iterate(Algorithm):
     """
@@ -247,57 +232,38 @@ class GridSearch(Algorithm):
         num_grid_points (int): number of grid points for continuous / discrete.
 
     """
-    def __init__(self, num_grid_points=2, repeat=1):
+    def __init__(self, num_grid_points=2):
         self.grid = None
         self.num_grid_points = num_grid_points
-        self.i = 0  # number of sampled configs
-        self.m = repeat  # number of times to repeat each config
-        self.j = 0  # number of trials submitted with this config
-        self.theta_i = {}  # current parameter config
+        self.count = 0  # number of sampled configs
 
     def get_suggestion(self, parameters, results=None, lower_is_better=True):
-        if self.i == 0 and self.j == 0:
+        if self.count == 0:
             param_dict = self._get_param_dict(parameters)
             self.grid = list(sklearn.model_selection.ParameterGrid(param_dict))
-        
-        # If number of repetitions are reached set them back to zero
-        if self.j == self.m:
-            self.j = 0
-            self.i += 1
 
-        # If the maximum number of configs is reached, return None
-        if self.i == len(self.grid):
-            return None
-        # Else increase the count of this config by one and return it
+        if self.count >= len(self.grid):
+            return AlgorithmState.DONE
         else:
-            # If there are no repetitions yet, get a new config
-            if self.j == 0:
-                self.theta_i = self.grid[self.i]
-            
-            self.j += 1
-            return self.theta_i
+            config = self.grid[self.count]
+            self.count += 1
+            return config
 
     def _get_param_dict(self, parameters):
         param_dict = {}
         for p in parameters:
             if isinstance(p, Continuous) or isinstance(p, Discrete):
-                values = []
-                for i in range(self.num_grid_points):
-                    if p.scale == 'log':
-                        v = numpy.log10(p.range[1]) - numpy.log10(p.range[0])
-                        v *= (i + 1) / (self.num_grid_points + 1)
-                        v += numpy.log10(p.range[0])
-                        v = 10**v
-                        if isinstance(p, Discrete):
-                            v = int(v)
-                        values.append(v)
-                    else:
-                        v = p.range[1]-p.range[0]
-                        v *= (i + 1)/(self.num_grid_points + 1)
-                        v += p.range[0]
-                        if isinstance(p, Discrete):
-                            v = int(v)
-                        values.append(v)
+                dtype = int if isinstance(p, Discrete) else float
+                if p.scale == 'log':
+                    func = numpy.logspace
+                    range = [numpy.log10(x) for x in p.range]
+                else:
+                    func = numpy.linspace
+                    range = p.range
+                values = func(*range,
+                              num=self.num_grid_points,
+                              endpoint=True,
+                              dtype=dtype)
             else:
                 values = p.range
             param_dict[p.name] = values
@@ -610,7 +576,7 @@ class PopulationBasedTraining(Algorithm):
                 target_generations)), :] \
                                      .sort_values(by='Objective',
                                                   ascending=lower_is_better)
-            idx = numpy.random.randint(low=0, high=self.population_size*len(target_generations)//5)
+            idx = sherpa_rng.randint(low=0, high=self.population_size*len(target_generations)//5)
             d = generation_df.iloc[idx].to_dict()
             d = self._perturb(candidate=d, parameters=parameters)
         trial = {param.name: d[param.name] for param in parameters}
@@ -631,7 +597,7 @@ class PopulationBasedTraining(Algorithm):
         """
         for param in parameters:
             if isinstance(param, Continuous) or isinstance(param, Discrete):
-                factor = numpy.random.choice(self.perturbation_factors)
+                factor = sherpa_rng.choice(self.perturbation_factors)
                 candidate[param.name] *= factor
 
                 if isinstance(param, Discrete):
@@ -642,7 +608,7 @@ class PopulationBasedTraining(Algorithm):
                                                    max(self.parameter_range.get(param.name) or param.range))
 
             elif isinstance(param, Ordinal):
-                shift = numpy.random.choice([-1, 0, +1])
+                shift = sherpa_rng.choice([-1, 0, +1])
                 values = self.parameter_range.get(param.name) or param.range
                 newidx = values.index(candidate[param.name]) + shift
                 newidx = numpy.clip(newidx, 0, len(values)-1)
@@ -680,7 +646,7 @@ class Genetic(Algorithm):
                                              lower_is_better)
         params_values_for_next_trial = {}
         for param_name in trial_1_params.keys():
-            param_origin = numpy.random.random()  # randomly choose where to get the value from
+            param_origin = sherpa_rng.random_sample()  # randomly choose where to get the value from
             if param_origin < self.mutation_rate:  # Use mutation
                 for parameter_object in parameters:
                     if param_name == parameter_object.name:
@@ -717,7 +683,7 @@ class Genetic(Algorithm):
             return trial_param_values
         population = population.sort_values(by='Objective',
                                             ascending=lower_is_better)
-        idx = numpy.random.randint(low=0, high=population.shape[
+        idx = sherpa_rng.randint(low=0, high=population.shape[
                                                    0] // 3)  # pick randomly among top 33%
         trial_all_values = population.iloc[
             idx].to_dict()  # extract the trial values on results table

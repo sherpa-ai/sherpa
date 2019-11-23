@@ -40,6 +40,7 @@ except ImportError:  # python 3.x
 
 logger = logging.getLogger(__name__)
 logging.getLogger('werkzeug').setLevel(level=logging.WARNING)
+rng = numpy.random.RandomState(None)
 
 
 class Trial(object):
@@ -79,10 +80,16 @@ class Study(object):
             the first free port in the range `8880` to `9999` is found and used.
         disable_dashboard (bool): option to not run the dashboard.
         output_dir (str): directory path for CSV results.
+        random_seed (int): seed to use for NumPy random number generators
+            throughout.
 
     """
-    def __init__(self, parameters, algorithm, lower_is_better,
-                 stopping_rule=None, dashboard_port=None,
+    def __init__(self,
+                 parameters,
+                 algorithm,
+                 lower_is_better,
+                 stopping_rule=None,
+                 dashboard_port=None,
                  disable_dashboard=False,
                  output_dir=None):
         self.parameters = parameters
@@ -781,10 +788,10 @@ class Continuous(Parameter):
     def sample(self):
         try:
             if self.scale == 'log':
-                return 10**numpy.random.uniform(low=numpy.log10(self.range[0]),
+                return 10**rng.uniform(low=numpy.log10(self.range[0]),
                                                 high=numpy.log10(self.range[1]))
             else:
-                return numpy.random.uniform(low=self.range[0], high=self.range[1])
+                return rng.uniform(low=self.range[0], high=self.range[1])
         except ValueError as e:
             raise ValueError("{} causes error {}".format(self.name, e))
 
@@ -804,10 +811,10 @@ class Discrete(Parameter):
     def sample(self):
         try:
             if self.scale == 'log':
-                return int(10**numpy.random.uniform(low=numpy.log10(self.range[0]),
+                return int(10**rng.uniform(low=numpy.log10(self.range[0]),
                                                 high=numpy.log10(self.range[1])))
             else:
-                return numpy.random.randint(low=self.range[0], high=self.range[1])
+                return rng.randint(low=self.range[0], high=self.range[1])
         except ValueError as e:
             raise ValueError("{} causes error {}".format(self.name, e))
 
@@ -821,7 +828,7 @@ class Choice(Parameter):
         self.type = type(self.range[0])
 
     def sample(self):
-        i = numpy.random.randint(low=0, high=len(self.range))
+        i = rng.randint(low=0, high=len(self.range))
         return self.range[i]
 
 
@@ -834,7 +841,7 @@ class Ordinal(Parameter):
         self.type = type(self.range[0])
 
     def sample(self):
-        i = numpy.random.randint(low=0, high=len(self.range))
+        i = rng.randint(low=0, high=len(self.range))
         return self.range[i]
 
 
