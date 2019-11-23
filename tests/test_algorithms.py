@@ -323,7 +323,7 @@ def test_random_search():
     parameters = [sherpa.Continuous('a', [0, 1]),
                   sherpa.Choice('b', ['x', 'y', 'z'])]
 
-    rs = sherpa.algorithms.RandomSearch(max_num_trials=10, repeat=1)
+    rs = sherpa.algorithms.RandomSearch(max_num_trials=10)
     last_config = {}
 
     for i in range(10):
@@ -331,7 +331,7 @@ def test_random_search():
         assert config != last_config
         last_config = config
 
-    assert rs.get_suggestion(parameters=parameters) is None
+    assert rs.get_suggestion(parameters=parameters) == sherpa.AlgorithmState.DONE
 
 
     rs = sherpa.algorithms.RandomSearch()
@@ -357,7 +357,7 @@ def test_repeat_rs():
             config_repeat = rs.get_suggestion(parameters=parameters)
             assert config == config_repeat
 
-    assert rs.get_suggestion(parameters=parameters) is None
+    assert rs.get_suggestion(parameters=parameters) == sherpa.AlgorithmState.DONE
 
 
 def test_repeat_grid_search():
@@ -427,4 +427,4 @@ def test_repeat_wait_for_completion():
         study.finalize(t)
 
     tdone = study.get_suggestion()
-    assert tdone is None
+    assert tdone == sherpa.AlgorithmState.DONE
