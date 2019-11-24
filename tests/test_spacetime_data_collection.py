@@ -59,9 +59,10 @@ def test_dir():
     dirpath = tempfile.mkdtemp()
     yield dirpath
     shutil.rmtree(dirpath)
-
+# pytest parameterize
 def test_spacetime_data_collection(test_dir):
     test_trial = get_test_trial()
+    test_trial2 = get_test_trial(2)
     testlogger.debug(test_dir)
     db_port = sherpa.core._port_finder(27000, 28000)
     with sherpa.data_collection.spacetime_database.SpacetimeServer(port=db_port) as db:
@@ -69,6 +70,7 @@ def test_spacetime_data_collection(test_dir):
         testlogger.debug("Enqueuing...")
 
         db.enqueue_trial_results(test_trial)
+        db.enqueue_trial_results(test_trial2)
 
         testlogger.debug("Starting Client...")
 
@@ -80,8 +82,12 @@ def test_spacetime_data_collection(test_dir):
         trial = client.get_trial()
 
 
+
         assert trial.id == 1
         assert  trial.parameters == {'a': 1, 'b': 2}
+        # trial1 = client1.get_trial()
+        #
+        # assert trial1.id == 2
 
         testlogger.debug("Sending Metrics...")
         client.send_metrics(trial=trial, iteration=1,
@@ -97,6 +103,14 @@ def test_spacetime_data_collection(test_dir):
                                 'result_id': 1}]
         new_results = db.get_new_results()
         assert new_results == []
-        #assert False
+        client.send_metrics(trial = trial, iteration = 2,objective = 0.01, context={'other_metric':2})
+        new_results = db.get_new_results()
+        print("3New : ",new_results)
+        assert new_results == [{'context': {'other_metric': 2},
+                                'iteration': 2,
+                                'objective': 0.1,
+                                'parameters': {'a': 1, 'b': 2},
+                                'trial_id': 1,
+                                'result_id': 2}]
 
         client.quit()

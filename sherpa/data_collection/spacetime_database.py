@@ -83,13 +83,15 @@ def run_server(dataframe: Dataframe):
                 collected_results = end2.recv()
                 all_trial_results = dataframe.read_all(Trial_Results)
                 for TR in all_trial_results:
-                    print("Anything: ",TR.result)
+                    print("Server side every possible results: ",TR.result)
                     for r in TR.result:
                         for i in r:
                             if i[0] == 'trial_id':
                                 tid = i[1]
                             if i[0] == 'result_id':
                                 rid = i[1]
+                            if i[0] == 'result' and i[1] == []:
+                                empty = True
                         if (tid, rid) not in collected_results:
                             new_results.append(r)
                 print("Server side result: ", new_results)
@@ -151,19 +153,27 @@ class SpacetimeServer(object):
             self.server_end.send("get_new_results")
             self.server_end.send(self.collected_results)
             if self.server_end.poll():
-                assert 1 == self.server_end.recv()
-                new_results = self.server_end.recv()
-                for r in new_results:
-                    dict_result = dict(r)
-                    dict_result['parameters'] = dict(dict(r)['parameters'])
-                    dict_result['context'] = dict(dict(r)['context'])
-                    cid = (dict_result['trial_id'],dict_result['result_id'])
-                    self.collected_results.add(cid)
-                    dict_new_results.append(dict_result)
+                if self.server_end.recv() == 1:
+                    r = self.server_end.recv()
+                    if r != 1:
+                        new_results = r
+                    else:
+                        while True:
+                            r = self.server_end.recv()
+                            if r != 1:
+                                new_results = r
+                                break
+                    for r in new_results:
+                        dict_result = dict(r)
+                        dict_result['parameters'] = dict(dict(r)['parameters'])
+                        dict_result['context'] = dict(dict(r)['context'])
+                        cid = (dict_result['trial_id'],dict_result['result_id'])
+                        self.collected_results.add(cid)
+                        dict_new_results.append(dict_result)
         except:
             dblogger.debug("Failed to retrieve new results")
         return dict_new_results
-        
+
 
     def __enter__(self):
         self.start()
@@ -219,7 +229,6 @@ def _client_app(dataframe: Dataframe, client_name: str, remote):
                 if new_trial_results == None:
                     remote.send(None)
                 else:
-                    #print("MY PARAMS:", new_trial_results.parameters)
                     remote.send(new_trial_results.parameters)
 
             elif cmd == 'submit_result':
@@ -231,12 +240,7 @@ def _client_app(dataframe: Dataframe, client_name: str, remote):
 
                 assigned_trial_result = dataframe.read_one(Trial_Results, oid=client.assigned_trial_result)
 
-                # Return False if we already submitted the final results for this test
-                if assigned_trial_result.completed:
-                    remote.send(False)
-
                 # Submit out results
-                #assigned_trial_result.completed = True
                 old_result_id = []
                 for r in assigned_trial_result.result:
                     for i in r:
@@ -249,7 +253,6 @@ def _client_app(dataframe: Dataframe, client_name: str, remote):
                 prev = assigned_trial_result.result
                 prev.append(data)
                 assigned_trial_result.result = prev
-                client.assigned_trial_result = -1
                 print("Client_app received results: ", assigned_trial_result.result)
                 dataframe.commit()
                 dataframe.push()
@@ -346,6 +349,7 @@ class Client(object):
         self.remote.send(("get_new_trial_results", trial_id))
 
         serialized_trial = self.remote.recv()
+        #assert trial_id
         new_trial = Trial(trial_id,parameters={k: v for k, v in serialized_trial})
 
         if new_trial == None:
