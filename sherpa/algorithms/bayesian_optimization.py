@@ -73,9 +73,11 @@ class GPyOpt(Algorithm):
         self.random_search = sherpa.algorithms.RandomSearch()
 
         self.domain = []
+        self.lower_is_better = -1
 
         self.max_num_trials = max_num_trials
         self.count = 0
+
 
     def get_suggestion(self, parameters, results, lower_is_better):
         self.count += 1
@@ -92,9 +94,9 @@ class GPyOpt(Algorithm):
                 self._process_initial_data_points(self.initial_data_points,
                                                   parameters))
             self.domain = self._initialize_domain(parameters)
+            self.lower_is_better = lower_is_better
 
-        num_completed_trials = (len(results.query("Status == 'COMPLETED'"))
-                                if results is not None and len(results) > 0 else 0)
+        num_completed_trials = self._num_completed_trials(results)
 
         if (num_completed_trials >= self._num_initial_data_points
            and num_completed_trials > self.num_points_seen_by_model):
@@ -106,8 +108,7 @@ class GPyOpt(Algorithm):
 
             X, y, y_var = self._prepare_data_for_bayes_opt(parameters, results)
 
-            batch = self._generate_bayesopt_batch(self.domain, X, y, y_var,
-                                                  lower_is_better)
+            batch = self._generate_bayesopt_batch(X, y, y_var)
 
             batch_list_of_dicts = self._reverse_to_sherpa_format(batch,
                                                                  parameters)
@@ -123,21 +124,16 @@ class GPyOpt(Algorithm):
 
         return self.next_trials.popleft()
 
-    def _generate_bayesopt_batch(self, domain, X, y, y_var, lower_is_better):
-        y_adjusted = y * (-1)**(not lower_is_better)
-        if y_var is not None:
-            kern = GPy.kern.Matern52(input_dim=X.shape[1], variance=1.) + GPy.kern.Bias(
-                X.shape[1])
-            m = GPy.models.GPHeteroscedasticRegression(X, y_adjusted, kern)
-            m['.*het_Gauss.variance'] = y_var
-            m.het_Gauss.variance.fix()
-            m.optimize()
-            kwargs = {'model': m}
-        else:
-            kwargs = {'model_type': self.model_type}
+    @classmethod
+    def _num_completed_trials(cls, results):
+        return (len(results.query("Status == 'COMPLETED'"))
+                if results is not None and len(results) > 0 else 0)
+
+    def _generate_bayesopt_batch(self, X, y, y_var):
+        y_adjusted = y * (-1)**(not self.lower_is_better)
 
         bo_step = gpyopt_package.methods.BayesianOptimization(f=None,
-                                                              domain=domain,
+                                                              domain=self.domain,
                                                               X=X, Y=y_adjusted,
                                                               acquisition_type=self.acquisition_type,
                                                               evaluator_type='local_penalization',
@@ -145,8 +141,45 @@ class GPyOpt(Algorithm):
                                                               verbosity=self.verbosity,
                                                               maximize=False,
                                                               exact_feval=False,
-                                                              **kwargs)
+                                                              model_type=self.model_type)
         return bo_step.suggest_next_locations()
+
+    def get_best_pred(self, parameters, results):
+        if self._num_completed_trials(results) >= self._num_initial_data_points:
+            X, y, y_var = self._prepare_data_for_bayes_opt(parameters, results)
+
+            best_pred = self._generate_best_predicted(X, y, y_var)
+
+            list_of_dict = self._reverse_to_sherpa_format(best_pred,
+                                                                 parameters)
+            return list_of_dict[0]
+        else:
+            return {}
+
+    def _generate_best_predicted(self, X, y, y_var):
+        """
+        This is a work-around to utilize GPyOpt's maximizers for the acquisition
+        function to get the parameter setting that is the best as predicted by
+        the model.
+        """
+        y_adjusted = y * (-1)**(not self.lower_is_better)
+
+        print(X, y_adjusted)
+
+        bo = gpyopt_package.methods.BayesianOptimization(f=None,
+                                                         domain=self.domain,
+                                                         X=X,
+                                                         Y=y_adjusted,
+                                                         acquisition_type='LCB',
+                                                         batch_size=1,
+                                                         verbosity=self.verbosity,
+                                                         maximize=False,
+                                                         exact_feval=False,
+                                                         model_type=self.model_type)
+
+        bo.acquisition.exploration_weight = 0.
+
+        return bo.suggest_next_locations()
 
     @staticmethod
     def _infer_num_initial_data_points(num_initial_data_points, parameters):
