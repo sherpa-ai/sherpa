@@ -44,6 +44,8 @@ import sherpa
 dblogger = logging.getLogger(__name__)
 end1, end2 = mp.Pipe()
 
+
+
 def run_server(dataframe: Dataframe):
     dataframe.checkout()
     fr = FrameRateKeeper(60)
@@ -70,9 +72,7 @@ def run_server(dataframe: Dataframe):
                 #all_trial_results.append(trial_result)
                 dataframe.add_one(Trial_Results,trial_result)
                 dataframe.commit()
-                end2.send(1)
-            else:
-                end2.send(-1)
+                print("Trial enqueued")
 
         # get all new results
         elif cmd == "get_new_results":
@@ -96,8 +96,7 @@ def run_server(dataframe: Dataframe):
                             new_results.append(r)
                 print("Server side result: ", new_results)
                 end2.send(new_results)
-            else:
-                end2.send(-1)
+                time.sleep(1)
 
 class SpacetimeServer(object):
     """
@@ -131,12 +130,9 @@ class SpacetimeServer(object):
         """
         Puts a new Trial_Results in the queue for clients to get
         """
-        #trial_result = Trial_Results(trial, "trial")
         try:
             self.server_end.send("enqueue")
             self.server_end.send(trial)
-            if self.server_end.poll():
-                assert self.server_end.recv() == 1
         except:
             dblogger.debug("Failed to enqueue the trial result")
 
@@ -152,24 +148,16 @@ class SpacetimeServer(object):
         try:
             self.server_end.send("get_new_results")
             self.server_end.send(self.collected_results)
+            time.sleep(1)
             if self.server_end.poll():
-                if self.server_end.recv() == 1:
-                    r = self.server_end.recv()
-                    if r != 1:
-                        new_results = r
-                    else:
-                        while True:
-                            r = self.server_end.recv()
-                            if r != 1:
-                                new_results = r
-                                break
-                    for r in new_results:
-                        dict_result = dict(r)
-                        dict_result['parameters'] = dict(dict(r)['parameters'])
-                        dict_result['context'] = dict(dict(r)['context'])
-                        cid = (dict_result['trial_id'],dict_result['result_id'])
-                        self.collected_results.add(cid)
-                        dict_new_results.append(dict_result)
+                new_results = self.server_end.recv()
+                for r in new_results:
+                    dict_result = dict(r)
+                    dict_result['parameters'] = dict(dict(r)['parameters'])
+                    dict_result['context'] = dict(dict(r)['context'])
+                    cid = (dict_result['trial_id'],dict_result['result_id'])
+                    self.collected_results.add(cid)
+                    dict_new_results.append(dict_result)
         except:
             dblogger.debug("Failed to retrieve new results")
         return dict_new_results

@@ -75,19 +75,24 @@ def test_spacetime_data_collection(test_dir):
         testlogger.debug("Starting Client...")
 
         client = sherpa.data_collection.spacetime_database.Client(port=db_port)
+        client1 = sherpa.data_collection.spacetime_database.Client(port=db_port)
 
         testlogger.debug("Getting Trial...")
+        # Use os.environ['SHERPA_TRIAL_ID'] to set the trial_id for client object
         os.environ['SHERPA_TRIAL_ID'] = '1'
 
         trial = client.get_trial()
 
-
-
         assert trial.id == 1
         assert  trial.parameters == {'a': 1, 'b': 2}
-        # trial1 = client1.get_trial()
-        #
-        # assert trial1.id == 2
+
+        # Testing get_trial for a second client
+        os.environ['SHERPA_TRIAL_ID'] = '2'
+
+        trial1 = client1.get_trial()
+
+        assert trial1.id == 2
+        assert  trial1.parameters == {'a': 1, 'b': 2}
 
         testlogger.debug("Sending Metrics...")
         client.send_metrics(trial=trial, iteration=1,
@@ -108,9 +113,23 @@ def test_spacetime_data_collection(test_dir):
         print("3New : ",new_results)
         assert new_results == [{'context': {'other_metric': 2},
                                 'iteration': 2,
-                                'objective': 0.1,
+                                'objective': 0.01,
                                 'parameters': {'a': 1, 'b': 2},
                                 'trial_id': 1,
                                 'result_id': 2}]
 
+        # Test clinet1
+        client1.send_metrics(trial=trial1, iteration=1,
+                           objective=0.1, context={'other_metric': 0.2})
+        new_results = db.get_new_results()
+        testlogger.debug(new_results)
+        print("New : ",new_results)
+        assert new_results == [{'context': {'other_metric': 0.2},
+                                'iteration': 1,
+                                'objective': 0.1,
+                                'parameters': {'a': 1, 'b': 2},
+                                'trial_id': 2,
+                                'result_id': 1}]
+
         client.quit()
+        client1.quit()
