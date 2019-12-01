@@ -66,6 +66,7 @@ def test_spacetime_data_collection(test_dir):
     testlogger.debug(test_dir)
     db_port = sherpa.core._port_finder(27000, 28000)
     with sherpa.data_collection.spacetime_database.SpacetimeServer(port=db_port) as db:
+
         time.sleep(2)
         testlogger.debug("Enqueuing...")
 
@@ -133,3 +134,6 @@ def test_spacetime_data_collection(test_dir):
 
         client.quit()
         client1.quit()
+        db2 = sherpa.data_collection.database._Database(test_dir, port=db_port)
+        db2.start()
+        db2.close()
