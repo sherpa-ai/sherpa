@@ -432,3 +432,68 @@ class MongoDBClient(Client):
                                                           objective=logs[objective_name],
                                                           context={n: logs[n] for n in context_names})
         return keras.callbacks.LambdaCallback(on_epoch_end=send_call)
+
+
+class SpaceTimeDBClient(Client):
+    """
+    Registers a session with a Sherpa Study via the port of the database.
+
+    This function is called from trial-scripts only.
+
+    Attributes:
+        host (str): the host that runs the database. Passed host, host set via
+            environment variable or 'localhost' in that order.
+        port (int): port that database is running on. Passed port, port set via
+            environment variable or 27010 in that order.
+    """
+    def __init__(self, host=None, port=None, test_mode=False, **mongo_client_args):
+        """
+        Args:
+            host (str): the host that runs the database. Generally not needed since
+                the scheduler passes the DB-host as an environment variable.
+            port (int): port that database is running on. Generally not needed since
+                the scheduler passes the DB-port as an environment variable.
+            test_mode (bool): mock the client, that is, get_trial returns a trial
+                that is empty, keras_send_metrics accepts calls but does not do any-
+                thing, as does send_metrics. Useful for trial script debugging.
+        """
+        self.test_mode = test_mode
+        if not self.test_mode:
+            host = host or os.environ.get('SHERPA_DB_HOST') or 'localhost'
+            port = port or os.environ.get('SHERPA_DB_PORT') or 27010
+            self.client = SpaceTimeClient(host, int(port))
+
+    def get_trial(self):
+        """
+        Returns the next trial from a Sherpa Study.
+
+        Returns:
+            sherpa.core.Trial: The trial to run.
+        """
+        self.client.get_trial
+
+
+    def send_metrics(self, trial, iteration, objective, context={}):
+        """
+        Sends metrics for a trial to database.
+
+        Args:
+            trial (sherpa.core.Trial): trial to send metrics for.
+            iteration (int): the iteration e.g. epoch the metrics are for.
+            objective (float): the objective value.
+            context (dict): other metric-values.
+        """
+        self.client.send_metrics(trial,iteration,objective,context)
+
+    def keras_send_metrics(self, trial, objective_name, context_names=[]):
+        """
+        Keras Callbacks to send metrics to SHERPA.
+
+        Args:
+            trial (sherpa.core.Trial): trial to send metrics for.
+            objective_name (str): the name of the objective e.g. ``loss``,
+                ``val_loss``, or any of the submitted metrics.
+            context_names (list[str]): names of all other metrics to be
+                monitored.
+        """
+        self.client.keras_send_metrics(trial,objective_name,context_names)

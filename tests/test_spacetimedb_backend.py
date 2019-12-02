@@ -1,48 +1,61 @@
-"""
-SHERPA is a Python library for hyperparameter tuning of machine learning models.
-Copyright (C) 2018  Lars Hertel, Peter Sadowski, and Julian Collado.
-
-This file is part of SHERPA.
-
-SHERPA is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-SHERPA is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
-"""
-#from spacetime import Node, Dataframe
-import collections
 import os
-
-import pandas
-# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pytest
-
+import sys
 import sherpa
 import sherpa.core
-import sherpa.data_collection.spacetime_database
 import sherpa.schedulers
-
+from sherpa.data_collection import SpaceTimeDBBackend, SpaceTimeDBClient
 try:
     import unittest.mock as mock
 except ImportError:
     import mock
 import logging
-import tempfile
-import shutil
 import time
 import warnings
+from testing_utils import *
 
 logging.basicConfig(level=logging.DEBUG)
 testlogger = logging.getLogger(__name__)
 
+
+def test_database(test_dir):
+    test_trial = get_test_trial()
+    testlogger.debug(test_dir)
+    # db_port = sherpa.core._port_finder(27000, 28000)
+    db_port = 27010
+    with SpaceTimeDBBackend(test_dir, port=db_port) as db:
+        time.sleep(2)
+        testlogger.debug("Enqueuing...")
+        db.enqueue_trial(test_trial)
+
+        testlogger.debug("Starting Client...")
+        client = SpaceTimeDBClient(port=db_port,
+                               connectTimeoutMS=100,
+                               serverSelectionTimeoutMS=1000)
+
+        testlogger.debug("Getting Trial...")
+        os.environ['SHERPA_TRIAL_ID'] = '1'
+        t = client.get_trial()
+        assert t.id == 1
+        assert t.parameters == {'a': 1, 'b': 2}
+
+        testlogger.debug("Sending Metrics...")
+        client.send_metrics(trial=t, iteration=1,
+                            objective=0.1, context={'other_metric': 0.2})
+
+        new_results = db.get_new_results()
+        testlogger.debug(new_results)
+        assert new_results == [{'context': {'other_metric': 0.2},
+                                'iteration': 1,
+                                'objective': 0.1,
+                                'parameters': {'a': 1, 'b': 2},
+                                'trial_id': 1}]
+
+        # test that Sherpa raises correct error if MongoDB exits
+        # db2 = SpaceTimeDBBackend(test_dir, port=db_port)
+        # with pytest.raises(OSError):
+        #     db2.start()
+'''
 def test_trial():
     p = {'a': 1, 'b': 2}
     t = sherpa.Trial(1, p)
@@ -137,3 +150,4 @@ def test_spacetime_data_collection(test_dir):
         db2 = sherpa.data_collection.database._Database(test_dir, port=db_port)
         db2.start()
         db2.close()
+'''
