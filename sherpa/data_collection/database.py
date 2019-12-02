@@ -21,6 +21,7 @@ import logging
 import numpy
 import pymongo
 from pymongo import MongoClient
+from spacetime_database import SpaceTimeServer,SpaceTimeClient
 import subprocess
 import time
 import os
@@ -137,7 +138,7 @@ class MongoDBBackend(Backend):
             self.dir, socket.gethostname(), self.port))
         cmd = ['mongod']
         cmd += [str(item) for keyvalue in args.items() for item in keyvalue if item is not '']
-        
+
         dblogger.debug("Starting MongoDB using command:{}".format(str(cmd)))
 
         try:
@@ -190,7 +191,7 @@ class MongoDBBackend(Backend):
                     v = int(v)
 
                 new_params[k] = v
-                
+
             trial['parameters'] = new_params
             t_id = self.db.trials.insert_one(trial).inserted_id
 
@@ -207,6 +208,65 @@ class MongoDBBackend(Backend):
         self.check_db_status()
         dblogger.debug("Adding {} to DB".format({'trial_id': trial_id}))
         self.db.stop.insert_one({'trial_id': trial_id}).inserted_id
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+class SpaceTimeDBBackend(Backend):
+    """
+    Manages a Spacetime-DB for storing metrics and delivering parameters to trials.
+
+    The Spacetime-DB runs a subprocess that serves as a database of trials
+    and results of active and finished trials.
+
+    Attributes:
+        dbpath (str): the path where Spacetime-DB stores its files.
+        port (int): the port on which the Spacetime-DB should run.
+    """
+    def __init__(self, db_dir=None, port=27010):
+        #self.client = SpaceTimeClient(port=port)
+        self.db = SpaceTimeServer(port = port)
+        self.dir = db_dir
+        self.port = port
+
+    def close(self):
+        print('Closing SpacetimeDB!')
+        self.db.close()
+
+    def start(self):
+        """
+        Runs the DB in a sub-process.
+        """
+        self.db.start()
+
+    def check_db_status(self):
+        """
+        Checks whether database is still running.
+        """
+        status = self.db.poll()
+        if status:
+            raise EnvironmentError("Database exited with code {}".format(status))
+
+    def get_new_results(self):
+        """
+        Checks database for new results.
+
+        Returns:
+            (list[dict]) where each dict is one row from the DB.
+        """
+        self.check_db_status()
+        return self.db.get_new_results()
+
+    def enqueue_trial(self, trial):
+        """
+        Puts a new trial in the queue for trial scripts to get.
+        """
+        self.check_db_status()
+        self.db.enqueue_trial(trial)
 
     def __enter__(self):
         self.start()
@@ -316,7 +376,7 @@ class MongoDBClient(Client):
         """
         if self.test_mode:
             return sherpa.Trial(id=1, parameters={})
-        
+
         assert os.environ.get('SHERPA_TRIAL_ID'), "Environment-variable SHERPA_TRIAL_ID not found. Scheduler needs to set this variable in the environment when submitting a job"
         trial_id = int(os.environ.get('SHERPA_TRIAL_ID'))
         for _ in range(5):
@@ -341,7 +401,7 @@ class MongoDBClient(Client):
         """
         if self.test_mode:
             return
-        
+
         result = {'parameters': trial.parameters,
                   'trial_id': trial.id,
                   'objective': objective,
@@ -365,7 +425,7 @@ class MongoDBClient(Client):
                 ``val_loss``, or any of the submitted metrics.
             context_names (list[str]): names of all other metrics to be
                 monitored.
-        """        
+        """
         import keras.callbacks
         send_call = lambda epoch, logs: self.send_metrics(trial=trial,
                                                           iteration=epoch,

@@ -98,7 +98,7 @@ def run_server(dataframe: Dataframe):
                 end2.send(new_results)
                 time.sleep(1)
 
-class SpacetimeServer(object):
+class SpaceTimeServer(object):
     """
     Manages a Spacetime Node for storing metrics and delivering parameters to trials.
     The Spacetime Node contains one database that stores Trial_Results objects for
@@ -277,7 +277,7 @@ def _start_client_app(remote, parent_remote, server_hostname, server_port, clien
 
 
 
-class Client(object):
+class SpaceTimeClient(object):
     """
     Registers a session with a Sherpa Study via creating the Client pcc_set in
     spacetime and piping a subprocess.
