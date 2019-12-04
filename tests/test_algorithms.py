@@ -477,6 +477,7 @@ def test_repeat_results_aggregation():
     parameters = [sherpa.Continuous('myparam', [0, 1])]
 
     class MyAlg(sherpa.algorithms.Algorithm):
+        allows_repetition = True
         def get_suggestion(self, parameters, results, lower_is_better):
             if results is not None and len(results) > 0:
                 print(results)
