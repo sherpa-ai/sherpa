@@ -268,6 +268,8 @@ class Study(object):
         Returns:
             pandas.DataFrame: row of the best result.
         """
+        if self.results.empty:
+            return {}
         return self.algorithm.get_best_result(parameters=self.parameters,
                                               results=self.results,
                                               lower_is_better=

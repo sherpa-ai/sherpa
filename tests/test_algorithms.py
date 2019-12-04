@@ -455,6 +455,39 @@ def test_repeat_wait_for_completion():
     assert tdone == sherpa.AlgorithmState.DONE
 
 
+def test_repeat_get_best_result():
+    parameters = [sherpa.Choice('a', [1,2,3])]
+    gs = sherpa.algorithms.GridSearch()
+    gs = sherpa.algorithms.Repeat(algorithm=gs, num_times=3)
+    study = sherpa.Study(parameters=parameters, algorithm=gs,
+                         lower_is_better=True,
+                         disable_dashboard=True)
+
+    objectives = [1.1,1.2,1.3, 2.1,2.2,2.3, 9., 0.1, 9.1]
+
+    for obj, trial in zip(objectives, study):
+        study.add_observation(trial, objective=obj)
+        study.finalize(trial)
+
+    assert study.get_best_result()['a'] == 1  # not 3
+
+
+def test_get_best_result():
+    parameters = [sherpa.Choice('a', [1,2,3])]
+    gs = sherpa.algorithms.GridSearch()
+    study = sherpa.Study(parameters=parameters, algorithm=gs,
+                         lower_is_better=True,
+                         disable_dashboard=True)
+
+    objectives = [1.1,1.2,1.3]
+
+    for obj, trial in zip(objectives, study):
+        study.add_observation(trial, objective=obj)
+        study.finalize(trial)
+
+    assert study.get_best_result()['a'] == 1
+
+
 def test_chain():
     parameters = [sherpa.Continuous('a', [0, 1]),
                   sherpa.Choice('b', ['x', 'y', 'z'])]
@@ -470,3 +503,5 @@ def test_chain():
             assert trial.parameters['b'] == ['x', 'y', 'z'][trial.id%3-1]
         else:
             assert trial.parameters['a'] not in [0, 1]
+
+

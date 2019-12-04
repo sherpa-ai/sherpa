@@ -154,6 +154,29 @@ class Repeat(Algorithm):
 
         return self.queue.popleft()
 
+    def get_best_result(self, parameters, results, lower_is_better):
+        agg_results = self.aggregate_results(results=results,
+                                             parameters=parameters,
+                                             min_count=self.num_times)
+
+        print(agg_results)
+
+        # Get best result so far
+        best_idx = (agg_results.loc[:, 'Objective'].idxmin()
+                    if lower_is_better
+                    else agg_results.loc[:, 'Objective'].idxmax())
+
+        if not numpy.isfinite(best_idx):
+            # Can happen if there are no valid results,
+            # best_idx=nan when results are nan.
+            alglogger.warning('Empty results file! Returning empty dictionary.')
+            return {}
+
+        best_result = agg_results.loc[best_idx, :].to_dict('records')[0]
+        best_result.pop('Status')
+        print(best_result)
+        return best_result
+
     @staticmethod
     def aggregate_results(results, parameters, min_count=0, homoscedastic=False):
         """
