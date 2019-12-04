@@ -20,6 +20,7 @@ along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
 from __future__ import absolute_import
 import collections
 import pandas
+import numpy
 import sherpa
 import logging
 import itertools
@@ -470,6 +471,39 @@ def test_repeat_get_best_result():
         study.finalize(trial)
 
     assert study.get_best_result()['a'] == 1  # not 3
+
+
+def test_repeat_results_aggregation():
+    parameters = [sherpa.Continuous('myparam', [0, 1])]
+
+    class MyAlg(sherpa.algorithms.Algorithm):
+        def get_suggestion(self, parameters, results, lower_is_better):
+            if results is not None and len(results) > 0:
+                print(results)
+                assert 'ObjectiveStdErr' in results.columns
+                assert 'ObjectiveVar' in results.columns
+                assert (results.loc[:, 'Objective'] == 0.).all()
+                exp_std_err = numpy.sqrt(numpy.var([-1,0,1],ddof=1)/(3-1))
+                assert (numpy.isclose(results.loc[:, 'ObjectiveStdErr'], exp_std_err)).all()
+            return {'myparam': numpy.random.random()}
+
+
+    alg = MyAlg()
+    gs = sherpa.algorithms.Repeat(algorithm=alg,
+                                  num_times=3,
+                                  agg=True)
+    study = sherpa.Study(algorithm=gs,
+                         parameters=parameters,
+                         lower_is_better=True,
+                         disable_dashboard=True)
+    for trial in study:
+        study.add_observation(trial,
+                              iteration=1,
+                              objective=trial.id%3-1)  # 1->-1, 2->0, 3->1, 4->-1, ...
+        study.finalize(trial)
+        print(study.results)
+        if trial.id > 10:
+            break
 
 
 def test_get_best_result():

@@ -121,17 +121,14 @@ class Repeat(Algorithm):
             wrapped algorithm.
         agg (bool): whether to aggregate repetitions before passing them to the
             parameter generating algorithm.
-        homoscedastic (bool): whether to smooth variances when passing them to
-            the parameter generating algorithm (has no effect when agg=False).
     """
-    def __init__(self, algorithm, num_times=5, wait_for_completion=False, agg=False, homoscedastic=False):
+    def __init__(self, algorithm, num_times=5, wait_for_completion=False, agg=False):
         self.algorithm = algorithm
         self.num_times = num_times
         self.queue = collections.deque()
         self.prev_completed = 0
         self.wait_for_completion = wait_for_completion
         self.agg = agg
-        self.homoscedastic = homoscedastic
 
     def get_suggestion(self, parameters, results=None, lower_is_better=True):
         if len(self.queue) == 0:
@@ -143,8 +140,7 @@ class Repeat(Algorithm):
                 self.prev_completed += self.num_times
                 aggregate_results = Repeat.aggregate_results(results,
                                                         parameters,
-                                                        min_count=self.num_times,
-                                                        homoscedastic=self.homoscedastic)
+                                                        min_count=self.num_times)
             else:
                 aggregate_results = None
             suggestion = self.algorithm.get_suggestion(parameters=parameters,
@@ -178,7 +174,7 @@ class Repeat(Algorithm):
         return best_result
 
     @staticmethod
-    def aggregate_results(results, parameters, min_count=0, homoscedastic=False):
+    def aggregate_results(results, parameters, min_count=0):
         """
         A helper function to aggregate results for repeated trials.
 
@@ -207,17 +203,12 @@ class Repeat(Algorithm):
         aggregate_completed.columns = [''.join(c.capitalize() for c in col).strip()
                                        for col in
                                        aggregate_completed.columns.values]
-        if homoscedastic:
-            aggregate_completed.loc[:,
-            'ObjectiveVar'] = aggregate_completed.loc[:,
-                              'ObjectiveVar'].mean()
 
-        # add std err and finalize
+        # add variance and finalize
         aggregate_completed = aggregate_completed.reset_index() \
             .assign(
             ObjectiveStdErr=lambda x: numpy.sqrt(x['ObjectiveVar'] / (x['ObjectiveCount'] - 1))) \
             .rename({'IterationMax': 'Iteration'}, axis=1) \
-            .drop('ObjectiveVar', axis=1) \
             .query("ObjectiveCount >= {}".format(
             min_count))
 
@@ -227,12 +218,10 @@ class Repeat(Algorithm):
         aggregate_intermediate.columns = [
             ''.join(c.capitalize() for c in col).strip() for col in
             aggregate_intermediate.columns.values]
-        if homoscedastic:
-            aggregate_intermediate.loc[:, 'ObjectiveVar'] = aggregate_intermediate.loc[:, 'ObjectiveVar'].mean()
+
         aggregate_intermediate = aggregate_intermediate.reset_index() \
             .assign(
             ObjectiveStdErr=lambda x: numpy.sqrt(x['ObjectiveVar'] / (x['ObjectiveCount'] - 1))) \
-            .drop('ObjectiveVar', axis=1) \
             .query("ObjectiveCount >= {}".format(
             min_count))
 
