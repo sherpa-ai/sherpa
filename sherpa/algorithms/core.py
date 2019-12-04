@@ -81,6 +81,28 @@ class Algorithm(object):
         return best_result
 
 
+class Bracket(Algorithm):
+    """
+    Allows to compose algorithms into a schedule by repeating an algorithm
+    or chaining different algorithms while maintaining the same results table.
+
+    Args:
+        algorithms (List[sherpa.algorithms.Algorithm]): the algorithms to run,
+            each algorithm must have a maximum number of trials specified for
+            the next algorithm to run.
+    """
+    def __init__(self, algorithms):
+        self.algorithms = algorithms
+        self.alg_counter = 0
+
+    def get_suggestion(self, parameters, results, lower_is_better):
+        config = self.algorithms[self.alg_counter].get_suggestion(parameters, results, lower_is_better)
+        if config is None and self.alg_counter < len(self.algorithms):
+            self.alg_counter += 1
+            config = self.get_suggestion(parameters, results, lower_is_better)
+        return config
+
+
 class Repeat(Algorithm):
     """
     Takes another algorithm and repeats every hyperparameter configuration a
@@ -112,17 +134,9 @@ class Repeat(Algorithm):
                         completed) < self.prev_completed + self.num_times):
                     return AlgorithmState.WAIT
                 self.prev_completed += self.num_times
-                aggregate_results = completed.groupby([p.name for p in parameters]
-                                                    + ['Status']) \
-                                             .agg(['mean', 'var', 'count']) \
-                                             .loc[:, 'Objective'] \
-                                             .reset_index() \
-                                             .assign(varObjective=lambda x: x['var'] / x['count']) \
-                                             .rename({'mean': 'Objective'},
-                                                     axis=1) \
-                                             .drop('var', axis=1) \
-                                             .query("count >= {}".format(
-                                                                self.num_times))
+                aggregate_results = Repeat.aggregate_results(results,
+                                                        parameters,
+                                                        min_count=self.num_times)
             else:
                 aggregate_results = None
             suggestion = self.algorithm.get_suggestion(parameters=parameters,
@@ -131,6 +145,66 @@ class Repeat(Algorithm):
             self.queue += [suggestion] * self.num_times
 
         return self.queue.pop()
+
+    @staticmethod
+    def aggregate_results(results, parameters, min_count=0):
+        """
+        A helper function to aggregate results for repeated trials.
+
+        Groups results by parameter values and computes mean and standard error of
+        the mean. The returned dataframe's Objective column is the mean within
+        groups. The standard error is denoted ObjectiveStdErr.
+
+        # Arguments:
+            results (pandas.Dataframe): the results dataframe.
+            min_count (int): the minimum count within groups. Groups with fewer
+                observations than min_count are excluded from the results.
+
+        # Returns:
+            pandas.Dataframe: the aggregated dataframe.
+        """
+        intermediate = results.query("Status == 'INTERMEDIATE'")
+        completed = results.query("Status != 'INTERMEDIATE'")
+
+        # aggregate
+        aggregate_completed = completed.groupby([p.name for p in parameters]
+                                                + ['Status']) \
+                                       .agg({'Objective': ['mean', 'var', 'count'],
+                                             'Iteration': 'max'})
+
+        # flatten hierarchical column names
+        aggregate_completed.columns = [''.join(c.capitalize() for c in col).strip()
+                                       for col in
+                                       aggregate_completed.columns.values]
+
+        # add std err and finalize
+        aggregate_completed = aggregate_completed.reset_index() \
+            .assign(
+            ObjectiveStdErr=lambda x: numpy.sqrt(x['ObjectiveVar'] / (x['ObjectiveCount'] - 1))) \
+            .rename({'IterationMax': 'Iteration'}, axis=1) \
+            .drop('ObjectiveVar', axis=1) \
+            .query("ObjectiveCount >= {}".format(
+            min_count))
+
+        aggregate_intermediate = intermediate.groupby([p.name for p in parameters]
+                                                      + ['Status', 'Iteration']) \
+            .agg({'Objective': ['mean', 'var', 'count']})
+        aggregate_intermediate.columns = [
+            ''.join(c.capitalize() for c in col).strip() for col in
+            aggregate_intermediate.columns.values]
+        aggregate_intermediate = aggregate_intermediate.reset_index() \
+            .assign(
+            ObjectiveStdErr=lambda x: numpy.sqrt(x['ObjectiveVar'] / (x['ObjectiveCount'] - 1))) \
+            .drop('ObjectiveVar', axis=1) \
+            .query("ObjectiveCount >= {}".format(
+            min_count))
+
+        full_results = pandas.concat([aggregate_intermediate,
+                                      aggregate_completed],
+                                     sort=False)\
+            .rename({"ObjectiveMean": "Objective"}, axis=1)
+
+        return full_results
 
 
 class RandomSearch(Algorithm):
@@ -155,7 +229,6 @@ class RandomSearch(Algorithm):
         else:
             self.count += 1
             return {p.name: p.sample() for p in parameters}
-
 
 class Iterate(Algorithm):
     """
