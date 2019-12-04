@@ -458,7 +458,7 @@ def test_repeat_wait_for_completion():
 def test_chain():
     parameters = [sherpa.Continuous('a', [0, 1]),
                   sherpa.Choice('b', ['x', 'y', 'z'])]
-    algorithm = sherpa.algorithms.Chain(algorithms=[sherpa.algorithms.GridSearch(),
+    algorithm = sherpa.algorithms.Chain(algorithms=[sherpa.algorithms.GridSearch(num_grid_points=2),
                                                     sherpa.algorithms.RandomSearch(max_num_trials=10)])
     study = sherpa.Study(parameters=parameters, algorithm=algorithm,
                          lower_is_better=True,
@@ -466,7 +466,7 @@ def test_chain():
 
     for trial in study:
         if trial.id < 7:
-            assert trial.parameters['a'] in [1/3, 2/3]
+            assert trial.parameters['a'] in [0, 1]
             assert trial.parameters['b'] == ['x', 'y', 'z'][trial.id%3-1]
         else:
-            assert trial.parameters['a'] not in [1 / 3, 2 / 3]
+            assert trial.parameters['a'] not in [0, 1]
