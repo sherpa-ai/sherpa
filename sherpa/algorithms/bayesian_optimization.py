@@ -29,7 +29,7 @@ class GPyOpt(Algorithm):
         num_initial_data_points (int): Number of data points to collect before
             fitting model. Needs to be greater/equal to the number of hyper-
             parameters that are being optimized. Using default 'infer' corres-
-            ponds to number of hyperparameters + 1.
+            ponds to number of hyperparameters + 1 or 0 if results are not empty.
         initial_data_points (list[dict] or pandas.Dataframe): Specifies initial
             data points. If len(initial_data_points)<num_initial_data_points
             then the rest is randomly sampled. Use this option to provide
@@ -179,7 +179,8 @@ class GPyOpt(Algorithm):
         return bo.suggest_next_locations()
 
     @staticmethod
-    def _infer_num_initial_data_points(num_initial_data_points, parameters):
+    def _infer_num_initial_data_points(num_initial_data_points,
+                                       parameters):
         """
         Infers number of initial data points, or overwrites and warns user if
         she defined less than the number of points needed.
