@@ -23,14 +23,10 @@ import numpy
 import logging
 import sherpa
 import pandas
-import scipy.stats
-import scipy.optimize
 import sklearn.gaussian_process
 from sherpa.core import Choice, Continuous, Discrete, Ordinal, AlgorithmState
 from sherpa.core import rng as sherpa_rng
 import sklearn.model_selection
-from sklearn import preprocessing
-import warnings
 import collections
 
 
@@ -41,6 +37,8 @@ class Algorithm(object):
     """
     Abstract algorithm that generates new set of parameters.
     """
+    allows_repetition = False
+
     def get_suggestion(self, parameters, results, lower_is_better):
         """
         Returns a suggestion for parameter values.
@@ -123,6 +121,7 @@ class Repeat(Algorithm):
             parameter generating algorithm.
     """
     def __init__(self, algorithm, num_times=5, wait_for_completion=False, agg=False):
+        assert algorithm.allows_repetition
         self.algorithm = algorithm
         self.num_times = num_times
         self.queue = collections.deque()
@@ -245,6 +244,8 @@ class RandomSearch(Algorithm):
         max_num_trials (int): number of trials, otherwise runs indefinitely.
         repeat (int): number of times to repeat a parameter configuration.
     """
+    allows_repetition = True
+
     def __init__(self, max_num_trials=None):
         self.max_num_trials = max_num_trials or 2**32  # total number of configs to be sampled
         self.count = 0
@@ -263,6 +264,8 @@ class Iterate(Algorithm):
     Args:
         hp_iter (list): list of fully-specified hyperparameter dicts. 
     """
+    allows_repetition = True
+
     def __init__(self, hp_iter):
         self.hp_iter = hp_iter
         self.count = 0
@@ -331,6 +334,8 @@ class GridSearch(Algorithm):
         num_grid_points (int): number of grid points for continuous / discrete.
 
     """
+    allows_repetition = True
+
     def __init__(self, num_grid_points=2):
         self.grid = None
         self.num_grid_points = num_grid_points
@@ -384,6 +389,8 @@ class LocalSearch(Algorithm):
         repeat_trials (int): number of times that identical configurations are
             repeated to test for random fluctuations.
     """
+    allows_repetition = True
+
     def __init__(self, seed_configuration, perturbation_factors=(0.8, 1.2), repeat_trials=1):
         self.seed_configuration = seed_configuration
         self.count = 0
