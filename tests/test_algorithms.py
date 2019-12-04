@@ -20,6 +20,7 @@ along with SHERPA.  If not, see <http://www.gnu.org/licenses/>.
 from __future__ import absolute_import
 import collections
 import pandas
+import numpy
 import sherpa
 import logging
 import itertools
@@ -272,7 +273,6 @@ def test_pbt():
     assert study.get_suggestion() == sherpa.AlgorithmState.DONE
 
 
-
 def test_pbt_ordinal():
     parameters = [sherpa.Ordinal(name='param_a', range=[-1, 0, 1])]
 
@@ -344,8 +344,6 @@ def test_genetic():
     print(ascending / len(mean_values))
     assert ascending / len(
         mean_values) > 0.7, "At least 70% of times we add a new result we must improve the average Objective"
-
-    results = results[results['Status'] == 'COMPLETED']
 
 
 def test_random_search():
@@ -456,3 +454,89 @@ def test_repeat_wait_for_completion():
 
     tdone = study.get_suggestion()
     assert tdone == sherpa.AlgorithmState.DONE
+
+
+def test_repeat_get_best_result():
+    parameters = [sherpa.Choice('a', [1,2,3])]
+    gs = sherpa.algorithms.GridSearch()
+    gs = sherpa.algorithms.Repeat(algorithm=gs, num_times=3)
+    study = sherpa.Study(parameters=parameters, algorithm=gs,
+                         lower_is_better=True,
+                         disable_dashboard=True)
+
+    objectives = [1.1,1.2,1.3, 2.1,2.2,2.3, 9., 0.1, 9.1]
+
+    for obj, trial in zip(objectives, study):
+        study.add_observation(trial, objective=obj)
+        study.finalize(trial)
+
+    assert study.get_best_result()['a'] == 1  # not 3
+
+
+def test_repeat_results_aggregation():
+    parameters = [sherpa.Continuous('myparam', [0, 1])]
+
+    class MyAlg(sherpa.algorithms.Algorithm):
+        allows_repetition = True
+        def get_suggestion(self, parameters, results, lower_is_better):
+            if results is not None and len(results) > 0:
+                print(results)
+                assert 'ObjectiveStdErr' in results.columns
+                assert 'ObjectiveVar' in results.columns
+                assert (results.loc[:, 'Objective'] == 0.).all()
+                exp_std_err = numpy.sqrt(numpy.var([-1,0,1],ddof=1)/(3-1))
+                assert (numpy.isclose(results.loc[:, 'ObjectiveStdErr'], exp_std_err)).all()
+            return {'myparam': numpy.random.random()}
+
+
+    alg = MyAlg()
+    gs = sherpa.algorithms.Repeat(algorithm=alg,
+                                  num_times=3,
+                                  agg=True)
+    study = sherpa.Study(algorithm=gs,
+                         parameters=parameters,
+                         lower_is_better=True,
+                         disable_dashboard=True)
+    for trial in study:
+        study.add_observation(trial,
+                              iteration=1,
+                              objective=trial.id%3-1)  # 1->-1, 2->0, 3->1, 4->-1, ...
+        study.finalize(trial)
+        print(study.results)
+        if trial.id > 10:
+            break
+
+
+def test_get_best_result():
+    parameters = [sherpa.Choice('a', [1,2,3])]
+    gs = sherpa.algorithms.GridSearch()
+    study = sherpa.Study(parameters=parameters, algorithm=gs,
+                         lower_is_better=True,
+                         disable_dashboard=True)
+
+    objectives = [1.1,1.2,1.3]
+
+    for obj, trial in zip(objectives, study):
+        study.add_observation(trial, objective=obj)
+        study.finalize(trial)
+
+    assert study.get_best_result()['a'] == 1
+
+
+def test_chain():
+    parameters = [sherpa.Continuous('a', [0, 1]),
+                  sherpa.Choice('b', ['x', 'y', 'z'])]
+    algorithm = sherpa.algorithms.Chain(algorithms=[sherpa.algorithms.GridSearch(num_grid_points=2),
+                                                    sherpa.algorithms.RandomSearch(max_num_trials=10)])
+    study = sherpa.Study(parameters=parameters, algorithm=algorithm,
+                         lower_is_better=True,
+                         disable_dashboard=True)
+
+    for trial in study:
+        if trial.id < 7:
+            assert trial.parameters['a'] in [0, 1]
+            assert trial.parameters['b'] == ['x', 'y', 'z'][trial.id%3-1]
+        else:
+            assert trial.parameters['a'] not in [0, 1]
+
+

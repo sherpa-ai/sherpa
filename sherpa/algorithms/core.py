@@ -23,14 +23,10 @@ import numpy
 import logging
 import sherpa
 import pandas
-import scipy.stats
-import scipy.optimize
 import sklearn.gaussian_process
 from sherpa.core import Choice, Continuous, Discrete, Ordinal, AlgorithmState
 from sherpa.core import rng as sherpa_rng
 import sklearn.model_selection
-from sklearn import preprocessing
-import warnings
 import collections
 
 
@@ -41,6 +37,8 @@ class Algorithm(object):
     """
     Abstract algorithm that generates new set of parameters.
     """
+    allows_repetition = False
+
     def get_suggestion(self, parameters, results, lower_is_better):
         """
         Returns a suggestion for parameter values.
@@ -81,6 +79,29 @@ class Algorithm(object):
         return best_result
 
 
+class Chain(Algorithm):
+    """
+    Allows to compose algorithms into a schedule by repeating an algorithm
+    or chaining different algorithms while maintaining the same results table.
+
+    Args:
+        algorithms (List[sherpa.algorithms.Algorithm]): the algorithms to run,
+            each algorithm must have a maximum number of trials specified for
+            the next algorithm to run.
+    """
+    def __init__(self, algorithms):
+        self.algorithms = algorithms
+        self.alg_counter = 0
+
+    def get_suggestion(self, parameters, results, lower_is_better):
+        config = self.algorithms[self.alg_counter].get_suggestion(parameters, results, lower_is_better)
+        if (config is None or config == AlgorithmState.DONE) and self.alg_counter < len(self.algorithms)-1:
+            self.alg_counter += 1
+            print("Next algorithm")
+            config = self.get_suggestion(parameters, results, lower_is_better)
+        return config
+
+
 class Repeat(Algorithm):
     """
     Takes another algorithm and repeats every hyperparameter configuration a
@@ -96,13 +117,17 @@ class Repeat(Algorithm):
             suggestion until all repetitions are completed. This can be useful
             when the repeats have impact on sequential decision making in the
             wrapped algorithm.
+        agg (bool): whether to aggregate repetitions before passing them to the
+            parameter generating algorithm.
     """
-    def __init__(self, algorithm, num_times=5, wait_for_completion=False):
+    def __init__(self, algorithm, num_times=5, wait_for_completion=False, agg=False):
+        assert algorithm.allows_repetition
         self.algorithm = algorithm
         self.num_times = num_times
-        self.queue = []
+        self.queue = collections.deque()
         self.prev_completed = 0
         self.wait_for_completion = wait_for_completion
+        self.agg = agg
 
     def get_suggestion(self, parameters, results=None, lower_is_better=True):
         if len(self.queue) == 0:
@@ -112,25 +137,99 @@ class Repeat(Algorithm):
                         completed) < self.prev_completed + self.num_times):
                     return AlgorithmState.WAIT
                 self.prev_completed += self.num_times
-                aggregate_results = completed.groupby([p.name for p in parameters]
-                                                    + ['Status']) \
-                                             .agg(['mean', 'var', 'count']) \
-                                             .loc[:, 'Objective'] \
-                                             .reset_index() \
-                                             .assign(varObjective=lambda x: x['var'] / x['count']) \
-                                             .rename({'mean': 'Objective'},
-                                                     axis=1) \
-                                             .drop('var', axis=1) \
-                                             .query("count >= {}".format(
-                                                                self.num_times))
+                aggregate_results = Repeat.aggregate_results(results,
+                                                        parameters,
+                                                        min_count=self.num_times)
             else:
                 aggregate_results = None
             suggestion = self.algorithm.get_suggestion(parameters=parameters,
-                                                       results=aggregate_results,
+                                                       results=aggregate_results if self.agg else results,
                                                        lower_is_better=lower_is_better)
             self.queue += [suggestion] * self.num_times
 
-        return self.queue.pop()
+        return self.queue.popleft()
+
+    def get_best_result(self, parameters, results, lower_is_better):
+        agg_results = self.aggregate_results(results=results,
+                                             parameters=parameters,
+                                             min_count=self.num_times)
+
+        print(agg_results)
+
+        # Get best result so far
+        best_idx = (agg_results.loc[:, 'Objective'].idxmin()
+                    if lower_is_better
+                    else agg_results.loc[:, 'Objective'].idxmax())
+
+        if not numpy.isfinite(best_idx):
+            # Can happen if there are no valid results,
+            # best_idx=nan when results are nan.
+            alglogger.warning('Empty results file! Returning empty dictionary.')
+            return {}
+
+        best_result = agg_results.loc[best_idx, :].to_dict('records')[0]
+        best_result.pop('Status')
+        print(best_result)
+        return best_result
+
+    @staticmethod
+    def aggregate_results(results, parameters, min_count=0):
+        """
+        A helper function to aggregate results for repeated trials.
+
+        Groups results by parameter values and computes mean and standard error of
+        the mean. The returned dataframe's Objective column is the mean within
+        groups. The standard error is denoted ObjectiveStdErr.
+
+        # Arguments:
+            results (pandas.Dataframe): the results dataframe.
+            min_count (int): the minimum count within groups. Groups with fewer
+                observations than min_count are excluded from the results.
+
+        # Returns:
+            pandas.Dataframe: the aggregated dataframe.
+        """
+        intermediate = results.query("Status == 'INTERMEDIATE'")
+        completed = results.query("Status != 'INTERMEDIATE'")
+
+        # aggregate
+        aggregate_completed = completed.groupby([p.name for p in parameters]
+                                                + ['Status']) \
+                                       .agg({'Objective': ['mean', 'var', 'count'],
+                                             'Iteration': 'max'})
+
+        # flatten hierarchical column names
+        aggregate_completed.columns = [''.join(c.capitalize() for c in col).strip()
+                                       for col in
+                                       aggregate_completed.columns.values]
+
+        # add variance and finalize
+        aggregate_completed = aggregate_completed.reset_index() \
+            .assign(
+            ObjectiveStdErr=lambda x: numpy.sqrt(x['ObjectiveVar'] / (x['ObjectiveCount'] - 1))) \
+            .rename({'IterationMax': 'Iteration'}, axis=1) \
+            .query("ObjectiveCount >= {}".format(
+            min_count))
+
+        aggregate_intermediate = intermediate.groupby([p.name for p in parameters]
+                                                      + ['Status', 'Iteration']) \
+            .agg({'Objective': ['mean', 'var', 'count']})
+        aggregate_intermediate.columns = [
+            ''.join(c.capitalize() for c in col).strip() for col in
+            aggregate_intermediate.columns.values]
+
+        aggregate_intermediate = aggregate_intermediate.reset_index() \
+            .assign(
+            ObjectiveStdErr=lambda x: numpy.sqrt(x['ObjectiveVar'] / (x['ObjectiveCount'] - 1))) \
+            .query("ObjectiveCount >= {}".format(
+            min_count))
+
+        full_results = pandas.concat([aggregate_intermediate,
+                                      aggregate_completed],
+                                     sort=False)\
+            .rename({"ObjectiveMean": "Objective"}, axis=1)
+
+        return full_results
 
 
 class RandomSearch(Algorithm):
@@ -145,6 +244,8 @@ class RandomSearch(Algorithm):
         max_num_trials (int): number of trials, otherwise runs indefinitely.
         repeat (int): number of times to repeat a parameter configuration.
     """
+    allows_repetition = True
+
     def __init__(self, max_num_trials=None):
         self.max_num_trials = max_num_trials or 2**32  # total number of configs to be sampled
         self.count = 0
@@ -156,7 +257,6 @@ class RandomSearch(Algorithm):
             self.count += 1
             return {p.name: p.sample() for p in parameters}
 
-
 class Iterate(Algorithm):
     """
     Iterate over a set of fully-specified hyperparameter combinations.
@@ -164,6 +264,8 @@ class Iterate(Algorithm):
     Args:
         hp_iter (list): list of fully-specified hyperparameter dicts. 
     """
+    allows_repetition = True
+
     def __init__(self, hp_iter):
         self.hp_iter = hp_iter
         self.count = 0
@@ -232,6 +334,8 @@ class GridSearch(Algorithm):
         num_grid_points (int): number of grid points for continuous / discrete.
 
     """
+    allows_repetition = True
+
     def __init__(self, num_grid_points=2):
         self.grid = None
         self.num_grid_points = num_grid_points
@@ -285,6 +389,8 @@ class LocalSearch(Algorithm):
         repeat_trials (int): number of times that identical configurations are
             repeated to test for random fluctuations.
     """
+    allows_repetition = True
+
     def __init__(self, seed_configuration, perturbation_factors=(0.8, 1.2), repeat_trials=1):
         self.seed_configuration = seed_configuration
         self.count = 0
