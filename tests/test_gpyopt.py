@@ -161,7 +161,11 @@ def test_bayesopt_batch(parameters, results):
     gpyopt.domain = gpyopt._initialize_domain(parameters)
     gpyopt.lower_is_better = True
     X, y, y_var = GPyOpt._prepare_data_for_bayes_opt(parameters, results)
-    batch = gpyopt._generate_bayesopt_batch(X, y, y_var)
+    domain = gpyopt._initialize_domain(parameters)
+    batch = gpyopt._generate_bayesopt_batch(X,
+                                            y,
+                                            lower_is_better=True,
+                                            domain=domain)
 
     assert batch.shape == (10, 4)
 
@@ -185,7 +189,8 @@ def test_get_best_pred(lower_is_better,expected_best):
     algorithm = GPyOpt(num_initial_data_points=2)
     algorithm.get_suggestion(results=results, parameters=params, lower_is_better=lower_is_better)
     best_params = algorithm.get_best_pred(results=results,
-                                                          parameters=params)
+                                          parameters=params,
+                                          lower_is_better=lower_is_better)
     assert best_params['x'] == expected_best
 
 
