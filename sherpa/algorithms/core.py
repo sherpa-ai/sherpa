@@ -170,7 +170,6 @@ class Repeat(Algorithm):
 
         best_result = agg_results.loc[best_idx, :].to_dict('records')[0]
         best_result.pop('Status')
-        print(best_result)
         return best_result
 
     @staticmethod
