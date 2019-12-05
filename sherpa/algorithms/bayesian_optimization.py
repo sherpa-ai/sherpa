@@ -131,7 +131,6 @@ class GPyOpt(Algorithm):
 
     def _generate_bayesopt_batch(self, X, y, lower_is_better, domain):
         y_adjusted = y * (-1)**(not lower_is_better)
-
         bo_step = gpyopt_package.methods.BayesianOptimization(f=None,
                                                               domain=domain,
                                                               X=X, Y=y_adjusted,

@@ -473,6 +473,24 @@ def test_repeat_get_best_result():
     assert study.get_best_result()['a'] == 1  # not 3
 
 
+def test_repeat_get_best_result_called_midway():
+    parameters = [sherpa.Choice('a', [1,2,3])]
+    gs = sherpa.algorithms.GridSearch()
+    gs = sherpa.algorithms.Repeat(algorithm=gs, num_times=3)
+    study = sherpa.Study(parameters=parameters, algorithm=gs,
+                         lower_is_better=True,
+                         disable_dashboard=True)
+
+    objectives = [2.1,2.2,2.3, 9., 0.1, 9.1, 1.1,1.2,1.3]
+    expected = [None, None, 1, 1, 1, 1, 1, 1, 3]
+
+    for exp, obj, trial in zip(expected, objectives, study):
+        study.add_observation(trial, objective=obj)
+        study.finalize(trial)
+        assert study.get_best_result().get('a') == exp
+
+
+
 def test_repeat_results_aggregation():
     parameters = [sherpa.Continuous('myparam', [0, 1])]
 
