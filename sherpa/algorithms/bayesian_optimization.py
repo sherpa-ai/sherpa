@@ -49,7 +49,7 @@ class GPyOpt(Algorithm):
         verbosity (bool): Print models and other options during the optimization.
         max_num_trials (int): maximum number of trials to run for.
     """
-    allows_repetition = False
+    allows_repetition = True
 
     def __init__(self, model_type='GP', num_initial_data_points='infer',
                  initial_data_points=[], acquisition_type='EI',
@@ -131,7 +131,6 @@ class GPyOpt(Algorithm):
 
     def _generate_bayesopt_batch(self, X, y, lower_is_better, domain):
         y_adjusted = y * (-1)**(not lower_is_better)
-
         bo_step = gpyopt_package.methods.BayesianOptimization(f=None,
                                                               domain=domain,
                                                               X=X, Y=y_adjusted,

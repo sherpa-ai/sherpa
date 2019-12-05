@@ -368,41 +368,39 @@ def test_3d():
     assert rval['z'] == 5
 
 
-# def test_noisy_parabola():
-#     def f(x, sd=1):
-#         y = (x - 3) ** 2 + 10.
-#         if sd == 0:
-#             return y
-#         else:
-#             return y + numpy.random.normal(loc=0., scale=sd,
-#                                            size=numpy.array(x).shape)
-#
-#     parameters = [sherpa.Continuous('x1', [0., 7.])]
-#
-#     bayesian_optimization = GPyOpt(max_concurrent=1,
-#                                    max_num_trials=20,
-#                                    model_type='GP',
-#                                    acquisition_type='EI')
-#     rep = Repeat(algorithm=bayesian_optimization,
-#                  num_times=5)
-#     study = sherpa.Study(algorithm=rep,
-#                          parameters=parameters,
-#                          lower_is_better=True,
-#                          disable_dashboard=True)
-#
-#     for trial in study:
-#         print("Trial {}:\t{}".format(trial.id, trial.parameters))
-#
-#         fval = f(trial.parameters['x1'], sd=1)
-#         print("Function Value: {}".format(fval))
-#         study.add_observation(trial=trial,
-#                               iteration=1,
-#                               objective=fval)
-#         study.finalize(trial, status='COMPLETED')
-#     rval = study.get_best_result()
-#     print(rval)
-#     # assert numpy.sqrt((rval['Objective'] - 3.)**2) < 0.2
+def test_noisy_parabola():
+    def f(x, sd=1):
+        y = (x - 3) ** 2 + 10.
+        if sd == 0:
+            return y
+        else:
+            return y + numpy.random.normal(loc=0., scale=sd,
+                                           size=numpy.array(x).shape)
 
-#
-# if __name__ == '__main__':
-#     test_noisy_parabola()
+    parameters = [sherpa.Continuous('x1', [0., 7.])]
+
+    bayesian_optimization = GPyOpt(max_concurrent=1,
+                                   max_num_trials=5,
+                                   model_type='GP',
+                                   acquisition_type='EI')
+    rep = Repeat(algorithm=bayesian_optimization,
+                 num_times=3,
+                 agg=True)
+    study = sherpa.Study(algorithm=rep,
+                         parameters=parameters,
+                         lower_is_better=True,
+                         disable_dashboard=True)
+
+    for trial in study:
+        # print("Trial {}:\t{}".format(trial.id, trial.parameters))
+
+        fval = f(trial.parameters['x1'], sd=1)
+        # print("Function Value: {}".format(fval))
+        study.add_observation(trial=trial,
+                              iteration=1,
+                              objective=fval)
+        study.finalize(trial, status='COMPLETED')
+    # rval = study.get_best_result()
+    # print(rval)
+    print(study.results.query("Status=='COMPLETED'"))
+    # assert numpy.sqrt((rval['Objective'] - 3.)**2) < 0.2

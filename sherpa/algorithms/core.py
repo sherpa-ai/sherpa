@@ -154,7 +154,8 @@ class Repeat(Algorithm):
                                              parameters=parameters,
                                              min_count=self.num_times)
 
-        print(agg_results)
+        if agg_results.empty:
+            return {}
 
         # Get best result so far
         best_idx = (agg_results.loc[:, 'Objective'].idxmin()
