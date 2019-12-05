@@ -49,7 +49,7 @@ class GPyOpt(Algorithm):
         verbosity (bool): Print models and other options during the optimization.
         max_num_trials (int): maximum number of trials to run for.
     """
-    allows_repetition = False
+    allows_repetition = True
 
     def __init__(self, model_type='GP', num_initial_data_points='infer',
                  initial_data_points=[], acquisition_type='EI',
