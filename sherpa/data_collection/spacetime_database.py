@@ -31,7 +31,7 @@ import random
 import sys
 import multiprocessing as mp
 from frame_rate_keeper import FrameRateKeeper
-from sherpa import Trial
+import sherpa
 
 try:
     from subprocess import DEVNULL # python 3
@@ -338,7 +338,7 @@ class SpaceTimeClient(object):
 
         serialized_trial = self.remote.recv()
         #assert trial_id
-        new_trial = Trial(trial_id,parameters={k: v for k, v in serialized_trial})
+        new_trial = sherpa.Trial(trial_id,parameters={k: v for k, v in serialized_trial})
 
         if new_trial == None:
             raise RuntimeError("No Trial Found in the spacetime frame.")

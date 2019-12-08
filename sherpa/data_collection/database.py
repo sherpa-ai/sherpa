@@ -21,7 +21,6 @@ import logging
 import numpy
 import pymongo
 from pymongo import MongoClient
-from spacetime_database import SpaceTimeServer,SpaceTimeClient
 import subprocess
 import time
 import os
@@ -33,6 +32,7 @@ except ImportError:
     import os
     DEVNULL = open(os.devnull, 'wb')
 import sherpa
+from sherpa.data_collection import spacetime_database
 
 
 dblogger = logging.getLogger(__name__)
@@ -229,7 +229,7 @@ class SpaceTimeDBBackend(Backend):
     """
     def __init__(self, db_dir=None, port=27010):
         #self.client = SpaceTimeClient(port=port)
-        self.db = SpaceTimeServer(port = port)
+        self.db = spacetime_database.SpaceTimeServer(port = port)
         self.dir = db_dir
         self.port = port
 
@@ -461,7 +461,7 @@ class SpaceTimeDBClient(Client):
         if not self.test_mode:
             host = host or os.environ.get('SHERPA_DB_HOST') or 'localhost'
             port = port or os.environ.get('SHERPA_DB_PORT') or 27010
-            self.client = SpaceTimeClient(host, int(port))
+            self.client = spacetime_database.SpaceTimeClient(host, int(port))
 
     def get_trial(self):
         """
