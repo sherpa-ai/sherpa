@@ -247,9 +247,10 @@ class SpaceTimeDBBackend(Backend):
         """
         Checks whether database is still running.
         """
-        status = self.db.poll()
-        if status:
-            raise EnvironmentError("Database exited with code {}".format(status))
+        return True
+        # status = self.db.poll()
+        # if status:
+        #     raise EnvironmentError("Database exited with code {}".format(status))
 
     def get_new_results(self):
         """
@@ -266,7 +267,7 @@ class SpaceTimeDBBackend(Backend):
         Puts a new trial in the queue for trial scripts to get.
         """
         self.check_db_status()
-        self.db.enqueue_trial(trial)
+        self.db.enqueue_trial_results(trial)
 
     def __enter__(self):
         self.start()
