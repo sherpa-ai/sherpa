@@ -471,7 +471,9 @@ class SpaceTimeDBClient(Client):
         Returns:
             sherpa.core.Trial: The trial to run.
         """
-        self.client.get_trial
+        if self.test_mode:
+            return sherpa.Trial(id=1, parameters={})
+        return self.client.get_trial()
 
 
     def send_metrics(self, trial, iteration, objective, context={}):
@@ -484,6 +486,8 @@ class SpaceTimeDBClient(Client):
             objective (float): the objective value.
             context (dict): other metric-values.
         """
+        if self.test_mode:
+            return
         self.client.send_metrics(trial,iteration,objective,context)
 
     def keras_send_metrics(self, trial, objective_name, context_names=[]):
