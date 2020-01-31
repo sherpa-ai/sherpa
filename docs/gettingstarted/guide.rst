@@ -128,7 +128,7 @@ This can be put together in a double for-loop of the form:
 ::
 
     for trial in study:
-        model = init_model(train.parameters)
+        model = init_model(trial.parameters)
         for iteration in range(num_iterations):
             training_error = model.fit(epochs=1)
             validation_error = model.evaluate()
