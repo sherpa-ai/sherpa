@@ -29,6 +29,7 @@ import socket
 import multiprocessing
 import warnings
 import contextlib
+import shlex
 from .database import _Database
 from .schedulers import _JobStatus
 import datetime
@@ -634,7 +635,7 @@ def optimize(parameters, algorithm, lower_is_better,
                   disable_dashboard=disable_dashboard)
 
     if command:
-        runner_command = command.split(' ')
+        runner_command = shlex.split(command)
     elif filename:
         runner_command = ['python', filename]
     else:
