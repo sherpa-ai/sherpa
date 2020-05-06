@@ -33,9 +33,11 @@ REQUIRED = [
     'scikit-learn>=0.19.1',
     'flask>=0.12.2',
     'GPyOpt>=1.2.5',
-    'enum34',
-    'matplotlib',
+    'matplotlib'
 ]
+
+if sys.version_info > (3, 4):
+    REQUIRED += ['enum34']
 
 # if args.parallel:
 #     PARALLEL = ['pymongo>=3.5.1', 'drmaa>=0.7.7']
