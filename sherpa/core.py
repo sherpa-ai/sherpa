@@ -286,8 +286,12 @@ class Study(object):
                                                'host': '',
                                                'threaded': True})
         msg = "\n" + "-"*55 + "\n"
-        msg += "SHERPA Dashboard running. Access via\nhttp://{}:{} if on a cluster or\nhttp://{}:{} if running locally.".format(
-            socket.gethostbyname(socket.gethostname()), port, "localhost", port)
+        msg += "SHERPA Dashboard running. Access via\nhttp://{}:{} or " \
+               "\nhttp://{}:{} if on a cluster, or " \
+               "\nhttp://{}:{} if running locally.".format(
+               socket.gethostbyname(socket.gethostname()), port,
+               socket.gethostname(), port,
+               "localhost", port)
         msg += "\n" + "-"*55
         logger.info(msg)
         
