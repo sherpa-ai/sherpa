@@ -29,7 +29,7 @@ REQUIRED = [
     'pandas>=0.20.3',
     'pymongo>=3.5.1',
     'numpy>=1.8.2',
-    'scipy>=1.0.0',
+    'scipy>=1.0.0,<=1.4.1',
     'scikit-learn>=0.19.1',
     'flask>=0.12.2',
     'GPyOpt>=1.2.5',
