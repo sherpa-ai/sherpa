@@ -21,3 +21,9 @@ It provides:
 
 Its goal is to provide a platform in which recent hyperparameter optimization
 algorithms can be used interchangeably while running on a laptop or a cluster.
+
+.. seealso::
+
+   If you are looking for the similarly named package
+   "Sherpa" for modelling and fitting data go here:
+   https://sherpa.readthedocs.io
