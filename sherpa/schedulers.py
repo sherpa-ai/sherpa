@@ -344,7 +344,7 @@ class SLURMScheduler(Scheduler):
         # Submit command to SLURM.
         # Note: submitting job using drmaa didn't work because we weren't able
         # to specify options.
-        submit_command = 'sbatch --workdir={} --output={} --error={} {}'.format(
+        submit_command = 'sbatch --chdir={} --output={} --error={} {}'.format(
             os.getcwd(), slurmoutfile, slurmoutfile, self.submit_options)
         assert ' -cwd' not in submit_command
 
