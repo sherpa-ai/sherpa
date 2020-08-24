@@ -36,7 +36,7 @@ REQUIRED = [
     'matplotlib'
 ]
 
-if sys.version_info > (3, 4):
+if sys.version_info < (3, 4):
     REQUIRED += ['enum34']
 
 # if args.parallel:
