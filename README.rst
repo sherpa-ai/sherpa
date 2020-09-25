@@ -46,10 +46,20 @@ If you use SHERPA in your research please cite:
 
 ::
 
-    @article{hertel2018sherpa,
-      title={Sherpa: Hyperparameter Optimization for Machine Learning Models},
-      author={Hertel, Lars and Collado, Julian and Sadowski, Peter and Baldi, Pierre},
-      year={2018}
+    @article{hertel2020sherpa,
+       title={Sherpa: Robust Hyperparameter Optimization for
+    Machine Learning},
+       author={Lars Hertel and Julian Collado and Peter Sadowski and Jordan
+    Ott and Pierre Baldi},
+       journal={SoftwareX},
+       volume={},
+       number={},
+       pages={},
+       note={In press.}
+       year={2020},
+       note  ={Also arXiv:2005.04048. Software available at:
+    https://github.com/sherpa-ai/sherpa},
+       publisher={}
     }
 
 From Keras to Sherpa in 30 seconds
