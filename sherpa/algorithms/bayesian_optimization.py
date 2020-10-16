@@ -354,7 +354,7 @@ class DiscreteTransform(ParameterTransform):
         return {'name': self.parameter.name,
                 'type': 'discrete',
                 'domain': tuple(range(self.parameter.range[0],
-                                      self.parameter.range[1]+1))}
+                                      self.parameter.range[1]))}
 
     def gpyopt_design_format_to_list_in_sherpa_format(self, x):
         return list(x.astype('int'))
