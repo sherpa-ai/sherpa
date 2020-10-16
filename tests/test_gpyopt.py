@@ -110,7 +110,7 @@ def test_transformation_to_gpyopt_domain_discrete(parameters):
     for p, d in zip(parameters, domain):
         assert d['name'] == p.name
         assert d['type'] == 'discrete'
-        assert d['domain'] == tuple(range(p.range[0], p.range[1]+1))
+        assert d['domain'] == tuple(range(p.range[0], p.range[1]))
 
 
 def test_transformation_to_gpyopt_domain_log_discrete():
@@ -130,7 +130,7 @@ def test_transformation_to_gpyopt_domain_with_multiple_parameters(parameters):
     assert domain[2]['type'] == 'categorical'
     assert numpy.array_equal(domain[2]['domain'], numpy.array([0, 1, 2]))
     assert {'name': 'num_hidden', 'type': 'discrete',
-            'domain': tuple(range(100,301))} == domain[3]
+            'domain': tuple(range(100,300))} == domain[3]
 
 
 def test_prepare_data_for_bayes_opt(parameters, results):
@@ -404,3 +404,23 @@ def test_noisy_parabola():
     # print(rval)
     print(study.results.query("Status=='COMPLETED'"))
     # assert numpy.sqrt((rval['Objective'] - 3.)**2) < 0.2
+
+
+def test_discrete_range():
+    algorithm = sherpa.algorithms.GPyOpt(max_num_trials=10, verbosity=True)
+    parameters = [
+        sherpa.Discrete('param', [0, 1]),
+    ]
+    study = sherpa.Study(
+        parameters=parameters,
+        algorithm=algorithm,
+        lower_is_better=True,
+        disable_dashboard=True,
+    )
+
+    values = set()
+    for trial in study:
+        study.add_observation(trial, iteration=0, objective=0)
+        study.finalize(trial)
+        values.add(trial.parameters['param'])
+    assert values == set([0])
