@@ -261,7 +261,7 @@ class GPyOpt(Algorithm):
             transform = ParameterTransform.from_parameter(p)
             col_dict[p.name] = transform.gpyopt_design_format_to_list_in_sherpa_format(X_next[:, i])
 
-        return list(pandas.DataFrame(col_dict).T.to_dict().values())
+        return list(pandas.DataFrame(col_dict).astype(numpy.object).T.to_dict().values())
 
 
 class ParameterTransform(object):
