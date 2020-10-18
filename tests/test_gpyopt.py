@@ -404,3 +404,22 @@ def test_noisy_parabola():
     # print(rval)
     print(study.results.query("Status=='COMPLETED'"))
     # assert numpy.sqrt((rval['Objective'] - 3.)**2) < 0.2
+
+
+def test_mixed_dtype():
+    algorithm = GPyOpt(max_num_trials=4)
+    parameters = [
+        sherpa.Choice('param_int', [0, 1]),
+        sherpa.Choice('param_float', [0.1, 1.1]),
+    ]
+    study = sherpa.Study(
+        parameters=parameters,
+        algorithm=algorithm,
+        lower_is_better=True,
+        disable_dashboard=True,
+    )
+    for trial in study:
+        study.add_observation(trial, iteration=0, objective=0)
+        study.finalize(trial)
+    assert type(trial.parameters['param_int']) == int
+    assert type(trial.parameters['param_float']) == float
