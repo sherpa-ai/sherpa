@@ -332,19 +332,23 @@ class GridSearch(Algorithm):
 
     Args:
         num_grid_points (int): number of grid points for continuous / discrete.
+        random_order (bool): If true, return suggestions in random order.
 
     """
     allows_repetition = True
 
-    def __init__(self, num_grid_points=2):
+    def __init__(self, num_grid_points=2, random_order=True):
         self.grid = None
         self.num_grid_points = num_grid_points
         self.count = 0  # number of sampled configs
+        self.random_order = random_order
 
     def get_suggestion(self, parameters, results=None, lower_is_better=True):
         if self.count == 0:
             param_dict = self._get_param_dict(parameters)
             self.grid = list(sklearn.model_selection.ParameterGrid(param_dict))
+            if self.random_order:
+                random.shuffle(self.grid)
 
         if self.count >= len(self.grid):
             return AlgorithmState.DONE
